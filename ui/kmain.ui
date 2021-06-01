@@ -1,0 +1,451 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>845</width>
+    <height>804</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>frida-tools</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QGridLayout" name="gridLayout">
+    <item row="0" column="0">
+     <widget class="QTabWidget" name="tabWidget">
+      <property name="currentIndex">
+       <number>0</number>
+      </property>
+      <widget class="QWidget" name="tab_2">
+       <attribute name="title">
+        <string>主界面</string>
+       </attribute>
+       <layout class="QGridLayout" name="gridLayout_6">
+        <item row="0" column="0">
+         <widget class="QGroupBox" name="groupBox">
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>150</height>
+           </size>
+          </property>
+          <property name="title">
+           <string>功能</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_4">
+           <item row="0" column="0">
+            <widget class="QPushButton" name="pushButton">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>查询完整类名</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QPushButton" name="pushButton_3">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>显示所有so符号</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="2">
+            <widget class="QPushButton" name="pushButton_5">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>字符串打印数据</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="3">
+            <widget class="QPushButton" name="pushButton_7">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>打印结构数据</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QPushButton" name="pushButton_2">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>打印所有函数</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QPushButton" name="pushButton_4">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>dump指定地址</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="2">
+            <widget class="QPushButton" name="pushButton_6">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>打印类结构体</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="3">
+            <widget class="QPushButton" name="pushButton_10">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>特征dump</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QGroupBox" name="groupBox_2">
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>150</height>
+           </size>
+          </property>
+          <property name="title">
+           <string>hook多选</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_7">
+           <item row="0" column="0">
+            <layout class="QGridLayout" name="gridLayout_5">
+             <item row="0" column="0">
+              <widget class="QCheckBox" name="chkNetwork">
+               <property name="text">
+                <string>网络包</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QCheckBox" name="chkJni">
+               <property name="text">
+                <string>jni相关</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="2">
+              <widget class="QCheckBox" name="chkJavaFile">
+               <property name="text">
+                <string>java文件</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="3">
+              <widget class="QCheckBox" name="chkJavaEnc">
+               <property name="text">
+                <string>java加解密</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="4">
+              <widget class="QCheckBox" name="chkJavaString">
+               <property name="text">
+                <string>java字符串</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="5">
+              <widget class="QCheckBox" name="chkSec">
+               <property name="text">
+                <string>证书导出</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="6">
+              <widget class="QCheckBox" name="chkSslPining">
+               <property name="text">
+                <string>ssl pining</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item row="1" column="0">
+            <layout class="QHBoxLayout" name="horizontalLayout">
+             <item>
+              <widget class="QPushButton" name="pushButton_8">
+               <property name="minimumSize">
+                <size>
+                 <width>100</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>匹配函数名</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="pushButton_9">
+               <property name="minimumSize">
+                <size>
+                 <width>100</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>匹配类名</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="pushButton_11">
+               <property name="minimumSize">
+                <size>
+                 <width>100</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>批量native</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="pushButton_12">
+               <property name="minimumSize">
+                <size>
+                 <width>100</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>stalker</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="pushButton_13">
+               <property name="minimumSize">
+                <size>
+                 <width>100</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>自定义</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QTabWidget" name="txtLogs">
+          <property name="currentIndex">
+           <number>1</number>
+          </property>
+          <widget class="QWidget" name="tab">
+           <attribute name="title">
+            <string>列表日志</string>
+           </attribute>
+           <layout class="QGridLayout" name="gridLayout_2">
+            <item row="0" column="0">
+             <widget class="QListView" name="listLogs"/>
+            </item>
+           </layout>
+          </widget>
+          <widget class="QWidget" name="tab_3">
+           <attribute name="title">
+            <string>文本日志</string>
+           </attribute>
+           <layout class="QGridLayout" name="gridLayout_3">
+            <item row="0" column="0">
+             <widget class="QPlainTextEdit" name="plainTextEdit"/>
+            </item>
+           </layout>
+          </widget>
+          <widget class="QWidget" name="tab_4">
+           <attribute name="title">
+            <string>当前hook列表</string>
+           </attribute>
+           <layout class="QGridLayout" name="gridLayout_8">
+            <item row="0" column="0">
+             <widget class="QListView" name="listHooks"/>
+            </item>
+           </layout>
+          </widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>845</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menufile">
+    <property name="title">
+     <string>文件</string>
+    </property>
+   </widget>
+   <widget class="QMenu" name="menuedit">
+    <property name="title">
+     <string>执行</string>
+    </property>
+    <addaction name="actionattach"/>
+    <addaction name="actionspawn"/>
+   </widget>
+   <widget class="QMenu" name="menuhelp">
+    <property name="title">
+     <string>帮助</string>
+    </property>
+    <addaction name="actionabort"/>
+   </widget>
+   <addaction name="menufile"/>
+   <addaction name="menuedit"/>
+   <addaction name="menuhelp"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+  <action name="actionopen">
+   <property name="text">
+    <string>open</string>
+   </property>
+  </action>
+  <action name="actionexit">
+   <property name="text">
+    <string>exit</string>
+   </property>
+  </action>
+  <action name="actionattach">
+   <property name="text">
+    <string>启动附加</string>
+   </property>
+  </action>
+  <action name="actionabort">
+   <property name="text">
+    <string>关于我</string>
+   </property>
+  </action>
+  <action name="actionspawn">
+   <property name="text">
+    <string>spawn附加</string>
+   </property>
+  </action>
+ </widget>
+ <resources/>
+ <connections/>
+ <slots>
+  <slot>base64_calc_encode()</slot>
+  <slot>base64_input_change()</slot>
+  <slot>select_file()</slot>
+  <slot>save_file()</slot>
+  <slot>hex_toggled()</slot>
+  <slot>url_input_change()</slot>
+  <slot>url_calc_encode()</slot>
+  <slot>reinstall_android()</slot>
+  <slot>start_frida32()</slot>
+  <slot>start_frida64()</slot>
+  <slot>start_ida32()</slot>
+  <slot>start_ida64()</slot>
+  <slot>start_gdb32()</slot>
+  <slot>start_gdb64()</slot>
+  <slot>kill_debug()</slot>
+  <slot>binformat_calc_str()</slot>
+  <slot>binformat_input_change()</slot>
+  <slot>hexdump_calc()</slot>
+  <slot>hexdump_input_change()</slot>
+  <slot>hexdump_cmb_change()</slot>
+  <slot>zlib_calc()</slot>
+  <slot>zlib_input_change()</slot>
+  <slot>varint_calc_encode()</slot>
+  <slot>varint_input_change()</slot>
+  <slot>oct_calc()</slot>
+  <slot>oct_input_change()</slot>
+  <slot>protoc_calc()</slot>
+  <slot>protoc_input_change()</slot>
+  <slot>asm_calc_encrypt()</slot>
+  <slot>asm_input_change()</slot>
+  <slot>crc32_calc()</slot>
+  <slot>crc32_input_change()</slot>
+  <slot>adler32_calc()</slot>
+  <slot>adler32_input_change()</slot>
+  <slot>md5_calc()</slot>
+  <slot>md5_input_change()</slot>
+  <slot>sha_calc()</slot>
+  <slot>sha_input_change()</slot>
+  <slot>aes_calc_encrypt()</slot>
+  <slot>aes_input_change()</slot>
+  <slot>hmac_calc()</slot>
+  <slot>hmac_input_change()</slot>
+  <slot>rc2_calc_encrypt()</slot>
+  <slot>rc2_input_change()</slot>
+  <slot>aes_decrypt_check()</slot>
+  <slot>aes_mode_change()</slot>
+  <slot>rsa_gen()</slot>
+  <slot>rsa_encrypt()</slot>
+  <slot>rsa_decrypt()</slot>
+  <slot>rsa_check_prikey()</slot>
+  <slot>rsa_check_pubkey()</slot>
+  <slot>rsa_check_context()</slot>
+  <slot>binformat_calc_bytes()</slot>
+  <slot>aes_calc_decrypt()</slot>
+  <slot>rc2_calc_decrypt()</slot>
+  <slot>base64_calc_decode()</slot>
+  <slot>url_calc_decode()</slot>
+  <slot>varint_calc_decode()</slot>
+  <slot>asm_calc_disasm()</slot>
+  <slot>zlib_calc_unzlib()</slot>
+  <slot>des_calc_encrypt()</slot>
+  <slot>des_calc_decrypt()</slot>
+ </slots>
+</ui>
