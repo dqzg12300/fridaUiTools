@@ -282,27 +282,21 @@
          </widget>
         </item>
         <item row="2" column="0">
-         <widget class="QTabWidget" name="txtLogs">
+         <widget class="QTabWidget" name="groupLogs">
           <property name="currentIndex">
            <number>1</number>
           </property>
-          <widget class="QWidget" name="tab">
-           <attribute name="title">
-            <string>列表日志</string>
-           </attribute>
-           <layout class="QGridLayout" name="gridLayout_2">
-            <item row="0" column="0">
-             <widget class="QListView" name="listLogs"/>
-            </item>
-           </layout>
-          </widget>
           <widget class="QWidget" name="tab_3">
            <attribute name="title">
-            <string>文本日志</string>
+            <string>日志</string>
            </attribute>
            <layout class="QGridLayout" name="gridLayout_3">
             <item row="0" column="0">
-             <widget class="QPlainTextEdit" name="plainTextEdit"/>
+             <widget class="QPlainTextEdit" name="txtLogs">
+              <property name="readOnly">
+               <bool>true</bool>
+              </property>
+             </widget>
             </item>
            </layout>
           </widget>
@@ -312,7 +306,33 @@
            </attribute>
            <layout class="QGridLayout" name="gridLayout_8">
             <item row="0" column="0">
-             <widget class="QListView" name="listHooks"/>
+             <widget class="QTableWidget" name="tabHooks">
+              <column>
+               <property name="text">
+                <string>功能</string>
+               </property>
+              </column>
+              <column>
+               <property name="text">
+                <string>类名</string>
+               </property>
+              </column>
+              <column>
+               <property name="text">
+                <string>函数</string>
+               </property>
+              </column>
+              <column>
+               <property name="text">
+                <string>完整名称</string>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>9</pointsize>
+                </font>
+               </property>
+              </column>
+             </widget>
             </item>
            </layout>
           </widget>
