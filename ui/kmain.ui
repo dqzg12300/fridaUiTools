@@ -38,7 +38,7 @@
           </property>
           <layout class="QGridLayout" name="gridLayout_4">
            <item row="0" column="0">
-            <widget class="QPushButton" name="pushButton">
+            <widget class="QPushButton" name="btnShowClasses">
              <property name="minimumSize">
               <size>
                <width>0</width>
@@ -50,60 +50,8 @@
              </property>
             </widget>
            </item>
-           <item row="0" column="1">
-            <widget class="QPushButton" name="pushButton_3">
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>40</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>显示所有so符号</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="2">
-            <widget class="QPushButton" name="pushButton_5">
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>40</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>字符串打印数据</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="3">
-            <widget class="QPushButton" name="pushButton_7">
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>40</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>打印结构数据</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QPushButton" name="pushButton_2">
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>40</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>打印所有函数</string>
-             </property>
-            </widget>
-           </item>
            <item row="1" column="1">
-            <widget class="QPushButton" name="pushButton_4">
+            <widget class="QPushButton" name="btnDumpPtr">
              <property name="minimumSize">
               <size>
                <width>0</width>
@@ -115,8 +63,8 @@
              </property>
             </widget>
            </item>
-           <item row="1" column="2">
-            <widget class="QPushButton" name="pushButton_6">
+           <item row="1" column="0">
+            <widget class="QPushButton" name="btnShowMethods">
              <property name="minimumSize">
               <size>
                <width>0</width>
@@ -124,11 +72,50 @@
               </size>
              </property>
              <property name="text">
-              <string>打印类结构体</string>
+              <string>打印所有函数</string>
              </property>
             </widget>
            </item>
-           <item row="1" column="3">
+           <item row="0" column="2">
+            <widget class="QPushButton" name="btnShowStr">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>字符串打印数据</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QPushButton" name="btnShowExport">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>显示所有so符号</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="3">
+            <widget class="QPushButton" name="btnWallbreaker">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Wallbreaker</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="2">
             <widget class="QPushButton" name="pushButton_10">
              <property name="minimumSize">
               <size>
@@ -212,7 +199,7 @@
            <item row="1" column="0">
             <layout class="QHBoxLayout" name="horizontalLayout">
              <item>
-              <widget class="QPushButton" name="pushButton_8">
+              <widget class="QPushButton" name="btnMatchFuncName">
                <property name="minimumSize">
                 <size>
                  <width>100</width>
@@ -225,7 +212,7 @@
               </widget>
              </item>
              <item>
-              <widget class="QPushButton" name="pushButton_9">
+              <widget class="QPushButton" name="btnMatchClassName">
                <property name="minimumSize">
                 <size>
                  <width>100</width>
@@ -238,7 +225,7 @@
               </widget>
              </item>
              <item>
-              <widget class="QPushButton" name="pushButton_11">
+              <widget class="QPushButton" name="btnNatives">
                <property name="minimumSize">
                 <size>
                  <width>100</width>
@@ -251,7 +238,7 @@
               </widget>
              </item>
              <item>
-              <widget class="QPushButton" name="pushButton_12">
+              <widget class="QPushButton" name="btnStalker">
                <property name="minimumSize">
                 <size>
                  <width>100</width>
@@ -264,7 +251,7 @@
               </widget>
              </item>
              <item>
-              <widget class="QPushButton" name="pushButton_13">
+              <widget class="QPushButton" name="btnCustom">
                <property name="minimumSize">
                 <size>
                  <width>100</width>
@@ -284,7 +271,7 @@
         <item row="2" column="0">
          <widget class="QTabWidget" name="groupLogs">
           <property name="currentIndex">
-           <number>1</number>
+           <number>0</number>
           </property>
           <widget class="QWidget" name="tab_3">
            <attribute name="title">
