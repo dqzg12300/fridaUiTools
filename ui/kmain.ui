@@ -34,22 +34,9 @@
            </size>
           </property>
           <property name="title">
-           <string>功能</string>
+           <string>功能(附加进程后使用)</string>
           </property>
           <layout class="QGridLayout" name="gridLayout_4">
-           <item row="0" column="0">
-            <widget class="QPushButton" name="btnShowClasses">
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>40</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>查询完整类名</string>
-             </property>
-            </widget>
-           </item>
            <item row="1" column="1">
             <widget class="QPushButton" name="btnDumpPtr">
              <property name="minimumSize">
@@ -72,7 +59,7 @@
               </size>
              </property>
              <property name="text">
-              <string>打印所有函数</string>
+              <string>打印所有类和函数</string>
              </property>
             </widget>
            </item>
@@ -116,7 +103,7 @@
             </widget>
            </item>
            <item row="1" column="2">
-            <widget class="QPushButton" name="pushButton_10">
+            <widget class="QPushButton" name="btnMatchDump">
              <property name="minimumSize">
               <size>
                <width>0</width>
@@ -125,6 +112,32 @@
              </property>
              <property name="text">
               <string>特征dump</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="3">
+            <widget class="QPushButton" name="btnFindClassPath">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>查询完整类名</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="0">
+            <widget class="QPushButton" name="btnShowClasses">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>打印所有类</string>
              </property>
             </widget>
            </item>
@@ -140,7 +153,7 @@
            </size>
           </property>
           <property name="title">
-           <string>hook多选</string>
+           <string>hook多选(附加进程前使用)</string>
           </property>
           <layout class="QGridLayout" name="gridLayout_7">
            <item row="0" column="0">
@@ -199,7 +212,7 @@
            <item row="1" column="0">
             <layout class="QHBoxLayout" name="horizontalLayout">
              <item>
-              <widget class="QPushButton" name="btnMatchFuncName">
+              <widget class="QPushButton" name="btnMatchMethod">
                <property name="minimumSize">
                 <size>
                  <width>100</width>
@@ -207,12 +220,12 @@
                 </size>
                </property>
                <property name="text">
-                <string>匹配函数名</string>
+                <string>匹配Java函数名</string>
                </property>
               </widget>
              </item>
              <item>
-              <widget class="QPushButton" name="btnMatchClassName">
+              <widget class="QPushButton" name="btnMatchSoMethod">
                <property name="minimumSize">
                 <size>
                  <width>100</width>
@@ -220,7 +233,7 @@
                 </size>
                </property>
                <property name="text">
-                <string>匹配类名</string>
+                <string>匹配so函数名</string>
                </property>
               </widget>
              </item>
@@ -271,11 +284,11 @@
         <item row="2" column="0">
          <widget class="QTabWidget" name="groupLogs">
           <property name="currentIndex">
-           <number>0</number>
+           <number>2</number>
           </property>
           <widget class="QWidget" name="tab_3">
            <attribute name="title">
-            <string>日志</string>
+            <string>操作日志</string>
            </attribute>
            <layout class="QGridLayout" name="gridLayout_3">
             <item row="0" column="0">
@@ -287,38 +300,106 @@
             </item>
            </layout>
           </widget>
+          <widget class="QWidget" name="tab_5">
+           <attribute name="title">
+            <string>输出日志</string>
+           </attribute>
+           <layout class="QGridLayout" name="gridLayout_2">
+            <item row="0" column="0">
+             <widget class="QPlainTextEdit" name="txtoutLogs"/>
+            </item>
+           </layout>
+          </widget>
           <widget class="QWidget" name="tab_4">
            <attribute name="title">
             <string>当前hook列表</string>
            </attribute>
-           <layout class="QGridLayout" name="gridLayout_8">
+           <layout class="QGridLayout" name="gridLayout_9">
             <item row="0" column="0">
-             <widget class="QTableWidget" name="tabHooks">
-              <column>
-               <property name="text">
-                <string>功能</string>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>类名</string>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>函数</string>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>完整名称</string>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>9</pointsize>
-                </font>
-               </property>
-              </column>
+             <widget class="QTableWidget" name="tabHooks"/>
+            </item>
+            <item row="1" column="0">
+             <widget class="QFrame" name="frame">
+              <property name="frameShape">
+               <enum>QFrame::StyledPanel</enum>
+              </property>
+              <property name="frameShadow">
+               <enum>QFrame::Raised</enum>
+              </property>
+              <layout class="QGridLayout" name="gridLayout_8">
+               <item row="0" column="0">
+                <widget class="QLabel" name="label">
+                 <property name="text">
+                  <string>别名：</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="QLineEdit" name="txtSaveHooks"/>
+               </item>
+               <item row="0" column="2">
+                <widget class="QPushButton" name="btnSaveHooks">
+                 <property name="maximumSize">
+                  <size>
+                   <width>150</width>
+                   <height>16777215</height>
+                  </size>
+                 </property>
+                 <property name="text">
+                  <string>保存列表</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="3">
+                <widget class="QPushButton" name="btnImportHooks">
+                 <property name="maximumSize">
+                  <size>
+                   <width>150</width>
+                   <height>16777215</height>
+                  </size>
+                 </property>
+                 <property name="text">
+                  <string>导入JSON</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="label_2">
+                 <property name="text">
+                  <string>别名：</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="1">
+                <widget class="QComboBox" name="cmbHooks"/>
+               </item>
+               <item row="1" column="2">
+                <widget class="QPushButton" name="btnLoadHooks">
+                 <property name="maximumSize">
+                  <size>
+                   <width>150</width>
+                   <height>16777215</height>
+                  </size>
+                 </property>
+                 <property name="text">
+                  <string>加载记录</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="3">
+                <widget class="QPushButton" name="btnClearHooks">
+                 <property name="maximumSize">
+                  <size>
+                   <width>150</width>
+                   <height>16777215</height>
+                  </size>
+                 </property>
+                 <property name="text">
+                  <string>清空列表</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
              </widget>
             </item>
            </layout>
@@ -326,6 +407,11 @@
          </widget>
         </item>
        </layout>
+      </widget>
+      <widget class="QWidget" name="tab">
+       <attribute name="title">
+        <string>应用信息</string>
+       </attribute>
       </widget>
      </widget>
     </item>
