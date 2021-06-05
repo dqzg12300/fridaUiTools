@@ -1,8 +1,8 @@
 from PyQt5 import uic
-from PyQt5.QtWidgets import QWidget, QMessageBox
+from PyQt5.QtWidgets import QWidget, QMessageBox, QDialog
 
 
-class matchFrom(QWidget):
+class matchForm(QDialog):
     def __init__(self):
         super().__init__()
         self.setWindowOpacity(0.93)
@@ -22,7 +22,7 @@ class matchFrom(QWidget):
         self.close()
 
 
-class match2From(QWidget):
+class match2Form(QDialog):
     def __init__(self):
         super().__init__()
         self.setWindowOpacity(0.93)
@@ -34,14 +34,14 @@ class match2From(QWidget):
     def submit(self):
         moduleName = self.txtModule.text()
         methodName = self.txtMethod.text()
-        if len(moduleName) <= 0 and len(methodName) <= 0:
-            QMessageBox().information(self, "提示", "模块名或函数名为空")
+        if len(methodName) <= 0:
+            QMessageBox().information(self, "提示", "函数名为空")
             return
         self.moduleName = moduleName
         self.methodName = methodName
         self.close()
 
-class nativesFrom(QWidget):
+class nativesForm(QDialog):
     def __init__(self):
         super().__init__()
         self.setWindowOpacity(0.93)
@@ -60,7 +60,7 @@ class nativesFrom(QWidget):
         self.methods = methods
         self.close()
 
-class dumpAddressFrom(QWidget):
+class dumpAddressForm(QDialog):
     def __init__(self):
         super().__init__()
         self.setWindowOpacity(0.93)
@@ -77,4 +77,21 @@ class dumpAddressFrom(QWidget):
             return
         self.moduleName = moduleName
         self.address = address
+        self.close()
+
+class findClassNameForm(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowOpacity(0.93)
+        uic.loadUi("./ui/fdclass.ui", self)
+        self.btnSubmit.clicked.connect(self.submit)
+        self.className = ""
+
+    def submit(self):
+        className = self.txtClass.text()
+        address = self.txtAddress.text()
+        if len(className) <= 0:
+            QMessageBox().information(self, "提示", "类名为空")
+            return
+        self.className = className
         self.close()
