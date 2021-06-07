@@ -17,6 +17,8 @@ class Runthread(QThread):
     def __init__(self,hooksData):
         super(Runthread, self).__init__()
         self.hooksData = hooksData
+        self.scripts=""
+        self.device=None
 
     def FridaReceive(self,message, data):
         pass
@@ -30,7 +32,18 @@ class Runthread(QThread):
     def outlog(self,msg):
         self.outloggerSignel.emit("start trace")
 
-    def run(self):
+    def _attach(self,pid):
+        if not self.device: return
+        self.log("attach '{}'".format(pid))
+        session = self.device.attach(pid)
+        session.enable_child_gating()
+        # source = open('trace.js', 'r').read().replace('{MATCHREGEX}', match_s).replace("{BLACKREGEX}", black_s)
 
-        self.taskOverSignel.emit()
+    def _on_child_added(self,child):
+        self._attach(child.pid)
+
+    def run(self):
+        device = frida.get_usb_device()
+        device.on("child-added", self._on_child_added)
+        # self.taskOverSignel.emit()
 

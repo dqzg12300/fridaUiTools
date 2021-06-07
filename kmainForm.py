@@ -20,12 +20,14 @@ class kmainForm(QMainWindow):
         self.initUi()
         self.hooksData={}
         self.updateCmbHooks()
+        self.outlogger = LogUtil.Logger('all.log', level='debug')
         with open("./config/type.json","r",encoding="utf8") as typeFile:
             self.typeData=json.loads(typeFile.read())
 
     def initUi(self):
         self.setWindowOpacity(0.93)
         uic.loadUi("./ui/kmain.ui", self)
+
         self.statusBar = QStatusBar()
         self.labStatus = QLabel('当前状态:未连接')
         self.setStatusBar(self.statusBar)
@@ -56,7 +58,9 @@ class kmainForm(QMainWindow):
         self.btnNatives.clicked.connect(self.hookNatives)
         self.btnStalker.clicked.connect(self.stalker)
         self.btnCustom.clicked.connect(self.custom)
-        self.outlogger= LogUtil.Logger('all.log',level='debug')
+        self.btnTuoke.clicked.connect(self.tuoke)
+        self.btnPatch.clicked.connect(self.patch)
+        self.btnCallFunction.clicked.connect(self.callFunction)
 
         self.btnSaveHooks.clicked.connect(self.saveHooks)
         self.btnImportHooks.clicked.connect(self.importHooks)
@@ -72,6 +76,9 @@ class kmainForm(QMainWindow):
         self.nativesForm=formUtil.nativesForm()
         self.dumpForm = formUtil.dumpAddressForm()
         self.findClassForm=formUtil.findClassNameForm()
+        self.tform=formUtil.tuokeForm()
+        self.callForm=formUtil.callFunctionForm()
+        self.pform=formUtil.patchForm()
 
 
 
@@ -97,16 +104,16 @@ class kmainForm(QMainWindow):
         if self.isattach():
             self.actionattach.setText("启动附加")
             self.labStatus.setText("当前状态:未连接")
-            if self.th:
+            if "th" in self:
                 self.th.quit()
         else:
-            self.th = TraceThread.Runthread(self.hooksData)
-            self.th.taskOverSignel.connect(self.taskOver)
-            self.th.loggerSignel.connect(self.log)
-            self.th.outloggerSignel.connect(self.outlog)
             self.actionattach.setText("停止")
             self.labStatus.setText("当前状态:已连接")
-            self.th.start()
+            # self.th = TraceThread.Runthread(self.hooksData)
+            # self.th.taskOverSignel.connect(self.taskOver)
+            # self.th.loggerSignel.connect(self.log)
+            # self.th.outloggerSignel.connect(self.outlog)
+            # self.th.start()
     #是否附加进程了
     def isattach(self):
         if "未连接" in self.labStatus.text():
@@ -217,6 +224,19 @@ class kmainForm(QMainWindow):
             return
         self.log("指定特征dump内存")
         QMessageBox().information(self, "提示", "待开发")
+
+    def callFunction(self):
+        if self.isattach() == False:
+            self.log("Error:还未附加进程")
+            QMessageBox().information(self, "提示", "未附加进程")
+            return
+        self.callForm.methodName = ""
+        self.callForm.show()
+        self.callForm.exec_()
+        methodName = self.callForm.methodName
+        if len(methodName) <= 0:
+            return
+
     # ====================end======需要附加后才能使用的功能,基本都是在内存中查数据================================
 
     # ====================start======附加前使用的功能,基本都是在内存中查数据================================
@@ -349,6 +369,38 @@ class kmainForm(QMainWindow):
     def custom(self):
         self.log("custom")
         QMessageBox().information(self, "提示", "待开发")
+
+    def tuoke(self):
+        self.tform.tuokeType = ""
+        self.tform.show()
+        self.tform.exec_()
+        tuokeType = self.tform.tuokeType
+        if len(tuokeType) <= 0 :
+            return
+        self.log("使用脱壳"+tuokeType)
+        self.hooksData["tuoke"] = {"class": tuokeType, "method": "", "bak": "使用大佬开源的脱壳方法."}
+        self.updateTabHooks()
+
+    def patch(self):
+        self.pform.moduleName = ""
+        self.pform.address = ""
+        self.pform.patch = ""
+        self.pform.show()
+        self.pform.exec_()
+        moduleName = self.pform.moduleName
+        address=self.pform.address
+        patch=self.pform.patch
+        if len(moduleName) <= 0 or len(address) <= 0 or len(patch) <= 0:
+            return
+        self.log("pathch替换模块:"+moduleName+"地址:" + address+"的数据为"+patch)
+        patchHook = {"class": moduleName, "method": address+"|"+patch, "bak": "替换指定地址的二进制数据."}
+        typeStr = "patch"
+        if typeStr in self.hooksData:
+            self.hooksData[typeStr].append(patchHook)
+        else:
+            self.hooksData[typeStr] = []
+            self.hooksData[typeStr].append(patchHook)
+        self.updateTabHooks()
 
     def saveHooks(self):
         self.log("保存hook列表")

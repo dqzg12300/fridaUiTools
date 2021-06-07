@@ -154,6 +154,19 @@
              </property>
             </widget>
            </item>
+           <item row="2" column="4">
+            <widget class="QPushButton" name="btnCallFunction">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>主动调用</string>
+             </property>
+            </widget>
+           </item>
           </layout>
          </widget>
         </item>
@@ -228,12 +241,12 @@
               <widget class="QPushButton" name="btnMatchMethod">
                <property name="minimumSize">
                 <size>
-                 <width>100</width>
+                 <width>0</width>
                  <height>40</height>
                 </size>
                </property>
                <property name="text">
-                <string>匹配Java函数名</string>
+                <string>匹配函数名</string>
                </property>
               </widget>
              </item>
@@ -241,7 +254,7 @@
               <widget class="QPushButton" name="btnMatchSoMethod">
                <property name="minimumSize">
                 <size>
-                 <width>100</width>
+                 <width>0</width>
                  <height>40</height>
                 </size>
                </property>
@@ -254,7 +267,7 @@
               <widget class="QPushButton" name="btnNatives">
                <property name="minimumSize">
                 <size>
-                 <width>100</width>
+                 <width>0</width>
                  <height>40</height>
                 </size>
                </property>
@@ -267,7 +280,7 @@
               <widget class="QPushButton" name="btnStalker">
                <property name="minimumSize">
                 <size>
-                 <width>100</width>
+                 <width>0</width>
                  <height>40</height>
                 </size>
                </property>
@@ -280,12 +293,38 @@
               <widget class="QPushButton" name="btnCustom">
                <property name="minimumSize">
                 <size>
-                 <width>100</width>
+                 <width>0</width>
                  <height>40</height>
                 </size>
                </property>
                <property name="text">
                 <string>自定义</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btnTuoke">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>脱壳</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btnPatch">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>Patch</string>
                </property>
               </widget>
              </item>

@@ -1,6 +1,6 @@
 from PyQt5 import uic
 from PyQt5.QtWidgets import QWidget, QMessageBox, QDialog
-
+from utils import AsmUtil
 
 class matchForm(QDialog):
     def __init__(self):
@@ -94,4 +94,58 @@ class findClassNameForm(QDialog):
             QMessageBox().information(self, "提示", "类名为空")
             return
         self.className = className
+        self.close()
+
+class tuokeForm(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowOpacity(0.93)
+        uic.loadUi("./ui/tuoke.ui", self)
+        self.btnSubmit.clicked.connect(self.submit)
+        self.tuokeType = ""
+
+    def submit(self):
+        self.tuokeType = "fart"
+        if self.rdoFridaDump.isChecked():
+            self.tuokeType="fridadump"
+        elif self.rdoDexDump.isChecked():
+            self.tuokeType="dexdump"
+        self.close()
+
+class callFunctionForm(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowOpacity(0.93)
+        uic.loadUi("./ui/callfunction.ui", self)
+        self.btnSubmit.clicked.connect(self.submit)
+        self.methodName = ""
+
+    def submit(self):
+        methodName = self.txtMethod.text()
+        if len(methodName) <= 0:
+            QMessageBox().information(self, "提示", "类名为空")
+            return
+        self.methodName = methodName
+        self.close()
+
+class patchForm(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowOpacity(0.93)
+        uic.loadUi("./ui/patch.ui", self)
+        self.btnSubmit.clicked.connect(self.submit)
+        self.moduleName = ""
+        self.address=""
+        self.patch=""
+
+    def submit(self):
+        moduleName = self.txtModule.text()
+        address = self.txtAddress.text()
+        patch=self.txtPatch.text()
+        if len(moduleName) <= 0 or len(address)<=0 or len(patch)<=0:
+            QMessageBox().information(self, "提示", "类名为空")
+            return
+        self.moduleName = moduleName
+        self.address = address
+        self.patch = patch
         self.close()
