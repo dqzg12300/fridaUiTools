@@ -80,8 +80,6 @@ class kmainForm(QMainWindow):
         self.callForm=formUtil.callFunctionForm()
         self.pform=formUtil.patchForm()
 
-
-
     #打印操作日志
     def log(self,logstr):
         datestr = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S   ')
@@ -107,13 +105,15 @@ class kmainForm(QMainWindow):
             if "th" in self:
                 self.th.quit()
         else:
+            if len(self.hooksData)<=0:
+                QMessageBox().information(self, "提示", "未设置hook选项,使用默认脚本")
             self.actionattach.setText("停止")
             self.labStatus.setText("当前状态:已连接")
-            # self.th = TraceThread.Runthread(self.hooksData)
-            # self.th.taskOverSignel.connect(self.taskOver)
-            # self.th.loggerSignel.connect(self.log)
-            # self.th.outloggerSignel.connect(self.outlog)
-            # self.th.start()
+            self.th = TraceThread.Runthread(self.hooksData)
+            self.th.taskOverSignel.connect(self.taskOver)
+            self.th.loggerSignel.connect(self.log)
+            self.th.outloggerSignel.connect(self.outlog)
+            self.th.start()
     #是否附加进程了
     def isattach(self):
         if "未连接" in self.labStatus.text():
@@ -250,7 +250,7 @@ class kmainForm(QMainWindow):
             self.updateTabHooks()
 
     def hookNetwork(self,checked):
-        typeStr = "network"
+        typeStr = "r0capture"
         self.hook_add(checked,typeStr)
         if checked:
             self.log("hook网络相关")
@@ -258,7 +258,7 @@ class kmainForm(QMainWindow):
             self.log("取消hook网络相关")
 
     def hookJNI(self,checked):
-        typeStr = "jni"
+        typeStr = "jnitrace"
         self.hook_add(checked, typeStr)
         if checked:
             self.log("hook jni")
@@ -420,9 +420,9 @@ class kmainForm(QMainWindow):
     #加载hook列表后。这里刷新下checked
     def refreshChecks(self):
         for key in self.hooksData:
-            if key=="network":
+            if key=="r0capture":
                 self.chkNetwork.setChecked(True)
-            elif key=="jni":
+            elif key=="jnitrace":
                 self.chkJni.setChecked(True)
             elif key=="javaFile":
                 self.chkJavaFile.setChecked(True)

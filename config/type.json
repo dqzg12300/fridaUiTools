@@ -1,6 +1,6 @@
 {
-  "network":{"class":"","method":"","bak":"hook网络相关.参考自git项目r0capture"},
-  "jni":{"class":"","method":"","bak":"hook网络相关.参考自git项目jnitrace"},
+  "r0capture":{"class":"","method":"","bak":"hook网络相关.参考自git项目r0capture"},
+  "jnitrace":{"class":"","method":"","bak":"hook网络相关.参考自git项目jnitrace"},
   "javaFile":{"class":"","method":"","bak":"hook java的File类的所有函数"},
   "javaEnc":{"class":"","method":"","bak":"hook java的算法加解密相关的所有函数"},
   "javaString":{"class":"","method":"","bak":"hook java的String的所有函数"},
