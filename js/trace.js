@@ -91,7 +91,7 @@ if (Java.available) {
         Java.enumerateLoadedClasses({
             onMatch: function (aClass) {
                 for (var index in matchRegEx) {
-                    // console.log(matchRegEx[index]);
+                    // console.logs(matchRegEx[index]);
                     if (match(matchRegEx[index], aClass)) {
                         var is_black = false;
                         for (var i in blackRegEx) {

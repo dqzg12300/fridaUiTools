@@ -67,13 +67,13 @@ function initializeGlobals() {
     [Process.platform == "darwin" ? "*libboringssl*" : "*libssl*", ["SSL_read", "SSL_write", "SSL_get_fd", "SSL_get_session", "SSL_SESSION_get_id"]], // for ios and Android
     [Process.platform == "darwin" ? "*libsystem*" : "*libc*", ["getpeername", "getsockname", "ntohs", "ntohl"]]
   ];
-  // console.log(exps)
+  // console.logs(exps)
   for (var i = 0; i < exps.length; i++) {
     var lib = exps[i][0];
     var names = exps[i][1];
     for (var j = 0; j < names.length; j++) {
       var name = names[j];
-      // console.log("exports:" + lib + "!" + name)
+      // console.logs("exports:" + lib + "!" + name)
       var matches = resolver.enumerateMatchesSync("exports:" + lib + "!" + name);
       if (matches.length == 0) {
         if (name == "SSL_get_fd") {
@@ -207,7 +207,7 @@ Interceptor.attach(addresses["SSL_read"],
       if (retval <= 0) {
         return;
       }
-      send(this.message, Memory.readByteArray(this.buf, retval));
+      send(this.message,Memory.readByteArray(this.buf, retval) );
     }
   });
 
@@ -218,7 +218,7 @@ Interceptor.attach(addresses["SSL_write"],
       message["ssl_session_id"] = getSslSessionId(args[0]);
       message["function"] = "SSL_write";
       message["stack"] = SSLstackwrite;
-      send(message, Memory.readByteArray(args[1], parseInt(args[2])));
+      send(message,Memory.readByteArray(args[1], parseInt(args[2])) );
     },
     onLeave: function (retval) {
     }
@@ -296,6 +296,7 @@ if (Java.available) {
       var ptr = Memory.alloc(byteCount);
       for (var i = 0; i < byteCount; ++i)
         Memory.writeS8(ptr.add(i), bytearry[offset + i]);
+
       send(message, Memory.readByteArray(ptr, byteCount))
       return result;
     }
@@ -313,7 +314,7 @@ if (Java.available) {
         var ptr = Memory.alloc(result);
         for (var i = 0; i < result; ++i)
           Memory.writeS8(ptr.add(i), bytearry[offset + i]);
-        send(message, Memory.readByteArray(ptr, result))
+        send(message,Memory.readByteArray(ptr, result))
       }
       return result;
     }

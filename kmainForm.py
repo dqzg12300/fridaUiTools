@@ -19,8 +19,9 @@ class kmainForm(QMainWindow):
         super().__init__()
         self.initUi()
         self.hooksData={}
+        self.th = TraceThread.Runthread(self.hooksData)
         self.updateCmbHooks()
-        self.outlogger = LogUtil.Logger('all.log', level='debug')
+        self.outlogger = LogUtil.Logger('all.logs', level='debug')
         with open("./config/type.json","r",encoding="utf8") as typeFile:
             self.typeData=json.loads(typeFile.read())
 
@@ -80,6 +81,8 @@ class kmainForm(QMainWindow):
         self.callForm=formUtil.callFunctionForm()
         self.pform=formUtil.patchForm()
 
+
+
     #打印操作日志
     def log(self,logstr):
         datestr = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S   ')
@@ -95,6 +98,7 @@ class kmainForm(QMainWindow):
         self.log("附加进程结束")
         self.actionattach.setText("启动附加")
         self.labStatus.setText("当前状态:未连接")
+        QMessageBox().information(self, "提示", "成功停止附加进程")
 
     #启动附加
     def actionAttach(self):
@@ -102,8 +106,7 @@ class kmainForm(QMainWindow):
         if self.isattach():
             self.actionattach.setText("启动附加")
             self.labStatus.setText("当前状态:未连接")
-            if "th" in self:
-                self.th.quit()
+            self.th.quit()
         else:
             if len(self.hooksData)<=0:
                 QMessageBox().information(self, "提示", "未设置hook选项,使用默认脚本")

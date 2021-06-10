@@ -1,2 +1,3 @@
 PyQt5==5.10.1
 frida==12.8.0
+hexdump==3.3

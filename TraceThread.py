@@ -1,11 +1,11 @@
 import socket
 import struct
+from copy import copy
 
-import hexdump
 from PyQt5.QtCore import *
 import frida
 import json
-
+import hexdump
 
 
 # 继承QThread
@@ -26,6 +26,12 @@ class Runthread(QThread):
 
     def __del__(self):
         self.wait()
+
+    def quit(self):
+        for s in copy(self.scripts):
+            s.unload()
+            self.scripts.remove(s)
+            self.taskOverSignel.emit()
 
     def log(self,msg):
         self.loggerSignel.emit(msg)
@@ -49,6 +55,7 @@ class Runthread(QThread):
         script = session.create_script(source)
         script.on("message", self.on_message)
         script.load()
+
         self.scripts.append(script)
 
     def r0capture_message(self,p,data):
@@ -63,8 +70,11 @@ class Runthread(QThread):
             p["src_port"],
             dst_addr,
             p["dst_port"]))
-        hexdump.hexdump(data)
+
         self.outlog(p["stack"])
+        result=""
+        res= hexdump.hexdump(data,"return")
+        self.outlog(res)
 
     def on_message(self,message, data):
         if message["type"] == "error":
@@ -91,5 +101,6 @@ class Runthread(QThread):
         for process in self.device.enumerate_processes():
             if target == process.name:
                 self._attach(process.name)
+        print("thread over")
         # self.taskOverSignel.emit()
 
