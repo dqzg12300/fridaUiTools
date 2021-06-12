@@ -18,20 +18,24 @@ class Runthread(QThread):
     #线程退出信号
     taskOverSignel=pyqtSignal()
 
-    def __init__(self,hooksData):
+    def __init__(self,hooksData,attachName):
         super(Runthread, self).__init__()
         self.hooksData = hooksData
-        self.scripts=[]
+        self.attachName=attachName
+        # self.scripts=[]
+        self.script=None
         self.device=None
 
     def __del__(self):
         self.wait()
 
     def quit(self):
-        for s in copy(self.scripts):
-            s.unload()
-            self.scripts.remove(s)
-            self.taskOverSignel.emit()
+        self.script.unload()
+        self.taskOverSignel.emit()
+        # for s in copy(self.scripts):
+        #     s.unload()
+        #     self.scripts.remove(s)
+        #     self.taskOverSignel.emit()
 
     def log(self,msg):
         self.loggerSignel.emit(msg)
@@ -49,14 +53,13 @@ class Runthread(QThread):
             if item=="r0capture":
                 #使用r0capture.js
                 source+=open('./js/r0capture.js', 'r',encoding="utf8").read()
-        if len(source) <= 0 :
-            source+=open("./js/nop.js",'r',encoding="utf8").read()
+        # if len(source) <= 0 :
+        source+=open("./js/default.js",'r',encoding="utf8").read()
 
         script = session.create_script(source)
         script.on("message", self.on_message)
         script.load()
-
-        self.scripts.append(script)
+        self.script=script
 
     def r0capture_message(self,p,data):
         src_addr = socket.inet_ntop(socket.AF_INET,
@@ -72,14 +75,24 @@ class Runthread(QThread):
             p["dst_port"]))
 
         self.outlog(p["stack"])
-        result=""
         res= hexdump.hexdump(data,"return")
         self.outlog(res)
 
+    def default_message(self,p):
+        self.outlog(p["data"])
+
+    def showMethods(self,className,methodName):
+        self.script.post({'type': 'input', 'payload': {"func":"showMethods","className":className,"methodName":methodName}})
+        self.log("post showMethods:"+className+","+methodName)
     def on_message(self,message, data):
         if message["type"] == "error":
             print(message)
             return
+
+        if message["payload"]["jsname"]=="default":
+            self.default_message(message["payload"])
+            return
+
         if data==None or len(data) == 1:
             print(message["payload"]["function"])
             self.outlog(message["payload"]["function"])
@@ -90,6 +103,7 @@ class Runthread(QThread):
         if p["jsname"]=="r0capture":
             self.r0capture_message(p,data)
 
+
     def _on_child_added(self,child):
         self._attach(child.pid)
 
@@ -98,9 +112,12 @@ class Runthread(QThread):
         self.device.on("child-added", self._on_child_added)
         application = self.device.get_frontmost_application()
         target = 'Gadget' if application.identifier == 're.frida.Gadget' else application.identifier
-        for process in self.device.enumerate_processes():
-            if target == process.name:
-                self._attach(process.name)
+        if len(self.attachName)<=0:
+            for process in self.device.enumerate_processes():
+                if target == process.name:
+                    self._attach(process.name)
+        else:
+            self._attach(self.attachName)
         print("thread over")
         # self.taskOverSignel.emit()
 

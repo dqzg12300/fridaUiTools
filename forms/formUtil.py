@@ -10,15 +10,14 @@ class matchForm(QDialog):
         self.btnSubmit.clicked.connect(self.submit)
         self.className=""
         self.methodName=""
+        self.flag=False
 
     def submit(self):
         className=self.txtClass.text()
         methodName=self.txtMethod.text()
-        if len(className)<=0 and len(methodName)<=0:
-            QMessageBox().information(self, "提示", "类名和函数名为空")
-            return
         self.className=className
         self.methodName=methodName
+        self.flag=True
         self.close()
 
 
@@ -89,7 +88,6 @@ class findClassNameForm(QDialog):
 
     def submit(self):
         className = self.txtClass.text()
-        address = self.txtAddress.text()
         if len(className) <= 0:
             QMessageBox().information(self, "提示", "类名为空")
             return
@@ -148,4 +146,24 @@ class patchForm(QDialog):
         self.moduleName = moduleName
         self.address = address
         self.patch = patch
+        self.close()
+
+class selectPackageForm(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowOpacity(0.93)
+        uic.loadUi("./ui/selectPackage.ui", self)
+        self.btnSubmit.clicked.connect(self.submit)
+        self.packageName = ""
+
+    def setPackages(self,packages):
+        for item in packages:
+            self.cmbPackages.addItem(item.name)
+
+    def submit(self):
+        packageName = self.cmbPackages.currentText()
+        if len(packageName) <= 0:
+            QMessageBox().information(self, "提示", "未选择package")
+            return
+        self.packageName = packageName
         self.close()

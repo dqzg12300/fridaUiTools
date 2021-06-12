@@ -19,7 +19,7 @@ class kmainForm(QMainWindow):
         super().__init__()
         self.initUi()
         self.hooksData={}
-        self.th = TraceThread.Runthread(self.hooksData)
+        self.th = TraceThread.Runthread(self.hooksData,"")
         self.updateCmbHooks()
         self.outlogger = LogUtil.Logger('all.logs', level='debug')
         with open("./config/type.json","r",encoding="utf8") as typeFile:
@@ -33,12 +33,13 @@ class kmainForm(QMainWindow):
         self.labStatus = QLabel('当前状态:未连接')
         self.setStatusBar(self.statusBar)
         self.statusBar.addPermanentWidget(self.labStatus, stretch=1)
-        self.actionattach.triggered.connect(self.actionAttach)
+        self.actionAttach.triggered.connect(self.actionAttachStart)
+        self.actionSpawn.triggered.connect(self.actionSpawnStart)
+        self.actionAttachName.triggered.connect(self.actionAttachNameStart)
         self.actionabort.triggered.connect(self.actionAbort)
-
-        self.btnFindMethod.clicked.connect(self.findMethod)
+        self.actionStop.setEnabled(False)
+        self.actionStop.triggered.connect(self.taskOver)
         self.btnShowExport.clicked.connect(self.showExport)
-        self.btnFindExport.clicked.connect(self.findExport)
         self.btnDumpStr.clicked.connect(self.dumpStr)
         self.btnWallbreaker.clicked.connect(self.wallBreaker)
         self.btnFindClassPath.clicked.connect(self.findClassPath)
@@ -80,6 +81,9 @@ class kmainForm(QMainWindow):
         self.tform=formUtil.tuokeForm()
         self.callForm=formUtil.callFunctionForm()
         self.pform=formUtil.patchForm()
+        self.selectPackageForm=formUtil.selectPackageForm()
+
+
 
 
 
@@ -96,27 +100,65 @@ class kmainForm(QMainWindow):
 
     def taskOver(self):
         self.log("附加进程结束")
-        self.actionattach.setText("启动附加")
-        self.labStatus.setText("当前状态:未连接")
+        self.changeAttachStatus(False)
         QMessageBox().information(self, "提示", "成功停止附加进程")
 
     #启动附加
-    def actionAttach(self):
+    def actionAttachStart(self):
         self.log("actionAttach")
-        if self.isattach():
-            self.actionattach.setText("启动附加")
-            self.labStatus.setText("当前状态:未连接")
-            self.th.quit()
-        else:
-            if len(self.hooksData)<=0:
-                QMessageBox().information(self, "提示", "未设置hook选项,使用默认脚本")
-            self.actionattach.setText("停止")
-            self.labStatus.setText("当前状态:已连接")
-            self.th = TraceThread.Runthread(self.hooksData)
+        try:
+            # 查下进程。能查到说明frida_server开启了
+            device = frida.get_usb_device()
+            process = device.enumerate_processes()
+            self.changeAttachStatus(True)
+            self.th = TraceThread.Runthread(self.hooksData, "")
             self.th.taskOverSignel.connect(self.taskOver)
             self.th.loggerSignel.connect(self.log)
             self.th.outloggerSignel.connect(self.outlog)
             self.th.start()
+            if len(self.hooksData) <= 0:
+                QMessageBox().information(self, "提示", "未设置hook选项")
+        except Exception as ex:
+            self.log("附加异常.err:" + str(ex))
+            QMessageBox().information(self, "提示", "附加进程失败." + str(ex))
+
+    def actionSpawnStart(self):
+        pass
+
+    def changeAttachStatus(self,isattach):
+        if isattach:
+            self.menuAttach.setEnabled(False)
+            self.actionStop.setEnabled(True)
+            self.labStatus.setText("当前状态:已连接")
+        else:
+            self.menuAttach.setEnabled(True)
+            self.actionStop.setEnabled(False)
+            self.labStatus.setText("当前状态:未连接")
+
+
+    def actionAttachNameStart(self):
+        self.log("actionAttachName")
+        try:
+            device = frida.get_usb_device()
+            process= device.enumerate_processes()
+            self.selectPackageForm.setPackages(process)
+            self.selectPackageForm.packageName=""
+            self.selectPackageForm.show()
+            self.selectPackageForm.exec_()
+            packageName=self.selectPackageForm.packageName
+            if len(packageName)<=0:
+                return
+            self.changeAttachStatus(True)
+            self.th = TraceThread.Runthread(self.hooksData, packageName)
+            self.th.taskOverSignel.connect(self.taskOver)
+            self.th.loggerSignel.connect(self.log)
+            self.th.outloggerSignel.connect(self.outlog)
+            self.th.start()
+        except Exception as ex:
+            self.log("附加异常.err:"+str(ex))
+            QMessageBox().information(self, "提示", "附加进程失败."+str(ex))
+
+
     #是否附加进程了
     def isattach(self):
         if "未连接" in self.labStatus.text():
@@ -124,20 +166,35 @@ class kmainForm(QMainWindow):
         return True
 
     #====================start======需要附加后才能使用的功能,基本都是在内存中查数据================================
-    def findMethod(self):
-        if self.isattach()==False:
+
+    def showMethods(self):
+        if self.isattach() == False:
             self.log("Error:还未附加进程")
             QMessageBox().information(self, "提示", "未附加进程")
             return
-        self.log("查询所有类")
+        self.log("查询所有类和函数")
         self.mform.className = ""
-        self.mform.methodName = ""
         self.mform.show()
         self.mform.exec_()
         className = self.mform.className
         methodName = self.mform.methodName
-        if len(className) <= 0 and len(methodName) <= 0:
+        if self.mform.flag==False:
             return
+        self.th.showMethods(className,methodName)
+    #
+    # def findMethod(self):
+    #     if self.isattach()==False:
+    #         self.log("Error:还未附加进程")
+    #         QMessageBox().information(self, "提示", "未附加进程")
+    #         return
+    #     self.log("查询所有类和函数")
+    #     self.findClassNameForm.className = ""
+    #     self.findClassNameForm.show()
+    #     self.findClassNameForm.exec_()
+    #     className = self.findClassNameForm.className
+    #     if len(className) <= 0 :
+    #         return
+    #     self.th.showMethods(className)
 
     def showExport(self):
         if self.isattach()==False:
@@ -185,12 +242,7 @@ class kmainForm(QMainWindow):
         self.log("wallBreaker功能")
         QMessageBox().information(self, "提示", "待开发")
 
-    def showMethods(self):
-        if self.isattach() == False:
-            self.log("Error:还未附加进程")
-            QMessageBox().information(self, "提示", "未附加进程")
-            return
-        self.log("wallBreaker功能")
+
 
     def findClassPath(self):
         if self.isattach() == False:
@@ -315,7 +367,7 @@ class kmainForm(QMainWindow):
         self.mform.exec_()
         className=self.mform.className
         methodName=self.mform.methodName
-        if len(className)<=0 and len(methodName)<=0:
+        if len(className)<=0:
             return
         self.log("根据函数名trace hook")
         matchHook={"class":className,"method":methodName,"bak":"匹配指定类中的指定函数.无类名则hook所有类中的指定函数.无函数名则hook类的所有函数"}
