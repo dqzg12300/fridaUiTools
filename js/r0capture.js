@@ -227,8 +227,7 @@ Interceptor.attach(addresses["SSL_write"],
 if (Java.available) {
   Java.perform(function () {
     var msg=initMessage()
-    msg["function"]="js_r0capture_init"
-    msg["stack"]=""
+    msg["init"]="r0capture.js init hook success"
     send(msg)
     function storeP12(pri, p7, p12Path, p12Password) {
       var X509Certificate = Java.use("java.security.cert.X509Certificate")

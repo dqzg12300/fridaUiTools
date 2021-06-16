@@ -7,19 +7,15 @@ function initMessage(){
 }
 
 function hook_native() {
-    console.log("default.js hook_native")
 }
 
 function hook_java(){
-    console.log("default.js hook_java")
     Java.perform(function(){
     });
 }
 
 function showMethods(inputClass,inputMethod){
     var msg= initMessage()
-    msg["function"]="showMethods"
-    msg["stack"]=""
     console.log("enter js showMethods")
     Java.perform(function(){
         var cnt=0;
@@ -68,6 +64,9 @@ function recvMessage(){
 
 
 function main(){
+    var msg= initMessage();
+    msg["init"]="default.js init hook success";
+    send(msg);
     hook_java();
     hook_native();
     recvMessage();

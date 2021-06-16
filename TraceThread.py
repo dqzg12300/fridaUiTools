@@ -62,6 +62,13 @@ class Runthread(QThread):
         self.script=script
 
     def r0capture_message(self,p,data):
+        if data==None or len(data) == 1:
+            # print(p["function"])
+            self.outlog(p["function"])
+            if len(p["stack"])>0:
+                self.outlog(p["stack"])
+            return
+
         src_addr = socket.inet_ntop(socket.AF_INET,
                                     struct.pack(">I", p["src_addr"]))
         dst_addr = socket.inet_ntop(socket.AF_INET,
@@ -86,22 +93,18 @@ class Runthread(QThread):
         self.log("post showMethods:"+className+","+methodName)
     def on_message(self,message, data):
         if message["type"] == "error":
-            print(message)
+            self.outlog(message)
             return
-
+        if "init" in message["payload"]:
+            self.outlog(message["payload"]["init"])
+            self.log(message["payload"]["init"])
+            return
         if message["payload"]["jsname"]=="default":
             self.default_message(message["payload"])
             return
+        elif message["payload"]["jsname"]=="r0capture":
+            self.r0capture_message(message["payload"],data)
 
-        if data==None or len(data) == 1:
-            print(message["payload"]["function"])
-            self.outlog(message["payload"]["function"])
-            if len(message["payload"]["stack"])>0:
-                self.outlog(message["payload"]["stack"])
-            return
-        p = message["payload"]
-        if p["jsname"]=="r0capture":
-            self.r0capture_message(p,data)
 
 
     def _on_child_added(self,child):

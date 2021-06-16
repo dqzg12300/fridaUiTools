@@ -97,6 +97,8 @@ class kmainForm(QMainWindow):
         datestr = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S   ')
         self.txtoutLogs.appendPlainText(datestr+logstr)
         self.outlogger.logger.debug(logstr)
+        if "default.js init hook success" in logstr:
+            QMessageBox().information(self, "提示", "附加进程成功")
 
     def taskOver(self):
         self.log("附加进程结束")
