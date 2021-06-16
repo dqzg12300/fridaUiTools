@@ -27,8 +27,10 @@ class match2Form(QDialog):
         self.setWindowOpacity(0.93)
         uic.loadUi("./ui/match2.ui", self)
         self.btnSubmit.clicked.connect(self.submit)
+        self.flag = False
         self.moduleName = ""
         self.methodName = ""
+
 
     def submit(self):
         moduleName = self.txtModule.text()
@@ -38,6 +40,7 @@ class match2Form(QDialog):
             return
         self.moduleName = moduleName
         self.methodName = methodName
+        self.flag=True
         self.close()
 
 class nativesForm(QDialog):
@@ -48,6 +51,7 @@ class nativesForm(QDialog):
         self.btnSubmit.clicked.connect(self.submit)
         self.moduleName = ""
         self.methods= ""
+        self.flag=False
 
     def submit(self):
         moduleName = self.txtModule.text()
@@ -57,6 +61,7 @@ class nativesForm(QDialog):
             return
         self.moduleName = moduleName
         self.methods = methods
+        self.flag=True
         self.close()
 
 class dumpAddressForm(QDialog):
@@ -67,6 +72,7 @@ class dumpAddressForm(QDialog):
         self.btnSubmit.clicked.connect(self.submit)
         self.moduleName = ""
         self.address = ""
+        self.flag=False
 
     def submit(self):
         moduleName = self.txtModule.text()
@@ -76,6 +82,7 @@ class dumpAddressForm(QDialog):
             return
         self.moduleName = moduleName
         self.address = address
+        self.flag=True
         self.close()
 
 class findClassNameForm(QDialog):
@@ -85,6 +92,7 @@ class findClassNameForm(QDialog):
         uic.loadUi("./ui/fdclass.ui", self)
         self.btnSubmit.clicked.connect(self.submit)
         self.className = ""
+        self.flag=False
 
     def submit(self):
         className = self.txtClass.text()
@@ -92,6 +100,7 @@ class findClassNameForm(QDialog):
             QMessageBox().information(self, "提示", "类名为空")
             return
         self.className = className
+        self.flag=True
         self.close()
 
 class tuokeForm(QDialog):
@@ -117,6 +126,7 @@ class callFunctionForm(QDialog):
         uic.loadUi("./ui/callfunction.ui", self)
         self.btnSubmit.clicked.connect(self.submit)
         self.methodName = ""
+        self.flag=False
 
     def submit(self):
         methodName = self.txtMethod.text()
@@ -124,6 +134,7 @@ class callFunctionForm(QDialog):
             QMessageBox().information(self, "提示", "类名为空")
             return
         self.methodName = methodName
+        self.flag=True
         self.close()
 
 class patchForm(QDialog):
@@ -135,6 +146,7 @@ class patchForm(QDialog):
         self.moduleName = ""
         self.address=""
         self.patch=""
+        self.flag=False
 
     def submit(self):
         moduleName = self.txtModule.text()
@@ -146,6 +158,7 @@ class patchForm(QDialog):
         self.moduleName = moduleName
         self.address = address
         self.patch = patch
+        self.flag=True
         self.close()
 
 class selectPackageForm(QDialog):
@@ -155,6 +168,7 @@ class selectPackageForm(QDialog):
         uic.loadUi("./ui/selectPackage.ui", self)
         self.btnSubmit.clicked.connect(self.submit)
         self.packageName = ""
+        self.flag=False
 
     def setPackages(self,packages):
         for item in packages:
@@ -166,4 +180,5 @@ class selectPackageForm(QDialog):
             QMessageBox().information(self, "提示", "未选择package")
             return
         self.packageName = packageName
+        self.flag=True
         self.close()

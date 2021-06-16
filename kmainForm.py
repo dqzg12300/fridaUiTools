@@ -73,15 +73,15 @@ class kmainForm(QMainWindow):
         self.tabHooks.setHorizontalHeaderLabels(self.header)
         self.tabHooks.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
-        self.mform = formUtil.matchForm()
-        self.m2form = formUtil.match2Form()
-        self.nativesForm=formUtil.nativesForm()
-        self.dumpForm = formUtil.dumpAddressForm()
-        self.findClassForm=formUtil.findClassNameForm()
-        self.tform=formUtil.tuokeForm()
-        self.callForm=formUtil.callFunctionForm()
-        self.pform=formUtil.patchForm()
-        self.selectPackageForm=formUtil.selectPackageForm()
+        # self.mform = formUtil.matchForm()
+        # self.m2form = formUtil.match2Form()
+        # self.nativesForm=formUtil.nativesForm()
+        # self.dumpForm = formUtil.dumpAddressForm()
+        # self.findClassForm=formUtil.findClassNameForm()
+        # self.tform=formUtil.tuokeForm()
+        # self.callForm=formUtil.callFunctionForm()
+        # self.pform=formUtil.patchForm()
+        # self.selectPackageForm=formUtil.selectPackageForm()
 
 
 
@@ -119,14 +119,17 @@ class kmainForm(QMainWindow):
             self.th.outloggerSignel.connect(self.outlog)
             self.th.start()
             if len(self.hooksData) <= 0:
-                QMessageBox().information(self, "提示", "未设置hook选项")
+                # QMessageBox().information(self, "提示", "未设置hook选项")
+                self.log("未设置hook选项")
         except Exception as ex:
             self.log("附加异常.err:" + str(ex))
             QMessageBox().information(self, "提示", "附加进程失败." + str(ex))
 
+    #spawn的方式附加进程
     def actionSpawnStart(self):
         pass
 
+    #修改ui的状态表现
     def changeAttachStatus(self,isattach):
         if isattach:
             self.menuAttach.setEnabled(False)
@@ -137,21 +140,19 @@ class kmainForm(QMainWindow):
             self.actionStop.setEnabled(False)
             self.labStatus.setText("当前状态:未连接")
 
-
+    #根据进程名进行附加进程
     def actionAttachNameStart(self):
         self.log("actionAttachName")
         try:
             device = frida.get_usb_device()
             process= device.enumerate_processes()
-            self.selectPackageForm.setPackages(process)
-            self.selectPackageForm.packageName=""
-            self.selectPackageForm.show()
-            self.selectPackageForm.exec_()
-            packageName=self.selectPackageForm.packageName
-            if len(packageName)<=0:
+            selectPackageForm = formUtil.selectPackageForm()
+            selectPackageForm.setPackages(process)
+            selectPackageForm.exec()
+            if selectPackageForm.flag==False:
                 return
             self.changeAttachStatus(True)
-            self.th = TraceThread.Runthread(self.hooksData, packageName)
+            self.th = TraceThread.Runthread(self.hooksData, selectPackageForm.packageName)
             self.th.taskOverSignel.connect(self.taskOver)
             self.th.loggerSignel.connect(self.log)
             self.th.outloggerSignel.connect(self.outlog)
@@ -175,28 +176,12 @@ class kmainForm(QMainWindow):
             QMessageBox().information(self, "提示", "未附加进程")
             return
         self.log("查询所有类和函数")
-        self.mform.className = ""
-        self.mform.show()
-        self.mform.exec_()
-        className = self.mform.className
-        methodName = self.mform.methodName
-        if self.mform.flag==False:
+        mform=formUtil.matchForm()
+        mform.exec()
+        # className为空则是打印所有class。methodName为空则打印所有函数
+        if mform.flag==False:
             return
-        self.th.showMethods(className,methodName)
-    #
-    # def findMethod(self):
-    #     if self.isattach()==False:
-    #         self.log("Error:还未附加进程")
-    #         QMessageBox().information(self, "提示", "未附加进程")
-    #         return
-    #     self.log("查询所有类和函数")
-    #     self.findClassNameForm.className = ""
-    #     self.findClassNameForm.show()
-    #     self.findClassNameForm.exec_()
-    #     className = self.findClassNameForm.className
-    #     if len(className) <= 0 :
-    #         return
-    #     self.th.showMethods(className)
+        self.th.showMethods(mform.className,mform.methodName)
 
     def showExport(self):
         if self.isattach()==False:
@@ -204,22 +189,13 @@ class kmainForm(QMainWindow):
             QMessageBox().information(self, "提示", "未附加进程")
             return
         self.log("查询so的所有符号")
-
-
-    def findExport(self):
-        if self.isattach()==False:
-            self.log("Error:还未附加进程")
-            QMessageBox().information(self, "提示", "未附加进程")
+        m2form = formUtil.match2Form()
+        m2form.exec()
+        if m2form.flag==False:
             return
-        self.log("搜索so的指定符号")
-        self.m2form.moduleName = ""
-        self.m2form.methodName = ""
-        self.m2form.show()
-        self.m2form.exec_()
-        moduleName = self.m2form.moduleName
-        methodName = self.m2form.methodName
-        if len(moduleName) <= 0 and len(methodName) <= 0:
-            return
+        #moduleName为空则是打印所有module。methodName为空则打印所有符号
+        self.th.showExport(m2form.moduleName, m2form.methodName,True)
+
 
     def dumpStr(self):
         if self.isattach() == False:
@@ -227,13 +203,9 @@ class kmainForm(QMainWindow):
             QMessageBox().information(self, "提示", "未附加进程")
             return
         self.log("将指定地址以str打印")
-        self.dumpForm.moduleName = ""
-        self.dumpForm.methodName = ""
-        self.dumpForm.show()
-        self.dumpForm.exec_()
-        moduleName = self.dumpForm.moduleName
-        methodName = self.dumpForm.methodName
-        if len(moduleName) <= 0 and len(methodName) <= 0:
+        dumpForm= formUtil.dumpAddressForm()
+        dumpForm.exec()
+        if dumpForm.flag == False:
             return
 
     def wallBreaker(self):
@@ -252,11 +224,9 @@ class kmainForm(QMainWindow):
             QMessageBox().information(self, "提示", "未附加进程")
             return
         self.log("查找指定类的完整名称")
-        self.findClassForm.className = ""
-        self.findClassForm.show()
-        self.findClassForm.exec_()
-        className = self.findClassForm.className
-        if len(className) <= 0:
+        findClassForm = formUtil.findClassNameForm()
+        findClassForm.exec()
+        if findClassForm.flag == False:
             return
 
     def dumpPtr(self):
@@ -265,13 +235,9 @@ class kmainForm(QMainWindow):
             QMessageBox().information(self, "提示", "未附加进程")
             return
         self.log("dump指定地址")
-        self.dumpForm.moduleName = ""
-        self.dumpForm.methodName = ""
-        self.dumpForm.show()
-        self.dumpForm.exec_()
-        moduleName = self.dumpForm.moduleName
-        methodName = self.dumpForm.methodName
-        if len(moduleName) <= 0 and len(methodName) <= 0:
+        dumpForm= formUtil.dumpAddressForm()
+        dumpForm.exec()
+        if dumpForm.flag == False:
             return
 
     def matchDump(self):
@@ -287,11 +253,9 @@ class kmainForm(QMainWindow):
             self.log("Error:还未附加进程")
             QMessageBox().information(self, "提示", "未附加进程")
             return
-        self.callForm.methodName = ""
-        self.callForm.show()
-        self.callForm.exec_()
-        methodName = self.callForm.methodName
-        if len(methodName) <= 0:
+        callForm = formUtil.callFunctionForm()
+        callForm.exec()
+        if callForm.flag == False:
             return
 
     # ====================end======需要附加后才能使用的功能,基本都是在内存中查数据================================
@@ -363,16 +327,12 @@ class kmainForm(QMainWindow):
             self.log("取消hook证书锁定")
 
     def matchMethod(self):
-        self.mform.className=""
-        self.mform.methodName=""
-        self.mform.show()
-        self.mform.exec_()
-        className=self.mform.className
-        methodName=self.mform.methodName
-        if len(className)<=0:
+        mform = formUtil.matchForm()
+        mform.exec()
+        if mform.flag==False:
             return
         self.log("根据函数名trace hook")
-        matchHook={"class":className,"method":methodName,"bak":"匹配指定类中的指定函数.无类名则hook所有类中的指定函数.无函数名则hook类的所有函数"}
+        matchHook={"class":mform.className,"method":mform.methodName,"bak":"匹配指定类中的指定函数.无类名则hook所有类中的指定函数.无函数名则hook类的所有函数"}
         typeStr="match_java"
         if typeStr in self.hooksData:
             self.hooksData[typeStr].append(matchHook)
@@ -382,16 +342,12 @@ class kmainForm(QMainWindow):
         self.updateTabHooks()
 
     def matchSoMethod(self):
-        self.m2form.moduleName=""
-        self.m2form.methodName=""
-        self.m2form.show()
-        self.m2form.exec_()
-        moduleName = self.m2form.moduleName
-        methodName = self.m2form.methodName
-        if len(moduleName) <= 0 and len(methodName) <= 0:
+        m2form = formUtil.match2Form()
+        m2form.exec()
+        if m2form.flag == False:
             return
         self.log("根据so的函数名trace hook")
-        matchHook = {"class": moduleName, "method": methodName, "bak": "匹配so中的函数."}
+        matchHook = {"class": m2form.moduleName, "method": m2form.methodName, "bak": "匹配so中的函数."}
         typeStr = "match_native"
         if typeStr in self.hooksData:
             self.hooksData[typeStr].append(matchHook)
@@ -401,16 +357,12 @@ class kmainForm(QMainWindow):
         self.updateTabHooks()
 
     def hookNatives(self):
-        self.nativesForm.moduleName = ""
-        self.nativesForm.methods = ""
-        self.nativesForm.show()
-        self.nativesForm.exec_()
-        moduleName = self.nativesForm.moduleName
-        methods = self.nativesForm.methods
-        if len(moduleName) <= 0 and len(methods) <= 0:
+        nativesForm = formUtil.nativesForm()
+        nativesForm.exec()
+        if nativesForm.flag == False:
             return
         self.log("批量hook native的sub函数")
-        matchHook = {"class": moduleName, "method": methods, "bak": "批量匹配sub函数,使用较通用的方式打印参数."}
+        matchHook = {"class": nativesForm.moduleName, "method": nativesForm.methods, "bak": "批量匹配sub函数,使用较通用的方式打印参数."}
         typeStr = "match_sub"
         if typeStr in self.hooksData:
             self.hooksData[typeStr].append(matchHook)
@@ -428,29 +380,21 @@ class kmainForm(QMainWindow):
         QMessageBox().information(self, "提示", "待开发")
 
     def tuoke(self):
-        self.tform.tuokeType = ""
-        self.tform.show()
-        self.tform.exec_()
-        tuokeType = self.tform.tuokeType
-        if len(tuokeType) <= 0 :
+        tform = formUtil.tuokeForm()
+        tform.exec()
+        if tform.flag == False:
             return
-        self.log("使用脱壳"+tuokeType)
-        self.hooksData["tuoke"] = {"class": tuokeType, "method": "", "bak": "使用大佬开源的脱壳方法."}
+        self.log("使用脱壳"+tform.tuokeType)
+        self.hooksData["tuoke"] = {"class": tform.tuokeType, "method": "", "bak": "使用大佬开源的脱壳方法."}
         self.updateTabHooks()
 
     def patch(self):
-        self.pform.moduleName = ""
-        self.pform.address = ""
-        self.pform.patch = ""
-        self.pform.show()
-        self.pform.exec_()
-        moduleName = self.pform.moduleName
-        address=self.pform.address
-        patch=self.pform.patch
-        if len(moduleName) <= 0 or len(address) <= 0 or len(patch) <= 0:
+        pform = formUtil.patchForm()
+        pform.exec()
+        if pform.flag == False:
             return
-        self.log("pathch替换模块:"+moduleName+"地址:" + address+"的数据为"+patch)
-        patchHook = {"class": moduleName, "method": address+"|"+patch, "bak": "替换指定地址的二进制数据."}
+        self.log("pathch替换模块:"+pform.moduleName+"地址:" + pform.address+"的数据为"+pform.patch)
+        patchHook = {"class": pform.moduleName, "method": pform.address+"|"+pform.patch, "bak": "替换指定地址的二进制数据."}
         typeStr = "patch"
         if typeStr in self.hooksData:
             self.hooksData[typeStr].append(patchHook)

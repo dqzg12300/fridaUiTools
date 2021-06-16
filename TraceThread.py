@@ -91,6 +91,11 @@ class Runthread(QThread):
     def showMethods(self,className,methodName):
         self.script.post({'type': 'input', 'payload': {"func":"showMethods","className":className,"methodName":methodName}})
         self.log("post showMethods:"+className+","+methodName)
+
+    def showExport(self,moduleName,methodName,isExport):
+        self.script.post({'type': 'input', 'payload': {"func":"showMethods","moduleName":moduleName,"methodName":methodName,"isExport":isExport}})
+        self.log("post showMethods:"+moduleName+","+methodName)
+
     def on_message(self,message, data):
         if message["type"] == "error":
             self.outlog(message)

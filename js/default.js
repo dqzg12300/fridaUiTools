@@ -13,7 +13,7 @@ function hook_java(){
     Java.perform(function(){
     });
 }
-
+//查找java的函数
 function showMethods(inputClass,inputMethod){
     var msg= initMessage()
     console.log("enter js showMethods")
@@ -48,6 +48,42 @@ function showMethods(inputClass,inputMethod){
         send(msg)
     });
 }
+//查找so的符号
+function showExport(inputModule,inputMethod,isExport){
+    var msg= initMessage()
+    var cnt=0;
+    console.log("enter js showExport")
+    Process.enumerateModules().forEach(function(module){
+        if (inputClass.length>0){
+            if(module.name.toUpperCase().indexOf(inputModule.toUpperCase())<0){
+                return;
+            }
+        }
+        if(isExport){
+            module.enumerateExports().forEach(function(edata){
+                if (inputMethod.length>0){
+                    if(edata.name.toUpperCase().indexOf(inputMethod.toUpperCase())<0){
+                        return;
+                    }
+                }
+                cnt+=1;
+                msg["data"]="module:"+module.name+"----exportName:"+edata.name+"----address:"+edata.address+"----type:"+edata.type;
+                send(msg)
+            });
+        }else{
+            module.enumerateSymbols().forEach(function(edata){
+                if (inputMethod.length>0){
+                    if(edata.name.toUpperCase().indexOf(inputMethod.toUpperCase())<0){
+                        return;
+                    }
+                }
+                cnt+=1;
+                msg["data"]="module:"+module.name+"----symbolName:"+edata.name+"----address:"+edata.address+"----type:"+edata.type;
+                send(msg)
+            });
+        }
+    });
+}
 
 function recvMessage(){
     recv('input',function(data){
@@ -58,6 +94,11 @@ function recvMessage(){
             var className=payload["className"];
             var methodName=payload["methodName"];
             showMethods(className,methodName);
+        }else if (func=="showExport"){
+            var moduleName=payload["moduleName"];
+            var methodName=payload["methodName"];
+            var isExport=payload["isExport"];
+            showMethods(moduleName,methodName,isExport);
         }
     });
 }
