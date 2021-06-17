@@ -144,15 +144,23 @@ function recvMessage(){
         });
         op.wait();
     }
-
-
 }
 
+//动态取一些附加的app信息传给py
+function loadAppInfo(){
+    var msg= initMessage();
+    var appinfo={};
+    appinfo["name"]="test demo";
+    msg["appinfo"]=JSON.stringify(appinfo);
+    msg["data"]="加载appinfo";
+    send(msg);
+}
 
 function main(){
     var msg= initMessage();
     msg["init"]="default.js init hook success";
     send(msg);
+    loadAppInfo();
     recvMessage();
 }
 

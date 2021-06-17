@@ -17,25 +17,21 @@ class Runthread(QThread):
     outloggerSignel = pyqtSignal(str)
     #线程退出信号
     taskOverSignel=pyqtSignal()
-
+    #获取一些附加成功就可以取的通用信息。这里暂时还不知道初始化一些啥信息比较好。先打通流程
+    loadAppInfoSignel=pyqtSignal(str)
+    #附加成功的信号
+    attachOverSignel = pyqtSignal(str)
     def __init__(self,hooksData,attachName):
         super(Runthread, self).__init__()
         self.hooksData = hooksData
         self.attachName=attachName
-        # self.scripts=[]
         self.script=None
         self.device=None
 
-    def __del__(self):
-        self.wait()
-
     def quit(self):
-        self.script.unload()
-        self.taskOverSignel.emit()
-        # for s in copy(self.scripts):
-        #     s.unload()
-        #     self.scripts.remove(s)
-        #     self.taskOverSignel.emit()
+        if self.script:
+                self.script.unload()
+                self.taskOverSignel.emit()
 
     def log(self,msg):
         self.loggerSignel.emit(msg)
@@ -50,20 +46,21 @@ class Runthread(QThread):
         session.enable_child_gating()
         source=""
         for item in self.hooksData:
+            # 使用r0capture.js
             if item=="r0capture":
-                #使用r0capture.js
                 source+=open('./js/r0capture.js', 'r',encoding="utf8").read()
         # if len(source) <= 0 :
         source+=open("./js/default.js",'r',encoding="utf8").read()
 
         script = session.create_script(source)
         script.on("message", self.on_message)
+        self.script = script
+        self.attachOverSignel.emit(pid)
         script.load()
-        self.script=script
+
 
     def r0capture_message(self,p,data):
         if data==None or len(data) == 1:
-            # print(p["function"])
             self.outlog(p["function"])
             if len(p["stack"])>0:
                 self.outlog(p["stack"])
@@ -86,6 +83,8 @@ class Runthread(QThread):
         self.outlog(res)
 
     def default_message(self,p):
+        if "appinfo" in p:
+            self.loadAppInfoSignel.emit(p["appinfo"])
         self.outlog(p["data"])
 
     def showMethods(self,postdata):

@@ -33,6 +33,9 @@ class kmainForm(QMainWindow):
         self.labStatus = QLabel('当前状态:未连接')
         self.setStatusBar(self.statusBar)
         self.statusBar.addPermanentWidget(self.labStatus, stretch=1)
+        self.labPackage = QLabel('')
+        self.statusBar.addPermanentWidget(self.labPackage, stretch=2)
+
         self.actionAttach.triggered.connect(self.actionAttachStart)
         self.actionSpawn.triggered.connect(self.actionSpawnStart)
         self.actionAttachName.triggered.connect(self.actionAttachNameStart)
@@ -74,6 +77,9 @@ class kmainForm(QMainWindow):
         self.mform = formUtil.matchForm()
         self.m2form = formUtil.match2Form()
 
+    def closeEvent(self, event):
+        self.th.quit()
+
     #打印操作日志
     def log(self,logstr):
         datestr = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S   ')
@@ -92,6 +98,9 @@ class kmainForm(QMainWindow):
         self.changeAttachStatus(False)
         QMessageBox().information(self, "提示", "成功停止附加进程")
 
+    def attachOver(self,name):
+        self.labPackage.setText(name)
+
     #启动附加
     def actionAttachStart(self):
         self.log("actionAttach")
@@ -99,11 +108,14 @@ class kmainForm(QMainWindow):
             # 查下进程。能查到说明frida_server开启了
             device = frida.get_usb_device()
             process = device.enumerate_processes()
+            print(process)
             self.changeAttachStatus(True)
             self.th = TraceThread.Runthread(self.hooksData, "")
             self.th.taskOverSignel.connect(self.taskOver)
             self.th.loggerSignel.connect(self.log)
             self.th.outloggerSignel.connect(self.outlog)
+            self.th.loadAppInfoSignel.connect(self.loadAppInfo)
+            self.th.attachOverSignel.connect(self.attachOver)
             self.th.start()
             if len(self.hooksData) <= 0:
                 # QMessageBox().information(self, "提示", "未设置hook选项")
@@ -114,7 +126,7 @@ class kmainForm(QMainWindow):
 
     #spawn的方式附加进程
     def actionSpawnStart(self):
-        pass
+         pass
 
     #修改ui的状态表现
     def changeAttachStatus(self,isattach):
@@ -126,6 +138,7 @@ class kmainForm(QMainWindow):
             self.menuAttach.setEnabled(True)
             self.actionStop.setEnabled(False)
             self.labStatus.setText("当前状态:未连接")
+            self.labPackage.setText("")
 
     #根据进程名进行附加进程
     def actionAttachNameStart(self):
@@ -143,6 +156,8 @@ class kmainForm(QMainWindow):
             self.th.taskOverSignel.connect(self.taskOver)
             self.th.loggerSignel.connect(self.log)
             self.th.outloggerSignel.connect(self.outlog)
+            self.th.loadAppInfoSignel.connect(self.loadAppInfo)
+            self.th.attachOverSignel.connect(self.attachOver)
             self.th.start()
         except Exception as ex:
             self.log("附加异常.err:"+str(ex))
@@ -413,7 +428,7 @@ class kmainForm(QMainWindow):
             self.log("加载"+filepath)
             self.loadJson(filepath)
             self.log("成功加载" + filepath)
-
+    #导入hook的json文件
     def importHooks(self):
         filepath = QtWidgets.QFileDialog.getOpenFileName(self, "open files")
         if filepath[0]:
@@ -421,6 +436,7 @@ class kmainForm(QMainWindow):
             self.loadJson(filepath[0])
             self.log("成功导入文件" + filepath[0])
 
+    #清除hook列表
     def clearHooks(self):
         self.log("清空hook列表")
         self.tabHooks.clear()
@@ -455,8 +471,13 @@ class kmainForm(QMainWindow):
                 self.tabHooks.setItem(line, 2, QTableWidgetItem(self.hooksData[item]["method"]))
                 self.tabHooks.setItem(line, 3, QTableWidgetItem(self.hooksData[item]["bak"]))
 
-    # ====================end======附加前使用的功能,基本都是在内存中查数据================================
+    #附加成功后取出app的信息展示
+    def loadAppInfo(self,appinfo):
+        info= json.loads(appinfo)
+        print(info)
 
+    # ====================end======附加前使用的功能,基本都是在内存中查数据================================
+    #关于我
     def actionAbort(self):
         QMessageBox().about(self, "About",
                             "\nfrida_tools: 缝合怪,常用脚本整合的界面化工具 \nAuthor: https://github.com/dqzg12300")

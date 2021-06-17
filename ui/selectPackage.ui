@@ -7,13 +7,26 @@
     <x>0</x>
     <y>0</y>
     <width>326</width>
-    <height>151</height>
+    <height>264</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>进程选择</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
+   <item row="2" column="2">
+    <widget class="QPushButton" name="btnSubmit">
+     <property name="maximumSize">
+      <size>
+       <width>120</width>
+       <height>16777215</height>
+      </size>
+     </property>
+     <property name="text">
+      <string>提交</string>
+     </property>
+    </widget>
+   </item>
    <item row="0" column="0">
     <widget class="QLabel" name="label_2">
      <property name="maximumSize">
@@ -27,31 +40,11 @@
      </property>
     </widget>
    </item>
-   <item row="0" column="1">
-    <widget class="QComboBox" name="cmbPackages">
-     <property name="minimumSize">
-      <size>
-       <width>220</width>
-       <height>0</height>
-      </size>
-     </property>
-     <property name="editable">
-      <bool>true</bool>
-     </property>
-    </widget>
+   <item row="1" column="2">
+    <widget class="QListWidget" name="listPackages"/>
    </item>
-   <item row="1" column="1">
-    <widget class="QPushButton" name="btnSubmit">
-     <property name="maximumSize">
-      <size>
-       <width>120</width>
-       <height>16777215</height>
-      </size>
-     </property>
-     <property name="text">
-      <string>提交</string>
-     </property>
-    </widget>
+   <item row="0" column="2">
+    <widget class="QLineEdit" name="txtPackage"/>
    </item>
   </layout>
  </widget>
