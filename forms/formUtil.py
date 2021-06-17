@@ -10,15 +10,28 @@ class matchForm(QDialog):
         self.btnSubmit.clicked.connect(self.submit)
         self.className=""
         self.methodName=""
-        self.flag=False
+        self.hasMethod = True
+        self.chkHasMethod.toggled.connect(self.changeHasMethod)
+        self.btnClear.clicked.connect(self.clearUi)
+        self.clearUi()
+
+    def clearUi(self):
+        self.txtClass.setText("")
+        self.txtMethod.setText("")
+
+    def changeHasMethod(self,chk):
+        if chk:
+            self.txtMethod.setEnabled(True)
+        else:
+            self.txtMethod.setEnabled(False)
 
     def submit(self):
         className=self.txtClass.text()
         methodName=self.txtMethod.text()
         self.className=className
         self.methodName=methodName
-        self.flag=True
-        self.close()
+        self.hasMethod = self.chkHasMethod.isChecked()
+        self.accept()
 
 
 class match2Form(QDialog):
@@ -27,21 +40,30 @@ class match2Form(QDialog):
         self.setWindowOpacity(0.93)
         uic.loadUi("./ui/match2.ui", self)
         self.btnSubmit.clicked.connect(self.submit)
-        self.flag = False
         self.moduleName = ""
         self.methodName = ""
+        self.showType=""
+        self.hasMethod=True
+        self.chkHasMethod.toggled.connect(self.changeHasMethod)
+        self.btnClear.clicked.connect(self.clearUi)
+        self.clearUi()
 
+    def clearUi(self):
+        self.txtModule.setText("")
+        self.txtMethod.setText("")
+
+    def changeHasMethod(self,chk):
+        if chk:
+            self.txtMethod.setEnabled(True)
+        else:
+            self.txtMethod.setEnabled(False)
 
     def submit(self):
-        moduleName = self.txtModule.text()
-        methodName = self.txtMethod.text()
-        if len(methodName) <= 0:
-            QMessageBox().information(self, "提示", "函数名为空")
-            return
-        self.moduleName = moduleName
-        self.methodName = methodName
-        self.flag=True
-        self.close()
+        self.moduleName = self.txtModule.text()
+        self.methodName = self.txtMethod.text()
+        self.showType = self.cmbShowType.currentText()
+        self.hasMethod=self.chkHasMethod.isChecked()
+        self.accept()
 
 class nativesForm(QDialog):
     def __init__(self):
@@ -51,7 +73,6 @@ class nativesForm(QDialog):
         self.btnSubmit.clicked.connect(self.submit)
         self.moduleName = ""
         self.methods= ""
-        self.flag=False
 
     def submit(self):
         moduleName = self.txtModule.text()
@@ -61,8 +82,7 @@ class nativesForm(QDialog):
             return
         self.moduleName = moduleName
         self.methods = methods
-        self.flag=True
-        self.close()
+        self.accept()
 
 class dumpAddressForm(QDialog):
     def __init__(self):
@@ -72,18 +92,52 @@ class dumpAddressForm(QDialog):
         self.btnSubmit.clicked.connect(self.submit)
         self.moduleName = ""
         self.address = ""
-        self.flag=False
+        self.dumpType=""
+        self.size=0
+        self.address=0
+        self.cmbDumpType.currentIndexChanged.connect(self.changeDumpType)
+        self.btnClear.clicked.connect(self.clearUi)
+        self.clearUi()
+
+
+    def clearUi(self):
+        self.txtSize.setText("0x30")
+        self.txtAddress.setText("")
+        self.txtModule.setText("")
+
+    def changeDumpType(self,idx):
+        if idx==1:
+            self.txtSize.setEnabled(False)
+        else:
+            self.txtSize.setEnabled(True)
 
     def submit(self):
         moduleName = self.txtModule.text()
         address = self.txtAddress.text()
-        if len(moduleName) <= 0 or len(address) <= 0:
-            QMessageBox().information(self, "提示", "模块名或地址为空")
+        size=self.txtSize.text()
+        if len(address) <= 0:
+            QMessageBox().information(self, "提示", "地址不能为空")
             return
-        self.moduleName = moduleName
-        self.address = address
-        self.flag=True
-        self.close()
+        self.dumpType=self.cmbDumpType.currentText()
+        try:
+            if self.dumpType=="hexdump":
+                if len(size)<=0:
+                    QMessageBox().information(self, "提示", "长度不能为空")
+                    return
+                else:
+                    if "0x" in size:
+                        self.size = int(size, 16)
+                    else:
+                        self.size = int(size)
+            self.moduleName = moduleName
+            if "0x" in address:
+                self.address = int(address,16)
+            else:
+                self.address = int(address)
+        except Exception as ex:
+            QMessageBox().information(self, "提示", "地址或长度格式输入错误")
+            return
+        self.accept()
 
 class findClassNameForm(QDialog):
     def __init__(self):
@@ -92,7 +146,6 @@ class findClassNameForm(QDialog):
         uic.loadUi("./ui/fdclass.ui", self)
         self.btnSubmit.clicked.connect(self.submit)
         self.className = ""
-        self.flag=False
 
     def submit(self):
         className = self.txtClass.text()
@@ -100,8 +153,7 @@ class findClassNameForm(QDialog):
             QMessageBox().information(self, "提示", "类名为空")
             return
         self.className = className
-        self.flag=True
-        self.close()
+        self.accept()
 
 class tuokeForm(QDialog):
     def __init__(self):
@@ -126,7 +178,6 @@ class callFunctionForm(QDialog):
         uic.loadUi("./ui/callfunction.ui", self)
         self.btnSubmit.clicked.connect(self.submit)
         self.methodName = ""
-        self.flag=False
 
     def submit(self):
         methodName = self.txtMethod.text()
@@ -134,8 +185,7 @@ class callFunctionForm(QDialog):
             QMessageBox().information(self, "提示", "类名为空")
             return
         self.methodName = methodName
-        self.flag=True
-        self.close()
+        self.accept()
 
 class patchForm(QDialog):
     def __init__(self):
@@ -146,7 +196,6 @@ class patchForm(QDialog):
         self.moduleName = ""
         self.address=""
         self.patch=""
-        self.flag=False
 
     def submit(self):
         moduleName = self.txtModule.text()
@@ -158,8 +207,7 @@ class patchForm(QDialog):
         self.moduleName = moduleName
         self.address = address
         self.patch = patch
-        self.flag=True
-        self.close()
+        self.accept()
 
 class selectPackageForm(QDialog):
     def __init__(self):
@@ -168,7 +216,6 @@ class selectPackageForm(QDialog):
         uic.loadUi("./ui/selectPackage.ui", self)
         self.btnSubmit.clicked.connect(self.submit)
         self.packageName = ""
-        self.flag=False
 
     def setPackages(self,packages):
         for item in packages:
@@ -180,5 +227,4 @@ class selectPackageForm(QDialog):
             QMessageBox().information(self, "提示", "未选择package")
             return
         self.packageName = packageName
-        self.flag=True
-        self.close()
+        self.accept()

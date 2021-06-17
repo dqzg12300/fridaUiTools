@@ -88,17 +88,24 @@ class Runthread(QThread):
     def default_message(self,p):
         self.outlog(p["data"])
 
-    def showMethods(self,className,methodName):
-        self.script.post({'type': 'input', 'payload': {"func":"showMethods","className":className,"methodName":methodName}})
-        self.log("post showMethods:"+className+","+methodName)
+    def showMethods(self,postdata):
+        postdata["func"]="showMethod"
+        self.script.post({'type': 'input', 'payload': postdata})
+        self.log("post showMethods:"+postdata["className"]+","+postdata["methodName"])
 
-    def showExport(self,moduleName,methodName,isExport):
-        self.script.post({'type': 'input', 'payload': {"func":"showMethods","moduleName":moduleName,"methodName":methodName,"isExport":isExport}})
-        self.log("post showMethods:"+moduleName+","+methodName)
+    def showExport(self,postdata):
+        postdata["func"] = "showExport"
+        self.script.post({'type': 'input', 'payload': postdata})
+        self.log("post showExport:"+postdata["moduleName"]+","+postdata["methodName"])
+
+    def dumpPtr(self,postdata):
+        postdata["func"] = "dumpPtr"
+        self.script.post({'type': 'input', 'payload': postdata})
+        self.log("post dumpPtr:" + postdata["moduleName"] + "," + str(hex(postdata["address"])))
 
     def on_message(self,message, data):
         if message["type"] == "error":
-            self.outlog(message)
+            self.outlog(json.dumps(message))
             return
         if "init" in message["payload"]:
             self.outlog(message["payload"]["init"])

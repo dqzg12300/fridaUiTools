@@ -7,19 +7,25 @@
     <x>0</x>
     <y>0</y>
     <width>326</width>
-    <height>136</height>
+    <height>142</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>匹配java函数</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="0" column="0">
-    <widget class="QLabel" name="label">
+   <item row="2" column="1">
+    <widget class="QCheckBox" name="chkHasMethod">
      <property name="text">
-      <string>类名：</string>
+      <string>匹配函数</string>
+     </property>
+     <property name="checked">
+      <bool>true</bool>
      </property>
     </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QLineEdit" name="txtMethod"/>
    </item>
    <item row="0" column="1">
     <widget class="QLineEdit" name="txtClass"/>
@@ -31,21 +37,42 @@
      </property>
     </widget>
    </item>
-   <item row="1" column="1">
-    <widget class="QLineEdit" name="txtMethod"/>
-   </item>
-   <item row="2" column="1">
-    <widget class="QPushButton" name="btnSubmit">
-     <property name="maximumSize">
-      <size>
-       <width>120</width>
-       <height>16777215</height>
-      </size>
-     </property>
+   <item row="0" column="0">
+    <widget class="QLabel" name="label">
      <property name="text">
-      <string>提交</string>
+      <string>类名：</string>
      </property>
     </widget>
+   </item>
+   <item row="3" column="1">
+    <layout class="QHBoxLayout" name="horizontalLayout">
+     <item>
+      <widget class="QPushButton" name="btnSubmit">
+       <property name="maximumSize">
+        <size>
+         <width>120</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="text">
+        <string>提交</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnClear">
+       <property name="maximumSize">
+        <size>
+         <width>120</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="text">
+        <string>清空</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
   </layout>
  </widget>

@@ -37,8 +37,8 @@
            <string>功能(附加进程后使用)</string>
           </property>
           <layout class="QGridLayout" name="gridLayout_4">
-           <item row="0" column="1">
-            <widget class="QPushButton" name="btnShowExport">
+           <item row="2" column="1">
+            <widget class="QPushButton" name="btnMatchDump">
              <property name="minimumSize">
               <size>
                <width>0</width>
@@ -46,7 +46,7 @@
               </size>
              </property>
              <property name="text">
-              <string>显示so符号</string>
+              <string>特征dump</string>
              </property>
             </widget>
            </item>
@@ -63,8 +63,8 @@
              </property>
             </widget>
            </item>
-           <item row="0" column="2">
-            <widget class="QPushButton" name="btnDumpStr">
+           <item row="0" column="1">
+            <widget class="QPushButton" name="btnShowExport">
              <property name="minimumSize">
               <size>
                <width>0</width>
@@ -72,20 +72,7 @@
               </size>
              </property>
              <property name="text">
-              <string>字符串打印地址</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="3">
-            <widget class="QPushButton" name="btnFindClassPath">
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>40</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>查询完整类名</string>
+              <string>显示so符号</string>
              </property>
             </widget>
            </item>
@@ -102,33 +89,7 @@
              </property>
             </widget>
            </item>
-           <item row="2" column="1">
-            <widget class="QPushButton" name="btnMatchDump">
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>40</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>特征dump</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="2">
-            <widget class="QPushButton" name="btnCallFunction">
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>40</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>主动调用</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="3">
+           <item row="0" column="3">
             <widget class="QPushButton" name="btnWallbreaker">
              <property name="minimumSize">
               <size>
