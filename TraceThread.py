@@ -49,6 +49,11 @@ class Runthread(QThread):
             # 使用r0capture.js
             if item=="r0capture":
                 source+=open('./js/r0capture.js', 'r',encoding="utf8").read()
+            elif item=="jnitrace":
+                source+=open('./js/jni_trace_new.js', 'r',encoding="utf8").read()
+                source=source.replace("%moduleName%",self.hooksData[item]["class"])
+                source = source.replace("%methodName%", self.hooksData[item]["method"])
+                source = source.replace("%spawn%", "")
         # if len(source) <= 0 :
         source+=open("./js/default.js",'r',encoding="utf8").read()
 
@@ -87,6 +92,9 @@ class Runthread(QThread):
             self.loadAppInfoSignel.emit(p["appinfo"])
         self.outlog(p["data"])
 
+    def jnitrace_message(self,p):
+        self.outlog(p["data"])
+
     def showMethods(self,postdata):
         postdata["func"]="showMethod"
         self.script.post({'type': 'input', 'payload': postdata})
@@ -115,8 +123,8 @@ class Runthread(QThread):
             return
         elif message["payload"]["jsname"]=="r0capture":
             self.r0capture_message(message["payload"],data)
-
-
+        elif message["payload"]["jsname"]=="jni_trace_new":
+            self.jnitrace_message(message["payload"])
 
     def _on_child_added(self,child):
         self._attach(child.pid)

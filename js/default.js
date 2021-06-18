@@ -150,7 +150,8 @@ function recvMessage(){
 function loadAppInfo(){
     var msg= initMessage();
     var appinfo={};
-    appinfo["name"]="test demo";
+    appinfo["modules"]=Process.enumerateModules();
+    appinfo["classes"]=Java.enumerateLoadedClassesSync()
     msg["appinfo"]=JSON.stringify(appinfo);
     msg["data"]="加载appinfo";
     send(msg);

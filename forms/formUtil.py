@@ -65,6 +65,31 @@ class match2Form(QDialog):
         self.hasMethod=self.chkHasMethod.isChecked()
         self.accept()
 
+
+class jnitraceForm(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowOpacity(0.93)
+        uic.loadUi("./ui/jnitrace.ui", self)
+        self.btnSubmit.clicked.connect(self.submit)
+        self.moduleName = ""
+        self.methodName = ""
+        self.btnClear.clicked.connect(self.clearUi)
+        self.clearUi()
+
+    def clearUi(self):
+        self.txtModule.setText("")
+        self.txtMethod.setText("")
+
+
+    def submit(self):
+        if len(self.txtModule.text())<=0 or len(self.txtModule.text())<=0:
+            QMessageBox().information(self, "提示", "模块名或函数为空")
+            return
+        self.moduleName = self.txtModule.text()
+        self.methodName = self.txtMethod.text()
+        self.accept()
+
 class nativesForm(QDialog):
     def __init__(self):
         super().__init__()

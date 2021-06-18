@@ -64,6 +64,9 @@ class kmainForm(QMainWindow):
         self.btnTuoke.clicked.connect(self.tuoke)
         self.btnPatch.clicked.connect(self.patch)
 
+        self.txtModule.textChanged.connect(self.changeModule)
+        self.txtClass.textChanged.connect(self.changeClass)
+
         self.btnSaveHooks.clicked.connect(self.saveHooks)
         self.btnImportHooks.clicked.connect(self.importHooks)
         self.btnLoadHooks.clicked.connect(self.loadHooks)
@@ -76,6 +79,10 @@ class kmainForm(QMainWindow):
         self.dumpForm = formUtil.dumpAddressForm()
         self.mform = formUtil.matchForm()
         self.m2form = formUtil.match2Form()
+        self.jniform=formUtil.jnitraceForm()
+
+        self.modules=None
+        self.classes=None
 
     def closeEvent(self, event):
         self.th.quit()
@@ -108,7 +115,6 @@ class kmainForm(QMainWindow):
             # 查下进程。能查到说明frida_server开启了
             device = frida.get_usb_device()
             process = device.enumerate_processes()
-            print(process)
             self.changeAttachStatus(True)
             self.th = TraceThread.Runthread(self.hooksData, "")
             self.th.taskOverSignel.connect(self.taskOver)
@@ -257,11 +263,23 @@ class kmainForm(QMainWindow):
 
     def hookJNI(self,checked):
         typeStr = "jnitrace"
-        self.hook_add(checked, typeStr)
         if checked:
             self.log("hook jni")
         else:
             self.log("取消hook jni")
+            if typeStr in self.hooksData:
+                self.hooksData.pop(typeStr)
+                self.updateTabHooks()
+            return
+        res=self.jniform.exec()
+        if res==0:
+            self.chkJni.setChecked(False)
+            return
+        jniHook = {"class": self.jniform.moduleName, "method": self.jniform.methodName,
+                     "bak": "jni trace(暂时未打印详细参数和返回值结果)"}
+        self.hooksData[typeStr]=jniHook
+        self.updateTabHooks()
+
 
     def hookJavaFile(self,checked):
         typeStr = "javaFile"
@@ -438,9 +456,8 @@ class kmainForm(QMainWindow):
 
     #清除hook列表
     def clearHooks(self):
-        self.log("清空hook列表")
+        # self.log("清空hook列表")
         self.tabHooks.clear()
-
         self.tabHooks.setColumnCount(4)
         self.tabHooks.setRowCount(0)
         self.tabHooks.setHorizontalHeaderLabels(self.header)
@@ -471,10 +488,52 @@ class kmainForm(QMainWindow):
                 self.tabHooks.setItem(line, 2, QTableWidgetItem(self.hooksData[item]["method"]))
                 self.tabHooks.setItem(line, 3, QTableWidgetItem(self.hooksData[item]["bak"]))
 
+    def changeModule(self,data):
+        if self.modules==None:
+            return
+        self.listModules.clear()
+        if len(data) > 0:
+            for item in self.modules:
+                data=data.split("----")[0]
+                if data in item["name"]:
+                    self.listModules.addItem(item["name"]+"----"+item["base"])
+        else:
+            for item in self.modules:
+                self.listModules.addItem(item["name"]+"----"+item["base"])
+
+    def changeClass(self,data):
+        if self.modules==None:
+            return
+        self.listClasses.clear()
+        if len(data) > 0:
+            for item in self.classes:
+                if data in item:
+                    self.listClasses.addItem(item)
+        else:
+            for item in self.classes:
+                self.listClasses.addItem(item)
+
+    def listModuleClick(self,item):
+        self.txtModule.setText(item.text())
+
+    def listClassClick(self,item):
+        self.txtClass.setText(item.text())
+
     #附加成功后取出app的信息展示
     def loadAppInfo(self,appinfo):
+        self.listModules.clear()
+        self.listClasses.clear()
         info= json.loads(appinfo)
-        print(info)
+        self.modules=info["modules"]
+        self.classes=info["classes"]
+        for module in info["modules"]:
+            self.listModules.addItem(module["name"]+"----"+module["base"])
+
+        for item in info["classes"]:
+            self.listClasses.addItem(item)
+
+        self.listModules.itemClicked.connect(self.listModuleClick)
+        self.listClasses.itemClicked.connect(self.listClassClick)
 
     # ====================end======附加前使用的功能,基本都是在内存中查数据================================
     #关于我
