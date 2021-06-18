@@ -216,10 +216,26 @@ class selectPackageForm(QDialog):
         uic.loadUi("./ui/selectPackage.ui", self)
         self.btnSubmit.clicked.connect(self.submit)
         self.packageName = ""
+        self.txtPackage.textChanged.connect(self.changePackage)
+
+    def changePackage(self,data):
+        self.listPackages.clear()
+        if len(data)>0:
+            for item in self.packages:
+                if data in item.name:
+                    self.listPackages.addItem(item.name)
+        else:
+            for item in self.packages:
+                self.listPackages.addItem(item.name)
 
     def setPackages(self,packages):
+        self.packages=packages
         for item in packages:
-            self.cmbPackages.addItem(item.name)
+            self.listPackages.addItem(item.name)
+        self.listPackages.itemClicked.connect(self.listItemClick)
+
+    def listItemClick(self,item):
+        self.txtPackage.setText(item.text())
 
     def submit(self):
         packageName = self.cmbPackages.currentText()
