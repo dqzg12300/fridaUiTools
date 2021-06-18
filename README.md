@@ -1,23 +1,81 @@
-# frida-tools
-## 我是缝合怪,整理一些自己经常用的脚本做个界面化的工具
-功能
-1、hook tcp、udp、http、https         多选
-2、hook jni                          多选
-3、hook 文件类所有                      多选
-4、hook 加解密java类所有               多选
-5、根据函数名查完整的类名                功能
-6、hook指定的类的所有函数             多选
-7、hook匹配到的所有函数名             多选
-8、显示所有类名以及函数名               功能
-9、显示所有加载的so以及符号列表           功能
-10、hexdump显示指定地址的数据             功能
-11、以字符串格式打印指定地址的数据      功能
-12、dump保存匹配指定格式的数据          功能
-13、hook证书导出                 多选
-14、ssl pining证书解绑定             多选
-15、打印指定类结构体                 功能
-16、打印指定类动态信息                功能
-17、trace一段native的结果         多选
-18、native批量hook                多选
+# frida_tools
 
-config保存
+---
+
+frida_tools是一个界面化整理脚本的工具。新人的练手作品。参考项目ZenTracer，觉得既然可以界面化，那么应该可以把功能做的更加完善一些。
+
+功能缝合怪。把一些常用的frida的hook脚本简单统一输出方式后，整合进来。并且将自己觉得常用的功能做成界面调用的。还想动态获取一些信息默认的直接展示。后续会根据自己实战的经验。不断完善这个工具。
+
+##  Hook脚本如下（附加进程前使用）
+
+---
+
+> * 整合r0capture
+> * 整合jnitrace
+> * java层的加解密相关自吐
+> * java文件相关自吐
+> * java字符串相关自吐
+> * ssl证书导出
+> * ssl pining（整合DroidSSLUnpinning）
+> * 模糊匹配函数进行批量hook（整合ZenTracer）
+> * 模糊匹配so函数批量hook（参数统一方式打印。所以输出只能做参考）
+> * native的sub函数批量hook（参数统一方式打印。所以输出只能做参考）
+> * stalker的trace
+> * 自定义脚本添加
+> * 脱壳相关（整合frida_dump、FRIDA-DEXDump、fart）
+> * patch汇编代码
+
+## 调用功能如下（附加进程后使用）
+
+---
+
+> * 模糊匹配类和函数打印（输出时间较长，如果想打印全部。就都填空即可）
+> * 模糊匹配so符号打印（输出时间较长，如果想打印全。就都填空即可）
+> * dump打印指定地址
+> * 特征dump（搜索内存中的指定特征，然后匹配指定大小。是对之前脱壳里面的功能单独抽出）
+> * 整合wallbreaker（内存中搜索到类的结构数据打印）
+
+## 应用信息
+
+---
+
+目前仅做通流程。后续会根据实战中的一些需求。在进程附加成功时，提取常用的一些信息出来展示
+
+
+
+## 日志说明
+
+---
+
+### 操作日志
+
+是对软件操作的所有输出日志。
+
+### 输出日志
+
+所有js返回的日志都在输出日志。并且保存在logs目录中
+
+### 当前hook列表
+
+当前勾选的hook脚本列表展示。可以保存，方便以后直接加载使用。
+
+
+
+## 应用界面
+
+![image-20210618123336357](/Users/king/git_src/frida_tools/img/image-20210618123336357.png)
+
+
+
+## 感谢
+
+---
+
+* [jnitrace](https://github.com/chame1eon/jnitrace)
+* [r0capture](https://github.com/r0ysue/r0capture)
+* [ZenTracer](https://github.com/hluwa/ZenTracer)
+* [DroidSSLUnpinning](https://github.com/WooyunDota/DroidSSLUnpinning)
+* [frida_dump](https://github.com/lasting-yang/frida_dump)
+* [FRIDA-DEXDump](https://github.com/hluwa/FRIDA-DEXDump)
+* [FART](https://github.com/hanbinglengyue/FART)
+
