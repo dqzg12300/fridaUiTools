@@ -63,7 +63,7 @@ frida_tools是一个界面化整理脚本的工具。新人的练手作品。参
 
 ## 应用界面
 
-![image-20210618123336357](/Users/king/git_src/frida_tools/img/image-20210618123336357.png)
+![image-20210618123336357](./img/image-20210618123336357.png)
 
 
 
