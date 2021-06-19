@@ -101,6 +101,9 @@ class Runthread(QThread):
     def jnitrace_message(self,p):
         self.outlog(p["data"])
 
+    def ZenTracer_message(self,p):
+        self.outlog(p["data"])
+
     def showMethods(self,postdata):
         postdata["func"]="showMethod"
         self.script.post({'type': 'input', 'payload': postdata})
@@ -131,6 +134,8 @@ class Runthread(QThread):
             self.r0capture_message(message["payload"],data)
         elif message["payload"]["jsname"]=="jni_trace_new":
             self.jnitrace_message(message["payload"])
+        elif message["payload"]["jsname"]=="ZenTracer":
+            self.ZenTracer_message(message["payload"])
 
     def _on_child_added(self,child):
         self._attach(child.pid)
