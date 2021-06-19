@@ -1,9 +1,17 @@
+function initMessage(){
+  var message={};
+  message["jsname"]="ZenTracer";
+  return message;
+}
+
 function log(text) {
     var packet = {
         'cmd': 'log',
         'data': text
     };
-    send("ZenTracer:::" + JSON.stringify(packet))
+    var msg= initMessage()
+    msg["data"]="ZenTracer:::" + JSON.stringify(packet)
+    send(msg)
 }
 
 function enter(tid, tname, cls, method, args) {
@@ -11,7 +19,9 @@ function enter(tid, tname, cls, method, args) {
         'cmd': 'enter',
         'data': [tid, tname, cls, method, args]
     };
-    send("ZenTracer:::" + JSON.stringify(packet))
+    var msg= initMessage()
+    msg["data"]="ZenTracer:::" + JSON.stringify(packet)
+    send(msg)
 }
 
 function exit(tid, retval) {
@@ -19,7 +29,9 @@ function exit(tid, retval) {
         'cmd': 'exit',
         'data': [tid, retval]
     };
-    send("ZenTracer:::" + JSON.stringify(packet))
+    var msg= initMessage()
+    msg["data"]="ZenTracer:::" + JSON.stringify(packet)
+    send(msg)
 }
 
 function getTid() {
@@ -61,6 +73,7 @@ function traceClass(clsname) {
                     exit(tid, "" + retval);
                     return retval;
                 }
+
             });
         });
     } catch (e) {
@@ -91,11 +104,11 @@ if (Java.available) {
         Java.enumerateLoadedClasses({
             onMatch: function (aClass) {
                 for (var index in matchRegEx) {
-                    // console.logs(matchRegEx[index]);
+                    // console.log(matchRegEx[index]);
                     if (match(matchRegEx[index], aClass)) {
                         var is_black = false;
                         for (var i in blackRegEx) {
-                            if (match(blackRegEx[i], aClass)) {
+                            if (match(blackRegEx[i]["class"], aClass)) {
                                 is_black = true;
                                 log(aClass + "' black by '" + blackRegEx[i] + "'");
                                 break;

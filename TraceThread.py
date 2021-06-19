@@ -54,6 +54,12 @@ class Runthread(QThread):
                 source=source.replace("%moduleName%",self.hooksData[item]["class"])
                 source = source.replace("%methodName%", self.hooksData[item]["method"])
                 source = source.replace("%spawn%", "")
+            elif item=="ZenTracer":
+                source += open('./js/trace.js', 'r', encoding="utf8").read()
+                match_s = str(self.hooksData[item]["traceClass"]).replace('u\'', '\'')
+                black_s = str(self.hooksData[item]["traceBClass"]).replace('u\'', '\'')
+                source=source.replace('{MATCHREGEX}', match_s).replace("{BLACKREGEX}", black_s)
+
         # if len(source) <= 0 :
         source+=open("./js/default.js",'r',encoding="utf8").read()
 

@@ -3,10 +3,10 @@ import datetime
 import sys
 
 from PyQt5 import uic, QtWidgets
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QStandardItemModel, QStandardItem
+from PyQt5.QtCore import Qt, QPoint
+from PyQt5.QtGui import QStandardItemModel, QStandardItem, QCursor
 from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog, QStatusBar, QLabel, QMessageBox, QHeaderView, \
-    QTableWidgetItem
+    QTableWidgetItem, QMenu, QAction
 
 from utils import LogUtil
 import json,os,threading,frida
@@ -28,6 +28,10 @@ class kmainForm(QMainWindow):
     def initUi(self):
         self.setWindowOpacity(0.93)
         uic.loadUi("./ui/kmain.ui", self)
+        if os.path.exists("./logs")==False:
+            os.makedirs("./logs")
+        if os.path.exists("./tmp")==False:
+            os.makedirs("./tmp")
 
         self.statusBar = QStatusBar()
         self.labStatus = QLabel('当前状态:未连接')
@@ -49,9 +53,7 @@ class kmainForm(QMainWindow):
         self.btnMatchDump.clicked.connect(self.matchDump)
         self.chkNetwork.toggled.connect(self.hookNetwork)
         self.chkJni.toggled.connect(self.hookJNI)
-        self.chkJavaFile.toggled.connect(self.hookJavaFile)
         self.chkJavaEnc.toggled.connect(self.hookJavaEnc)
-        self.chkJavaString.toggled.connect(self.hookJavaString)
         self.chkSec.toggled.connect(self.hookSec)
         self.chkSslPining.toggled.connect(self.hookSslPining)
 
@@ -76,16 +78,34 @@ class kmainForm(QMainWindow):
         self.tabHooks.setHorizontalHeaderLabels(self.header)
         self.tabHooks.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
+        self.tabHooks.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tabHooks.customContextMenuRequested[QPoint].connect(self.rightMenuShow)
+
         self.dumpForm = formUtil.dumpAddressForm()
         self.mform = formUtil.matchForm()
         self.m2form = formUtil.match2Form()
         self.jniform=formUtil.jnitraceForm()
+        self.zenTracerForm=formUtil.zenTracerForm()
 
         self.modules=None
         self.classes=None
 
-    def closeEvent(self, event):
-        self.th.quit()
+    # def closeEvent(self, event):
+    #     self.th.quit()
+
+    def hooksRemove(self):
+        for item in self.tabHooks.selectedItems():
+            self.hooksData.pop(self.tabHooks.item(item.row(),0).text())
+            self.tabHooks.removeRow(item.row())
+        self.updateTabHooks()
+        self.refreshChecks()
+
+
+    def rightMenuShow(self):
+        rightMenu = QMenu(self.tabHooks)
+        removeAction = QAction(u"删除", self,triggered=self.hooksRemove)
+        rightMenu.addAction(removeAction)
+        rightMenu.exec_(QCursor.pos())
 
     #打印操作日志
     def log(self,logstr):
@@ -250,8 +270,9 @@ class kmainForm(QMainWindow):
             self.hooksData[typeStr]=self.typeData[typeStr]
             self.updateTabHooks()
         else:
-            self.hooksData.pop(typeStr)
-            self.updateTabHooks()
+            if typeStr in self.hooksData:
+                self.hooksData.pop(typeStr)
+                self.updateTabHooks()
 
     def hookNetwork(self,checked):
         typeStr = "r0capture"
@@ -280,15 +301,6 @@ class kmainForm(QMainWindow):
         self.hooksData[typeStr]=jniHook
         self.updateTabHooks()
 
-
-    def hookJavaFile(self,checked):
-        typeStr = "javaFile"
-        self.hook_add(checked, typeStr)
-        if checked:
-            self.log("hook java的文件类所有函数")
-        else:
-            self.log("取消hook java的文件类所有函数")
-
     def hookJavaEnc(self,checked):
         typeStr = "javaEnc"
         self.hook_add(checked, typeStr)
@@ -296,14 +308,6 @@ class kmainForm(QMainWindow):
             self.log("hook java的算法加解密所有函数")
         else:
             self.log("取消hook java的算法加解密所有函数")
-
-    def hookJavaString(self,checked):
-        typeStr = "javaString"
-        self.hook_add(checked, typeStr)
-        if checked:
-            self.log("hook java的String所有函数")
-        else:
-            self.log("取消hook java的String所有函数")
 
     def hookSec(self,checked):
         typeStr = "javaSec"
@@ -322,18 +326,17 @@ class kmainForm(QMainWindow):
             self.log("取消hook证书锁定")
 
     def matchMethod(self):
-        mform = formUtil.matchForm()
-        res=mform.exec()
-        if res==0:
-            return
+        self.zenTracerForm.exec()
         self.log("根据函数名trace hook")
-        matchHook={"class":mform.className,"method":mform.methodName,"bak":"匹配指定类中的指定函数.无类名则hook所有类中的指定函数.无函数名则hook类的所有函数"}
-        typeStr="match_java"
-        if typeStr in self.hooksData:
-            self.hooksData[typeStr].append(matchHook)
-        else:
-            self.hooksData[typeStr] = []
-            self.hooksData[typeStr].append(matchHook)
+        if len(self.zenTracerForm.traceClass)<=0:
+            return
+        # matchHook={"class":mform.className,"method":mform.methodName,"bak":"匹配指定类中的指定函数.无类名则hook所有类中的指定函数.无函数名则hook类的所有函数"}
+        typeStr="ZenTracer"
+        classNames= ",".join(self.zenTracerForm.traceClass)
+        matchHook = {"class":classNames, "method":"",
+                     "bak": "ZenTracer的改造功能,匹配类和函数进行批量hook",
+                     "traceClass":self.zenTracerForm.traceClass,"traceBClass":self.zenTracerForm.traceBClass}
+        self.hooksData[typeStr]=matchHook
         self.updateTabHooks()
 
     def matchSoMethod(self):
@@ -415,21 +418,31 @@ class kmainForm(QMainWindow):
 
     #加载hook列表后。这里刷新下checked
     def refreshChecks(self):
-        for key in self.hooksData:
-            if key=="r0capture":
-                self.chkNetwork.setChecked(True)
-            elif key=="jnitrace":
-                self.chkJni.setChecked(True)
-            elif key=="javaFile":
-                self.chkJavaFile.setChecked(True)
-            elif key=="javaEnc":
-                self.chkJavaEnc.setChecked(True)
-            elif key=="javaString":
-                self.chkJavaString.setChecked(True)
-            elif key=="javaSec":
-                self.chkSec.setChecked(True)
-            elif key=="sslpining":
-                self.chkSslPining.setChecked(True)
+        if "r0capture" in self.hooksData:
+            self.chkNetwork.setChecked(True)
+        else:
+            self.chkNetwork.setChecked(False)
+
+        if "jnitrace" in self.hooksData:
+            self.chkJni.setChecked(True)
+        else:
+            self.chkJni.setChecked(False)
+
+        if "javaEnc" in self.hooksData:
+            self.chkJavaEnc.setChecked(True)
+        else:
+            self.chkJavaEnc.setChecked(False)
+
+        if "javaSec" in self.hooksData:
+            self.chkSec.setChecked(True)
+        else:
+            self.chkSec.setChecked(False)
+
+        if "sslpining" in self.hooksData:
+            self.chkSslPining.setChecked(True)
+        else:
+            self.chkSslPining.setChecked(False)
+
 
     def loadJson(self,filepath):
         with open(filepath, "r", encoding="utf8") as hooksFile:
@@ -534,6 +547,16 @@ class kmainForm(QMainWindow):
 
         self.listModules.itemClicked.connect(self.listModuleClick)
         self.listClasses.itemClicked.connect(self.listClassClick)
+        packageName=self.labPackage.text()
+        with open("./tmp/"+packageName+".classes.txt","w+",encoding="utf-8") as packageTmpFile:
+            for item in info["classes"]:
+                packageTmpFile.write(item+"\n")
+
+        with open("./tmp/"+packageName+".modules.txt","w+",encoding="utf-8") as packageTmpFile:
+            for module in info["modules"]:
+                packageTmpFile.write(module["name"] + "\n")
+
+
 
     # ====================end======附加前使用的功能,基本都是在内存中查数据================================
     #关于我
