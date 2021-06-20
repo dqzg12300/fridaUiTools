@@ -6,72 +6,136 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>450</width>
-    <height>224</height>
+    <width>372</width>
+    <height>407</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Patch</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout">
-   <item row="3" column="1">
-    <widget class="QRadioButton" name="rdoBinary">
-     <property name="text">
-      <string>二进制</string>
-     </property>
-     <property name="checked">
-      <bool>true</bool>
-     </property>
-    </widget>
-   </item>
-   <item row="3" column="2">
-    <widget class="QRadioButton" name="rdoAsm">
-     <property name="text">
-      <string>汇编</string>
-     </property>
-    </widget>
-   </item>
-   <item row="2" column="1" colspan="2">
-    <widget class="QLineEdit" name="txtPatch"/>
-   </item>
+  <layout class="QGridLayout" name="gridLayout_3">
    <item row="0" column="0">
-    <widget class="QLabel" name="label_3">
-     <property name="text">
-      <string>模块名：</string>
+    <widget class="QGroupBox" name="groupBox_2">
+     <property name="title">
+      <string>指定缓存数据</string>
      </property>
+     <layout class="QGridLayout" name="gridLayout_2">
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_5">
+        <property name="maximumSize">
+         <size>
+          <width>60</width>
+          <height>16777215</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>进程名：</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="cmbPackage">
+        <item>
+         <property name="text">
+          <string>选择缓存数据</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+     </layout>
     </widget>
-   </item>
-   <item row="0" column="1" colspan="2">
-    <widget class="QLineEdit" name="txtModule"/>
    </item>
    <item row="1" column="0">
-    <widget class="QLabel" name="label_2">
-     <property name="text">
-      <string>地址：</string>
+    <widget class="QGroupBox" name="groupBox">
+     <property name="title">
+      <string>patch</string>
      </property>
-    </widget>
-   </item>
-   <item row="2" column="0">
-    <widget class="QLabel" name="label_4">
-     <property name="text">
-      <string>patch：</string>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="1" colspan="2">
-    <widget class="QLineEdit" name="txtAddress"/>
-   </item>
-   <item row="4" column="1">
-    <widget class="QPushButton" name="btnSubmit">
-     <property name="maximumSize">
-      <size>
-       <width>120</width>
-       <height>16777215</height>
-      </size>
-     </property>
-     <property name="text">
-      <string>提交</string>
-     </property>
+     <layout class="QGridLayout" name="gridLayout">
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_2">
+        <property name="text">
+         <string>地址：</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="1">
+       <layout class="QHBoxLayout" name="horizontalLayout">
+        <item>
+         <widget class="QRadioButton" name="rdoBinary">
+          <property name="text">
+           <string>二进制</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="rdoAsm">
+          <property name="text">
+           <string>汇编</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_3">
+        <property name="text">
+         <string>模块名：</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QLineEdit" name="txtPatch"/>
+      </item>
+      <item row="1" column="1">
+       <widget class="QListWidget" name="listModule"/>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="txtModule"/>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="label_4">
+        <property name="text">
+         <string>patch：</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QLineEdit" name="txtAddress"/>
+      </item>
+      <item row="5" column="1">
+       <layout class="QHBoxLayout" name="horizontalLayout_2">
+        <item>
+         <widget class="QPushButton" name="btnSubmit">
+          <property name="maximumSize">
+           <size>
+            <width>120</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>提交</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btnClear">
+          <property name="maximumSize">
+           <size>
+            <width>120</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>清空</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
     </widget>
    </item>
   </layout>

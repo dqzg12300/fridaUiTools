@@ -18,6 +18,44 @@ class matchForm(QDialog):
         self.chkHasMethod.toggled.connect(self.changeHasMethod)
         self.btnClear.clicked.connect(self.clearUi)
         self.clearUi()
+        self.flushCmb()
+        self.listClass.itemClicked.connect(self.ClassItemClick)
+        self.txtClass.textChanged.connect(self.changeClass)
+        self.cmbPackage.currentTextChanged.connect(self.changePackage)
+        self.modules = None
+
+    def initData(self):
+        self.listClass.clear()
+        for item in self.modules:
+            self.listClass.addItem(item)
+
+    def flushCmb(self):
+        self.cmbPackage.clear()
+        files = os.listdir("./tmp/")
+        self.cmbPackage.addItem("选择缓存数据")
+        for item in files:
+            if ".classes.txt" in item:
+                self.cmbPackage.addItem(item.replace(".classes.txt", ""))
+
+    def ClassItemClick(self, item):
+        self.txtClass.setText(item.text())
+
+    def changeClass(self, data):
+        self.listClass.clear()
+        if len(data) > 0:
+            for item in self.modules:
+                if data in item:
+                    self.listClass.addItem(item)
+        else:
+            for item in self.modules:
+                self.listClass.addItem(item)
+
+    def changePackage(self, data):
+        filepath = "./tmp/" + data + ".modules.txt"
+        with open(filepath, "r", encoding="utf-8") as packageFile:
+            res = packageFile.read()
+            self.modules = res.split("\n")
+        self.initData()
 
     def clearUi(self):
         self.txtClass.setText("")
@@ -37,63 +75,6 @@ class matchForm(QDialog):
         self.hasMethod = self.chkHasMethod.isChecked()
         self.accept()
 
-
-class match2Form(QDialog):
-    def __init__(self):
-        super().__init__()
-        self.setWindowOpacity(0.93)
-        uic.loadUi("./ui/match2.ui", self)
-        self.btnSubmit.clicked.connect(self.submit)
-        self.moduleName = ""
-        self.methodName = ""
-        self.showType=""
-        self.hasMethod=True
-        self.chkHasMethod.toggled.connect(self.changeHasMethod)
-        self.btnClear.clicked.connect(self.clearUi)
-        self.clearUi()
-
-    def clearUi(self):
-        self.txtModule.setText("")
-        self.txtMethod.setText("")
-
-    def changeHasMethod(self,chk):
-        if chk:
-            self.txtMethod.setEnabled(True)
-        else:
-            self.txtMethod.setEnabled(False)
-
-    def submit(self):
-        self.moduleName = self.txtModule.text()
-        self.methodName = self.txtMethod.text()
-        self.showType = self.cmbShowType.currentText()
-        self.hasMethod=self.chkHasMethod.isChecked()
-        self.accept()
-
-
-class jnitraceForm(QDialog):
-    def __init__(self):
-        super().__init__()
-        self.setWindowOpacity(0.93)
-        uic.loadUi("./ui/jnitrace.ui", self)
-        self.btnSubmit.clicked.connect(self.submit)
-        self.moduleName = ""
-        self.methodName = ""
-        self.btnClear.clicked.connect(self.clearUi)
-        self.clearUi()
-
-    def clearUi(self):
-        self.txtModule.setText("")
-        self.txtMethod.setText("")
-
-
-    def submit(self):
-        if len(self.txtModule.text())<=0 or len(self.txtModule.text())<=0:
-            QMessageBox().information(self, "提示", "模块名或函数为空")
-            return
-        self.moduleName = self.txtModule.text()
-        self.methodName = self.txtMethod.text()
-        self.accept()
-
 class nativesForm(QDialog):
     def __init__(self):
         super().__init__()
@@ -102,10 +83,54 @@ class nativesForm(QDialog):
         self.btnSubmit.clicked.connect(self.submit)
         self.moduleName = ""
         self.methods= ""
+        self.btnClear.clicked.connect(self.clearUi)
+        self.clearUi()
+        self.flushCmb()
+        self.listModule.itemClicked.connect(self.ModuleItemClick)
+        self.txtModule.textChanged.connect(self.changeModule)
+        self.cmbPackage.currentTextChanged.connect(self.changePackage)
+        self.modules = None
+
+    def initData(self):
+        self.listModule.clear()
+        for item in self.modules:
+            self.listModule.addItem(item)
+
+    def flushCmb(self):
+        self.cmbPackage.clear()
+        files = os.listdir("./tmp/")
+        self.cmbPackage.addItem("选择缓存数据")
+        for item in files:
+            if ".modules.txt" in item:
+                self.cmbPackage.addItem(item.replace(".modules.txt", ""))
+
+    def ModuleItemClick(self, item):
+        self.txtModule.setText(item.text())
+
+    def changeModule(self, data):
+        self.listModule.clear()
+        if len(data) > 0:
+            for item in self.modules:
+                if data in item:
+                    self.listModule.addItem(item)
+        else:
+            for item in self.modules:
+                self.listModule.addItem(item)
+
+    def changePackage(self, data):
+        filepath = "./tmp/" + data + ".modules.txt"
+        with open(filepath, "r", encoding="utf-8") as packageFile:
+            res = packageFile.read()
+            self.modules = res.split("\n")
+        self.initData()
+
+    def clearUi(self):
+        self.txtModule.setText("")
+        self.txtMethods.setPlainText("")
 
     def submit(self):
         moduleName = self.txtModule.text()
-        methods = self.txtMethods.toPlainText()
+        methods = self.txtMethods.toPlainText().replace("\n",",")
         if len(moduleName) <= 0 or len(methods) <= 0:
             QMessageBox().information(self, "提示", "模块名或函数为空")
             return
@@ -127,6 +152,44 @@ class dumpAddressForm(QDialog):
         self.cmbDumpType.currentIndexChanged.connect(self.changeDumpType)
         self.btnClear.clicked.connect(self.clearUi)
         self.clearUi()
+        self.flushCmb()
+        self.listModule.itemClicked.connect(self.ModuleItemClick)
+        self.txtModule.textChanged.connect(self.changeModule)
+        self.cmbPackage.currentTextChanged.connect(self.changePackage)
+        self.modules = None
+
+    def initData(self):
+        self.listModule.clear()
+        for item in self.modules:
+            self.listModule.addItem(item)
+
+    def flushCmb(self):
+        self.cmbPackage.clear()
+        files = os.listdir("./tmp/")
+        self.cmbPackage.addItem("选择缓存数据")
+        for item in files:
+            if ".modules.txt" in item:
+                self.cmbPackage.addItem(item.replace(".modules.txt", ""))
+
+    def ModuleItemClick(self, item):
+        self.txtModule.setText(item.text())
+
+    def changeModule(self, data):
+        self.listModule.clear()
+        if len(data) > 0:
+            for item in self.modules:
+                if data in item:
+                    self.listModule.addItem(item)
+        else:
+            for item in self.modules:
+                self.listModule.addItem(item)
+
+    def changePackage(self, data):
+        filepath = "./tmp/" + data + ".modules.txt"
+        with open(filepath, "r", encoding="utf-8") as packageFile:
+            res = packageFile.read()
+            self.modules = res.split("\n")
+        self.initData()
 
 
     def clearUi(self):
@@ -168,22 +231,6 @@ class dumpAddressForm(QDialog):
             return
         self.accept()
 
-class findClassNameForm(QDialog):
-    def __init__(self):
-        super().__init__()
-        self.setWindowOpacity(0.93)
-        uic.loadUi("./ui/fdclass.ui", self)
-        self.btnSubmit.clicked.connect(self.submit)
-        self.className = ""
-
-    def submit(self):
-        className = self.txtClass.text()
-        if len(className) <= 0:
-            QMessageBox().information(self, "提示", "类名为空")
-            return
-        self.className = className
-        self.accept()
-
 class tuokeForm(QDialog):
     def __init__(self):
         super().__init__()
@@ -200,22 +247,6 @@ class tuokeForm(QDialog):
             self.tuokeType="dexdump"
         self.close()
 
-class callFunctionForm(QDialog):
-    def __init__(self):
-        super().__init__()
-        self.setWindowOpacity(0.93)
-        uic.loadUi("./ui/callfunction.ui", self)
-        self.btnSubmit.clicked.connect(self.submit)
-        self.methodName = ""
-
-    def submit(self):
-        methodName = self.txtMethod.text()
-        if len(methodName) <= 0:
-            QMessageBox().information(self, "提示", "类名为空")
-            return
-        self.methodName = methodName
-        self.accept()
-
 class patchForm(QDialog):
     def __init__(self):
         super().__init__()
@@ -225,6 +256,51 @@ class patchForm(QDialog):
         self.moduleName = ""
         self.address=""
         self.patch=""
+        self.btnClear.clicked.connect(self.clearUi)
+        self.clearUi()
+        self.flushCmb()
+        self.listModule.itemClicked.connect(self.ModuleItemClick)
+        self.txtModule.textChanged.connect(self.changeModule)
+        self.cmbPackage.currentTextChanged.connect(self.changePackage)
+        self.modules = None
+
+    def initData(self):
+        self.listModule.clear()
+        for item in self.modules:
+            self.listModule.addItem(item)
+
+    def flushCmb(self):
+        self.cmbPackage.clear()
+        files = os.listdir("./tmp/")
+        self.cmbPackage.addItem("选择缓存数据")
+        for item in files:
+            if ".modules.txt" in item:
+                self.cmbPackage.addItem(item.replace(".modules.txt", ""))
+
+    def ModuleItemClick(self, item):
+        self.txtModule.setText(item.text())
+
+    def changeModule(self, data):
+        self.listModule.clear()
+        if len(data) > 0:
+            for item in self.modules:
+                if data in item:
+                    self.listModule.addItem(item)
+        else:
+            for item in self.modules:
+                self.listModule.addItem(item)
+
+    def changePackage(self, data):
+        filepath = "./tmp/" + data + ".modules.txt"
+        with open(filepath, "r", encoding="utf-8") as packageFile:
+            res = packageFile.read()
+            self.modules = res.split("\n")
+        self.initData()
+
+    def clearUi(self):
+        self.txtModule.setText("")
+        self.txtAddress.setText("")
+        self.txtPatch.setText("")
 
     def submit(self):
         moduleName = self.txtModule.text()
@@ -274,11 +350,74 @@ class selectPackageForm(QDialog):
         self.packageName = packageName
         self.accept()
 
+class jnitraceForm(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowOpacity(0.93)
+        uic.loadUi("./ui/jnitrace.ui", self)
+        self.btnSubmit.clicked.connect(self.submit)
+        self.moduleName = ""
+        self.methodName = ""
+        self.btnClear.clicked.connect(self.clearUi)
+        self.clearUi()
+        self.flushCmb()
+        self.listModule.itemClicked.connect(self.ModuleItemClick)
+        self.txtModule.textChanged.connect(self.changeModule)
+        self.cmbPackage.currentTextChanged.connect(self.changePackage)
+        self.modules=None
+
+    def initData(self):
+        self.listModule.clear()
+        for item in self.modules:
+            self.listModule.addItem(item)
+
+    def flushCmb(self):
+        self.cmbPackage.clear()
+        files = os.listdir("./tmp/")
+        self.cmbPackage.addItem("选择缓存数据")
+        for item in files:
+            if ".modules.txt" in item:
+                self.cmbPackage.addItem(item.replace(".modules.txt",""))
+
+    def ModuleItemClick(self,item):
+        self.txtModule.setText(item.text())
+
+    def changeModule(self,data):
+        self.listModule.clear()
+        if len(data) > 0:
+            for item in self.modules:
+                if data in item:
+                    self.listModule.addItem(item)
+        else:
+            for item in self.modules:
+                self.listModule.addItem(item)
+
+    def changePackage(self,data):
+        filepath = "./tmp/" + data + ".modules.txt"
+        with open(filepath, "r", encoding="utf-8") as packageFile:
+            res = packageFile.read()
+            self.modules = res.split("\n")
+        self.initData()
+
+    def clearUi(self):
+        self.txtModule.setText("")
+        self.txtMethod.setText("")
+
+
+    def submit(self):
+        if len(self.txtModule.text())<=0 or len(self.txtModule.text())<=0:
+            QMessageBox().information(self, "提示", "模块名或函数为空")
+            return
+        self.moduleName = self.txtModule.text()
+        self.methodName = self.txtMethod.text()
+        self.accept()
+
 class zenTracerForm(QDialog):
     def __init__(self):
         super().__init__()
         self.setWindowOpacity(0.93)
         uic.loadUi("./ui/zenTracer.ui", self)
+        self.flushCmb()
         self.traceClass =[]
         self.traceBClass=[]
         self.classes=None
@@ -292,7 +431,7 @@ class zenTracerForm(QDialog):
 
         self.btnClassFileAdd.clicked.connect(self.classFileAdd)
         self.btnClassStringAdd.clicked.connect(self.classStringAdd)
-        self.flushCmb()
+
         self.cmbPackage.currentTextChanged.connect(self.changePackage)
 
         self.header = ["类名", "类型"]
@@ -302,6 +441,7 @@ class zenTracerForm(QDialog):
 
         self.tabTracer.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tabTracer.customContextMenuRequested[QPoint].connect(self.rightMenuShow)
+
 
     def flushCmb(self):
         self.cmbPackage.clear()
@@ -359,7 +499,7 @@ class zenTracerForm(QDialog):
         self.updateTabTracer()
 
     def classBreakAdd(self):
-        className = self.txtBClass.text()
+        className = self.txtClassBreak.text()
         if className in self.traceBClass:
             return
         self.traceBClass.append(className)

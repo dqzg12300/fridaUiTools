@@ -1,5 +1,13 @@
-Java.perform(function() {
+function initMessage(){
+  var message={};
+  message["jsname"]="sslpinning";
+  return message;
+}
 
+Java.perform(function() {
+	var msg= initMessage();
+    msg["init"]="DroidSSLUnpinning.js init hook success";
+    send(msg);
 /*
 hook list:
 1.SSLcontext
@@ -32,8 +40,9 @@ hook list:
 
 			return;
 		}
-
-		send(data)
+		var msg= initMessage();
+		msg["data"]=data
+		send(msg)
 	}
 
 
@@ -84,7 +93,7 @@ hook list:
 		quiet_send(e.message);
 	}
 
-	send('Custom, Empty TrustManager ready');
+	quiet_send('Custom, Empty TrustManager ready');
 
 	// Get a handle on the init() on the SSLContext class
 	var SSLContext_init = SSLContext.init.overload(
@@ -345,22 +354,29 @@ apache httpclient partly
 		netBuilder.enablePublicKeyPinningBypassForLocalTrustAnchors.implementation = function(arg) {
 
 			//weibo not invoke
-			console.log("Enables or disables public key pinning bypass for local trust anchors = " + arg);
-
+			// console.log("Enables or disables public key pinning bypass for local trust anchors = " + arg);
+			var msg= initMessage();
+			msg["data"]="Enables or disables public key pinning bypass for local trust anchors = " + arg;
+			send(msg);
 			//true to enable the bypass, false to disable.
 			var ret = netBuilder.enablePublicKeyPinningBypassForLocalTrustAnchors.call(this, true);
 			return ret;
 		};
 
 		netBuilder.addPublicKeyPins.implementation = function(hostName, pinsSha256, includeSubdomains, expirationDate) {
-			console.log("cronet addPublicKeyPins hostName = " + hostName);
-
+			// console.log("cronet addPublicKeyPins hostName = " + hostName);
+			var msg= initMessage();
+			msg["data"]="cronet addPublicKeyPins hostName = " + hostName;
+			send(msg);
 			//var ret = netBuilder.addPublicKeyPins.call(this,hostName, pinsSha256,includeSubdomains, expirationDate);
 			//this 是调用 addPublicKeyPins 前的对象吗? Yes,CronetEngine.Builder
 			return this;
 		};
 
 	} catch (err) {
-		console.log('[-] Cronet pinner not found')
+		// console.log('[-] Cronet pinner not found')
+		var msg= initMessage();
+		msg["data"]='[-] Cronet pinner not found';
+		send(msg);
 	}
 });

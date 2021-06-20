@@ -45,7 +45,7 @@ class kmainForm(QMainWindow):
         self.actionAttachName.triggered.connect(self.actionAttachNameStart)
         self.actionabort.triggered.connect(self.actionAbort)
         self.actionStop.setEnabled(False)
-        self.actionStop.triggered.connect(self.taskOver)
+        self.actionStop.triggered.connect(self.StopAttach)
         self.btnShowExport.clicked.connect(self.showExport)
         self.btnWallbreaker.clicked.connect(self.wallBreaker)
         self.btnShowMethods.clicked.connect(self.showMethods)
@@ -54,11 +54,12 @@ class kmainForm(QMainWindow):
         self.chkNetwork.toggled.connect(self.hookNetwork)
         self.chkJni.toggled.connect(self.hookJNI)
         self.chkJavaEnc.toggled.connect(self.hookJavaEnc)
-        self.chkSec.toggled.connect(self.hookSec)
+        self.chkRegisterNative.toggled.connect(self.hookRegisterNative)
+        self.chkArtMethod.toggled.connect(self.hookArtMethod)
+        self.chkLibArt.toggled.connect(self.hookLibArm)
         self.chkSslPining.toggled.connect(self.hookSslPining)
 
         self.btnMatchMethod.clicked.connect(self.matchMethod)
-        self.btnMatchSoMethod.clicked.connect(self.matchSoMethod)
 
         self.btnNatives.clicked.connect(self.hookNatives)
         self.btnStalker.clicked.connect(self.stalker)
@@ -81,17 +82,78 @@ class kmainForm(QMainWindow):
         self.tabHooks.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tabHooks.customContextMenuRequested[QPoint].connect(self.rightMenuShow)
 
+        self.btnMethod.clicked.connect(self.searchMethod)
+        self.btnExport.clicked.connect(self.searchExport)
+        self.btnSymbol.clicked.connect(self.searchSymbol)
+        self.btnSymbolClear.clicked.connect(self.clearSymbol)
+        self.btnMethodClear.clicked.connect(self.clearMethod)
+        self.txtMethod.textChanged.connect(self.changeMethod)
+        self.txtSymbol.textChanged.connect(self.changeSymbol)
+
+
         self.dumpForm = formUtil.dumpAddressForm()
         self.mform = formUtil.matchForm()
-        self.m2form = formUtil.match2Form()
         self.jniform=formUtil.jnitraceForm()
         self.zenTracerForm=formUtil.zenTracerForm()
+        self.nativesForm = formUtil.nativesForm()
 
         self.modules=None
         self.classes=None
 
-    # def closeEvent(self, event):
-    #     self.th.quit()
+        self.chkNetwork.tag = "r0capture"
+        self.chkJni.tag = "jnitrace"
+        self.chkJavaEnc.tag = "javaEnc"
+        self.chkSslPining.tag = "sslpining"
+        self.chkRegisterNative.tag = "RegisterNative"
+        self.chkArtMethod.tag = "ArtMethod"
+        self.chkLibArt.tag = "libArt"
+
+    def clearSymbol(self):
+        self.listSymbol.clear()
+
+    def clearMethod(self):
+        self.listMethod.clear()
+
+    def changeMethod(self,data):
+        self.listMethod.clear()
+        if len(data) > 0:
+            for item in self.methods:
+                if data in item:
+                    self.listMethod.addItem(item)
+        else:
+            for item in self.methods:
+                self.listMethod.addItem(item)
+
+    def changeSymbol(self,data):
+        self.listSymbol.clear()
+        if len(data) > 0:
+            for item in self.symbols:
+                if data in item["name"]:
+                    self.listSymbol.addItem(item["name"])
+        else:
+            for item in self.symbols:
+                self.listSymbol.addItem(item["name"])
+
+    def searchExport(self):
+        if len(self.txtModule.text())<=0:
+            QMessageBox().information(self, "提示", "未填写模块名称")
+            return
+        postdata={"type":"export","baseName":self.txtModule.text().split("----")[0]}
+        self.th.searchInfo(postdata)
+
+    def searchSymbol(self):
+        if len(self.txtModule.text())<=0:
+            QMessageBox().information(self, "提示", "未填写模块名称")
+            return
+        postdata = {"type": "symbol", "baseName": self.txtModule.text().split("----")[0]}
+        self.th.searchInfo(postdata)
+    def searchMethod(self):
+        if len(self.txtClass.text())<=0:
+            QMessageBox().information(self, "提示", "未填写类型名称")
+            return
+        postdata = {"type": "method", "baseName": self.txtClass.text()}
+        self.th.searchInfo(postdata)
+
 
     def hooksRemove(self):
         for item in self.tabHooks.selectedItems():
@@ -100,7 +162,7 @@ class kmainForm(QMainWindow):
         self.updateTabHooks()
         self.refreshChecks()
 
-
+    #右键菜单
     def rightMenuShow(self):
         rightMenu = QMenu(self.tabHooks)
         removeAction = QAction(u"删除", self,triggered=self.hooksRemove)
@@ -120,11 +182,17 @@ class kmainForm(QMainWindow):
         if "default.js init hook success" in logstr:
             QMessageBox().information(self, "提示", "附加进程成功")
 
+    #线程调用脚本结束，并且触发结束信号
+    def StopAttach(self):
+        self.th.quit()
+
+    #进程结束时的状态切换，和打印
     def taskOver(self):
         self.log("附加进程结束")
         self.changeAttachStatus(False)
         QMessageBox().information(self, "提示", "成功停止附加进程")
 
+    #这是附加结束时的状态栏显示包名
     def attachOver(self,name):
         self.labPackage.setText(name)
 
@@ -134,7 +202,7 @@ class kmainForm(QMainWindow):
         try:
             # 查下进程。能查到说明frida_server开启了
             device = frida.get_usb_device()
-            process = device.enumerate_processes()
+            device.enumerate_processes()
             self.changeAttachStatus(True)
             self.th = TraceThread.Runthread(self.hooksData, "")
             self.th.taskOverSignel.connect(self.taskOver)
@@ -142,6 +210,7 @@ class kmainForm(QMainWindow):
             self.th.outloggerSignel.connect(self.outlog)
             self.th.loadAppInfoSignel.connect(self.loadAppInfo)
             self.th.attachOverSignel.connect(self.attachOver)
+            self.th.searchAppInfoSignel.connect(self.searchAppInfoRes)
             self.th.start()
             if len(self.hooksData) <= 0:
                 # QMessageBox().information(self, "提示", "未设置hook选项")
@@ -184,6 +253,7 @@ class kmainForm(QMainWindow):
             self.th.outloggerSignel.connect(self.outlog)
             self.th.loadAppInfoSignel.connect(self.loadAppInfo)
             self.th.attachOverSignel.connect(self.attachOver)
+            self.th.searchAppInfoSignel.connect(self.searchAppInfoRes)
             self.th.start()
         except Exception as ex:
             self.log("附加异常.err:"+str(ex))
@@ -309,13 +379,29 @@ class kmainForm(QMainWindow):
         else:
             self.log("取消hook java的算法加解密所有函数")
 
-    def hookSec(self,checked):
-        typeStr = "javaSec"
+    def hookRegisterNative(self,checked):
+        typeStr = "RegisterNative"
         self.hook_add(checked, typeStr)
         if checked:
-            self.log("hook并导出证书")
+            self.log("hook RegisterNative")
         else:
-            self.log("取消hook并导出证书")
+            self.log("取消hook RegisterNative")
+
+    def hookArtMethod(self,checked):
+        typeStr = "ArtMethod"
+        self.hook_add(checked, typeStr)
+        if checked:
+            self.log("hook ArtMethod")
+        else:
+            self.log("取消hook ArtMethod")
+
+    def hookLibArm(self,checked):
+        typeStr = "libArm"
+        self.hook_add(checked, typeStr)
+        if checked:
+            self.log("hook libArm")
+        else:
+            self.log("取消hook libArm")
 
     def hookSslPining(self,checked):
         typeStr = "sslpining"
@@ -339,34 +425,14 @@ class kmainForm(QMainWindow):
         self.hooksData[typeStr]=matchHook
         self.updateTabHooks()
 
-    def matchSoMethod(self):
-        m2form = formUtil.match2Form()
-        res=m2form.exec()
-        if res==0:
-            return
-        self.log("根据so的函数名trace hook")
-        matchHook = {"class": m2form.moduleName, "method": m2form.methodName, "bak": "匹配so中的函数."}
-        typeStr = "match_native"
-        if typeStr in self.hooksData:
-            self.hooksData[typeStr].append(matchHook)
-        else:
-            self.hooksData[typeStr] = []
-            self.hooksData[typeStr].append(matchHook)
-        self.updateTabHooks()
-
     def hookNatives(self):
-        nativesForm = formUtil.nativesForm()
-        res=nativesForm.exec()
+        res=self.nativesForm.exec()
         if res==0:
             return
         self.log("批量hook native的sub函数")
-        matchHook = {"class": nativesForm.moduleName, "method": nativesForm.methods, "bak": "批量匹配sub函数,使用较通用的方式打印参数."}
+        matchHook = {"class": self.nativesForm.moduleName, "method": self.nativesForm.methods, "bak": "批量匹配sub函数,使用较通用的方式打印参数."}
         typeStr = "match_sub"
-        if typeStr in self.hooksData:
-            self.hooksData[typeStr].append(matchHook)
-        else:
-            self.hooksData[typeStr] = []
-            self.hooksData[typeStr].append(matchHook)
+        self.hooksData[typeStr]=matchHook
         self.updateTabHooks()
 
     def stalker(self):
@@ -418,30 +484,13 @@ class kmainForm(QMainWindow):
 
     #加载hook列表后。这里刷新下checked
     def refreshChecks(self):
-        if "r0capture" in self.hooksData:
-            self.chkNetwork.setChecked(True)
-        else:
-            self.chkNetwork.setChecked(False)
-
-        if "jnitrace" in self.hooksData:
-            self.chkJni.setChecked(True)
-        else:
-            self.chkJni.setChecked(False)
-
-        if "javaEnc" in self.hooksData:
-            self.chkJavaEnc.setChecked(True)
-        else:
-            self.chkJavaEnc.setChecked(False)
-
-        if "javaSec" in self.hooksData:
-            self.chkSec.setChecked(True)
-        else:
-            self.chkSec.setChecked(False)
-
-        if "sslpining" in self.hooksData:
-            self.chkSslPining.setChecked(True)
-        else:
-            self.chkSslPining.setChecked(False)
+        self.chkNetwork.setChecked(self.chkNetwork.tag in self.hooksData)
+        self.chkJni.setChecked(self.chkJni.tag in self.hooksData)
+        self.chkJavaEnc.setChecked(self.chkJavaEnc.tag in self.hooksData)
+        self.chkSslPining.setChecked(self.chkSslPining.tag in self.hooksData)
+        self.chkRegisterNative.setChecked(self.chkRegisterNative.tag in self.hooksData)
+        self.chkArtMethod.setChecked(self.chkArtMethod.tag in self.hooksData)
+        self.chkLibArt.setChecked(self.chkLibArt.tag in self.hooksData)
 
 
     def loadJson(self,filepath):
@@ -556,6 +605,20 @@ class kmainForm(QMainWindow):
             for module in info["modules"]:
                 packageTmpFile.write(module["name"] + "\n")
 
+    def searchAppInfoRes(self,appinfo):
+        info = json.loads(appinfo)
+        searchTyep=info["type"]
+        self.searchType=searchTyep
+        if searchTyep=="export" or searchTyep=="symbol":
+            self.listSymbol.clear()
+            self.symbols = info[searchTyep]
+            for item in info[searchTyep]:
+                self.listSymbol.addItem(item["name"])
+        elif searchTyep=="method":
+            self.listMethod.clear()
+            self.methods = info[searchTyep]
+            for method in info[searchTyep]:
+                self.listMethod.addItem(method)
 
 
     # ====================end======附加前使用的功能,基本都是在内存中查数据================================

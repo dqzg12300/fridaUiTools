@@ -19,19 +19,24 @@ class Runthread(QThread):
     taskOverSignel=pyqtSignal()
     #获取一些附加成功就可以取的通用信息。这里暂时还不知道初始化一些啥信息比较好。先打通流程
     loadAppInfoSignel=pyqtSignal(str)
+    searchAppInfoSignel=pyqtSignal(str)
     #附加成功的信号
     attachOverSignel = pyqtSignal(str)
     def __init__(self,hooksData,attachName):
         super(Runthread, self).__init__()
         self.hooksData = hooksData
         self.attachName=attachName
-        self.script=None
+        self.scripts=[]
+        self.default_script=None
         self.device=None
 
     def quit(self):
-        if self.script:
-                self.script.unload()
-                self.taskOverSignel.emit()
+        if self.scripts:
+            for s in copy(self.scripts):
+                s.unload()
+                self.log("trace script unload")
+                self.scripts.remove(s)
+        self.taskOverSignel.emit()
 
     def log(self,msg):
         self.loggerSignel.emit(msg)
@@ -39,35 +44,78 @@ class Runthread(QThread):
     def outlog(self,msg):
         self.outloggerSignel.emit(msg)
 
-    def _attach(self,pid):
+    def _attach(self,pid,item):
         if not self.device: return
         self.log("attach '{}'".format(pid))
         session = self.device.attach(pid)
         session.enable_child_gating()
         source=""
-        for item in self.hooksData:
-            # 使用r0capture.js
-            if item=="r0capture":
-                source+=open('./js/r0capture.js', 'r',encoding="utf8").read()
-            elif item=="jnitrace":
-                source+=open('./js/jni_trace_new.js', 'r',encoding="utf8").read()
-                source=source.replace("%moduleName%",self.hooksData[item]["class"])
-                source = source.replace("%methodName%", self.hooksData[item]["method"])
-                source = source.replace("%spawn%", "")
-            elif item=="ZenTracer":
-                source += open('./js/trace.js', 'r', encoding="utf8").read()
-                match_s = str(self.hooksData[item]["traceClass"]).replace('u\'', '\'')
-                black_s = str(self.hooksData[item]["traceBClass"]).replace('u\'', '\'')
-                source=source.replace('{MATCHREGEX}', match_s).replace("{BLACKREGEX}", black_s)
+
+        if item=="r0capture":
+            source+=open('./js/r0capture.js', 'r',encoding="utf8").read()
+        elif item=="jnitrace":
+            source+=open('./js/jni_trace_new.js', 'r',encoding="utf8").read()
+            source=source.replace("%moduleName%",self.hooksData[item]["class"])
+            source = source.replace("%methodName%", self.hooksData[item]["method"])
+            source = source.replace("%spawn%", "")
+        elif item=="ZenTracer":
+            source += open('./js/trace.js', 'r', encoding="utf8").read()
+            match_s = str(self.hooksData[item]["traceClass"]).replace('u\'', '\'')
+            black_s = str(self.hooksData[item]["traceBClass"]).replace('u\'', '\'')
+            source=source.replace('{MATCHREGEX}', match_s).replace("{BLACKREGEX}", black_s)
+        elif item=="match_sub":
+            source +=open('./js/traceNative.js', 'r', encoding="utf8").read()
+            source = source.replace("%moduleName%", self.hooksData[item]["class"])
+            source = source.replace("%spawn%", "")
+            methods=self.hooksData[item]["method"].split(",")
+            methods_s=str(methods).replace('u\'', '\'')
+            source = source.replace('{methodName}', methods_s)
+        elif item=="sslpining":
+            source += open('./js/DroidSSLUnpinning.js', 'r', encoding="utf8").read()
+        elif item=="RegisterNative":
+            source += open("./js/hook_RegisterNatives.js", 'r', encoding="utf8").read()
+        elif item=="ArtMethod":
+            source += open("./js/hook_artmethod.js", 'r', encoding="utf8").read()
+        elif item=="libArm":
+            source += open("./js/hook_art.js", 'r', encoding="utf8").read()
+        elif item == "javaEnc":
+            source += open("./js/javaEnc.js", 'r', encoding="utf8").read()
+        elif item == "default":
+            source += open("./js/default.js", 'r', encoding="utf8").read()
+
+        # for item in self.hooksData:
+        #     # 使用r0capture.js
+        #     if item=="r0capture":
+        #         source+=open('./js/r0capture.js', 'r',encoding="utf8").read()
+        #     elif item=="jnitrace":
+        #         source+=open('./js/jni_trace_new.js', 'r',encoding="utf8").read()
+        #         source=source.replace("%moduleName%",self.hooksData[item]["class"])
+        #         source = source.replace("%methodName%", self.hooksData[item]["method"])
+        #         source = source.replace("%spawn%", "")
+        #     elif item=="ZenTracer":
+        #         source += open('./js/trace.js', 'r', encoding="utf8").read()
+        #         match_s = str(self.hooksData[item]["traceClass"]).replace('u\'', '\'')
+        #         black_s = str(self.hooksData[item]["traceBClass"]).replace('u\'', '\'')
+        #         source=source.replace('{MATCHREGEX}', match_s).replace("{BLACKREGEX}", black_s)
+        #     elif item=="match_sub":
+        #         source +=open('./js/traceNative.js', 'r', encoding="utf8").read()
+        #         source = source.replace("%moduleName%", self.hooksData[item]["class"])
+        #         source = source.replace("%spawn%", "")
+        #         methods=self.hooksData[item]["method"].split(",")
+        #         methods_s=str(methods).replace('u\'', '\'')
+        #         source = source.replace('{methodName}', methods_s)
+        #     elif item=="sslpining":
+        #         source += open('./js/DroidSSLUnpinning.js', 'r', encoding="utf8").read()
 
         # if len(source) <= 0 :
-        source+=open("./js/default.js",'r',encoding="utf8").read()
 
         script = session.create_script(source)
         script.on("message", self.on_message)
-        self.script = script
         self.attachOverSignel.emit(pid)
         script.load()
+        if item=="default":
+            self.default_script=script
+        self.scripts.append(script)
 
 
     def r0capture_message(self,p,data):
@@ -96,6 +144,8 @@ class Runthread(QThread):
     def default_message(self,p):
         if "appinfo" in p:
             self.loadAppInfoSignel.emit(p["appinfo"])
+        elif "appinfo_search" in p:
+            self.searchAppInfoSignel.emit(p["appinfo_search"])
         self.outlog(p["data"])
 
     def jnitrace_message(self,p):
@@ -104,20 +154,29 @@ class Runthread(QThread):
     def ZenTracer_message(self,p):
         self.outlog(p["data"])
 
+    def other_message(self,p):
+        self.outlog(p["data"])
+
     def showMethods(self,postdata):
         postdata["func"]="showMethod"
-        self.script.post({'type': 'input', 'payload': postdata})
+        self.default_script.post({'type': 'input', 'payload': postdata})
         self.log("post showMethods:"+postdata["className"]+","+postdata["methodName"])
 
     def showExport(self,postdata):
         postdata["func"] = "showExport"
-        self.script.post({'type': 'input', 'payload': postdata})
+        self.default_script.post({'type': 'input', 'payload': postdata})
         self.log("post showExport:"+postdata["moduleName"]+","+postdata["methodName"])
 
     def dumpPtr(self,postdata):
         postdata["func"] = "dumpPtr"
-        self.script.post({'type': 'input', 'payload': postdata})
+        self.default_script.post({'type': 'input', 'payload': postdata})
         self.log("post dumpPtr:" + postdata["moduleName"] + "," + str(hex(postdata["address"])))
+
+    def searchInfo(self,postdata):
+        postdata["func"] = "searchInfo"
+        self.default_script.post({'type': 'input', 'payload': postdata})
+        self.log("post searchInfo")
+
 
     def on_message(self,message, data):
         if message["type"] == "error":
@@ -127,6 +186,10 @@ class Runthread(QThread):
             self.outlog(message["payload"]["init"])
             self.log(message["payload"]["init"])
             return
+        if "jsname" not in message["payload"]:
+            print("message data not found jsname payload:"+str(message["payload"]))
+            return
+
         if message["payload"]["jsname"]=="default":
             self.default_message(message["payload"])
             return
@@ -136,9 +199,14 @@ class Runthread(QThread):
             self.jnitrace_message(message["payload"])
         elif message["payload"]["jsname"]=="ZenTracer":
             self.ZenTracer_message(message["payload"])
+        else:
+            self.other_message(message["payload"])
 
     def _on_child_added(self,child):
-        self._attach(child.pid)
+        print("_on_child_added")
+        for item in self.hooksData:
+            self._attach(child.pid,item)
+        self._attach(child.pid, "default")
 
     def run(self):
         self.device = frida.get_usb_device()
@@ -148,9 +216,11 @@ class Runthread(QThread):
         if len(self.attachName)<=0:
             for process in self.device.enumerate_processes():
                 if target == process.name:
-                    self._attach(process.name)
-        else:
-            self._attach(self.attachName)
+                    self.attachName=process.name
+                    break
+        for item in self.hooksData:
+            self._attach(self.attachName,item)
+        self._attach(self.attachName, "default")
         print("thread over")
         # self.taskOverSignel.emit()
 

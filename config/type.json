@@ -4,6 +4,8 @@
   "javaFile":{"class":"","method":"","bak":"hook java的File类的所有函数"},
   "javaEnc":{"class":"","method":"","bak":"hook java的算法加解密相关的所有函数"},
   "javaString":{"class":"","method":"","bak":"hook java的String的所有函数"},
-  "javaSec":{"class":"","method":"","bak":"hook 证书相关的函数并导出证书"},
+  "RegisterNative":{"class":"","method":"","bak":"hook动态注册函数，参考自frida_hook_libart"},
+  "ArtMethod":{"class":"","method":"","bak":"hook ArtMethod函数调用，参考自frida_hook_libart"},
+  "libArm":{"class":"","method":"","bak":"参考自frida_hook_libart的hook_art脚本"},
   "sslpining":{"class":"","method":"","bak":"hook证书锁定.参考自git项目DroidSSLUnpinning"}
 }

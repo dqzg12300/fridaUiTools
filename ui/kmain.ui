@@ -18,7 +18,7 @@
     <item row="0" column="0">
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>0</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="tab_2">
        <attribute name="title">
@@ -119,10 +119,17 @@
           <layout class="QGridLayout" name="gridLayout_7">
            <item row="0" column="0">
             <layout class="QGridLayout" name="gridLayout_5">
-             <item row="0" column="0">
-              <widget class="QCheckBox" name="chkNetwork">
+             <item row="0" column="5">
+              <widget class="QCheckBox" name="chkArtMethod">
                <property name="text">
-                <string>r0capture</string>
+                <string>ArtMethod</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="6">
+              <widget class="QCheckBox" name="chkLibArt">
+               <property name="text">
+                <string>libArt</string>
                </property>
               </widget>
              </item>
@@ -133,10 +140,10 @@
                </property>
               </widget>
              </item>
-             <item row="0" column="3">
-              <widget class="QCheckBox" name="chkSec">
+             <item row="0" column="4">
+              <widget class="QCheckBox" name="chkRegisterNative">
                <property name="text">
-                <string>证书导出</string>
+                <string>RegisterNative</string>
                </property>
               </widget>
              </item>
@@ -147,7 +154,14 @@
                </property>
               </widget>
              </item>
-             <item row="0" column="4">
+             <item row="0" column="0">
+              <widget class="QCheckBox" name="chkNetwork">
+               <property name="text">
+                <string>r0capture</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="3">
               <widget class="QCheckBox" name="chkSslPining">
                <property name="text">
                 <string>ssl pining</string>
@@ -168,19 +182,6 @@
                </property>
                <property name="text">
                 <string>ZenTracer</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="btnMatchSoMethod">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>40</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>匹配so函数名</string>
                </property>
               </widget>
              </item>
@@ -211,19 +212,6 @@
               </widget>
              </item>
              <item>
-              <widget class="QPushButton" name="btnCustom">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>40</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>自定义</string>
-               </property>
-              </widget>
-             </item>
-             <item>
               <widget class="QPushButton" name="btnTuoke">
                <property name="minimumSize">
                 <size>
@@ -246,6 +234,19 @@
                </property>
                <property name="text">
                 <string>Patch</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btnCustom">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>自定义</string>
                </property>
               </widget>
              </item>
@@ -289,7 +290,11 @@
            </attribute>
            <layout class="QGridLayout" name="gridLayout_9">
             <item row="0" column="0">
-             <widget class="QTableWidget" name="tabHooks"/>
+             <widget class="QTableWidget" name="tabHooks">
+              <property name="editTriggers">
+               <set>QAbstractItemView::NoEditTriggers</set>
+              </property>
+             </widget>
             </item>
             <item row="1" column="0">
              <widget class="QFrame" name="frame">
@@ -385,48 +390,132 @@
        <attribute name="title">
         <string>应用信息</string>
        </attribute>
-       <widget class="QWidget" name="layoutWidget">
-        <property name="geometry">
-         <rect>
-          <x>20</x>
-          <y>10</y>
-          <width>781</width>
-          <height>331</height>
-         </rect>
-        </property>
-        <layout class="QHBoxLayout" name="horizontalLayout_2">
-         <item>
-          <widget class="QGroupBox" name="groupBox_3">
-           <property name="title">
-            <string>module列表</string>
-           </property>
-           <layout class="QGridLayout" name="gridLayout_10">
-            <item row="0" column="0">
-             <widget class="QLineEdit" name="txtModule"/>
+       <layout class="QGridLayout" name="gridLayout_14">
+        <item row="0" column="0">
+         <layout class="QHBoxLayout" name="horizontalLayout_2">
+          <item>
+           <widget class="QGroupBox" name="groupBox_3">
+            <property name="title">
+             <string>module列表</string>
+            </property>
+            <layout class="QGridLayout" name="gridLayout_10">
+             <item row="0" column="0">
+              <widget class="QLineEdit" name="txtModule"/>
+             </item>
+             <item row="1" column="0">
+              <widget class="QListWidget" name="listModules"/>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <layout class="QVBoxLayout" name="verticalLayout">
+            <item>
+             <widget class="QPushButton" name="btnExport">
+              <property name="text">
+               <string>Export</string>
+              </property>
+             </widget>
             </item>
-            <item row="1" column="0">
-             <widget class="QListWidget" name="listModules"/>
+            <item>
+             <widget class="QPushButton" name="btnSymbol">
+              <property name="text">
+               <string>Symbol</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnSymbolClear">
+              <property name="text">
+               <string>清空</string>
+              </property>
+             </widget>
             </item>
            </layout>
-          </widget>
-         </item>
-         <item>
-          <widget class="QGroupBox" name="groupBox_4">
-           <property name="title">
-            <string>java类列表</string>
-           </property>
-           <layout class="QGridLayout" name="gridLayout_11">
-            <item row="0" column="0">
-             <widget class="QLineEdit" name="txtClass"/>
+          </item>
+          <item>
+           <widget class="QGroupBox" name="groupBox_5">
+            <property name="title">
+             <string>符号</string>
+            </property>
+            <layout class="QGridLayout" name="gridLayout_12">
+             <item row="0" column="0">
+              <widget class="QLineEdit" name="txtSymbol"/>
+             </item>
+             <item row="1" column="0">
+              <widget class="QListWidget" name="listSymbol"/>
+             </item>
+            </layout>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item row="1" column="0">
+         <layout class="QHBoxLayout" name="horizontalLayout_3">
+          <item>
+           <widget class="QGroupBox" name="groupBox_4">
+            <property name="title">
+             <string>java类列表</string>
+            </property>
+            <layout class="QGridLayout" name="gridLayout_11">
+             <item row="1" column="0">
+              <widget class="QListWidget" name="listClasses"/>
+             </item>
+             <item row="0" column="0">
+              <widget class="QLineEdit" name="txtClass"/>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <layout class="QVBoxLayout" name="verticalLayout_2">
+            <item>
+             <widget class="QPushButton" name="btnMethod">
+              <property name="text">
+               <string>查询函数</string>
+              </property>
+             </widget>
             </item>
-            <item row="1" column="0">
-             <widget class="QListWidget" name="listClasses"/>
+            <item>
+             <widget class="QPushButton" name="btnMethodClear">
+              <property name="text">
+               <string>清空</string>
+              </property>
+             </widget>
             </item>
            </layout>
-          </widget>
-         </item>
-        </layout>
-       </widget>
+          </item>
+          <item>
+           <widget class="QGroupBox" name="groupBox_6">
+            <property name="title">
+             <string>java函数</string>
+            </property>
+            <layout class="QGridLayout" name="gridLayout_13">
+             <item row="1" column="0">
+              <widget class="QListWidget" name="listMethod"/>
+             </item>
+             <item row="0" column="0">
+              <widget class="QLineEdit" name="txtMethod"/>
+             </item>
+            </layout>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item row="2" column="0">
+         <widget class="QGroupBox" name="groupBox_7">
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>200</height>
+           </size>
+          </property>
+          <property name="title">
+           <string>其他信息（todo）</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </widget>
      </widget>
     </item>
@@ -438,7 +527,7 @@
      <x>0</x>
      <y>0</y>
      <width>845</width>
-     <height>26</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menufile">

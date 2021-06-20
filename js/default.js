@@ -128,6 +128,36 @@ function dumpPtr(postdata){
     }
 }
 
+function searchInfo(postdata){
+    Java.perform(function(){
+        var baseName=postdata["baseName"];
+        var searchType=postdata["type"];
+        var msg= initMessage();
+        var appinfo={};
+        appinfo["type"]=searchType;
+        if(searchType=="export"){
+            var module=Process.getModuleByName(baseName);
+            var exports=module.enumerateExports();
+            appinfo["export"]=exports;
+        }else if(searchType=="symbol"){
+            var module=Process.getModuleByName(baseName);
+            var symbols=module.enumerateSymbols();
+            appinfo["symbol"]=symbols;
+        }else if(searchType=="method"){
+            var classModel=Java.use(baseName);
+            var methods=classModel.class.getDeclaredMethods();
+            appinfo["method"]=[]
+            methods.forEach(function (method){
+                var methodName = method.getName();
+                appinfo["method"].push(methodName);
+            });
+        }
+        msg["appinfo_search"]=JSON.stringify(appinfo);
+        msg["data"]="appinfo search";
+        send(msg);
+    });
+}
+
 function recvMessage(){
     while(true){
         var op=recv('input',function(data){
@@ -140,6 +170,8 @@ function recvMessage(){
                 showExport(payload);
             }else if (func=="dumpPtr"){
                 dumpPtr(payload);
+            }else if (func=="searchInfo"){
+                searchInfo(payload)
             }
         });
         op.wait();
@@ -148,13 +180,15 @@ function recvMessage(){
 
 //动态取一些附加的app信息传给py
 function loadAppInfo(){
-    var msg= initMessage();
-    var appinfo={};
-    appinfo["modules"]=Process.enumerateModules();
-    appinfo["classes"]=Java.enumerateLoadedClassesSync()
-    msg["appinfo"]=JSON.stringify(appinfo);
-    msg["data"]="加载appinfo";
-    send(msg);
+    Java.perform(function(){
+        var msg= initMessage();
+        var appinfo={};
+        appinfo["modules"]=Process.enumerateModules();
+        appinfo["classes"]=Java.enumerateLoadedClassesSync()
+        msg["appinfo"]=JSON.stringify(appinfo);
+        msg["data"]="加载appinfo";
+        send(msg);
+    })
 }
 
 function main(){
