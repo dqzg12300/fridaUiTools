@@ -1,6 +1,8 @@
+
+(function(){
+
 var N_ENCRYPT_MODE = 1
 var N_DECRYPT_MODE = 2
-
 
 function initMessage(){
   var message={};
@@ -594,3 +596,5 @@ Java.perform(function () {
         return result;
     }
 });
+
+})();

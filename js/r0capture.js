@@ -1,6 +1,6 @@
-/**
-   * Initializes 'addresses' dictionary and NativeFunctions.
-   */
+
+(function(){
+
 "use strict";
 rpc.exports = {
   setssllib: function (name) {
@@ -347,3 +347,5 @@ if (Java.available) {
 
   )
 }
+
+})();

@@ -18,7 +18,7 @@
     <item row="0" column="0">
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="tab_2">
        <attribute name="title">
@@ -527,13 +527,14 @@
      <x>0</x>
      <y>0</y>
      <width>845</width>
-     <height>22</height>
+     <height>26</height>
     </rect>
    </property>
    <widget class="QMenu" name="menufile">
     <property name="title">
      <string>文件</string>
     </property>
+    <addaction name="actionClearTmp"/>
    </widget>
    <widget class="QMenu" name="menuedit">
     <property name="title">
@@ -609,6 +610,11 @@
   <action name="actionSpawn">
    <property name="text">
     <string>spawn附加</string>
+   </property>
+  </action>
+  <action name="actionClearTmp">
+   <property name="text">
+    <string>清空缓存数据</string>
    </property>
   </action>
  </widget>

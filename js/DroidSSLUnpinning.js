@@ -1,3 +1,6 @@
+
+(function(){
+
 function initMessage(){
   var message={};
   message["jsname"]="sslpinning";
@@ -380,3 +383,5 @@ apache httpclient partly
 		send(msg);
 	}
 });
+
+})();

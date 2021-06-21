@@ -1,4 +1,5 @@
 //默认使用,后面再搞点默认hook功能
+(function(){
 
 function initMessage(){
   var message={};
@@ -185,6 +186,7 @@ function loadAppInfo(){
         var appinfo={};
         appinfo["modules"]=Process.enumerateModules();
         appinfo["classes"]=Java.enumerateLoadedClassesSync()
+        appinfo["spawn"]="%spawn%"
         msg["appinfo"]=JSON.stringify(appinfo);
         msg["data"]="加载appinfo";
         send(msg);
@@ -198,6 +200,6 @@ function main(){
     loadAppInfo();
     recvMessage();
 }
-
-
 setImmediate(main);
+
+})();

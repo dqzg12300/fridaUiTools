@@ -19,7 +19,7 @@ class kmainForm(QMainWindow):
         super().__init__()
         self.initUi()
         self.hooksData={}
-        self.th = TraceThread.Runthread(self.hooksData,"")
+        self.th = TraceThread.Runthread(self.hooksData,"",False)
         self.updateCmbHooks()
         self.outlogger = LogUtil.Logger('all.logs', level='debug')
         with open("./config/type.json","r",encoding="utf8") as typeFile:
@@ -46,6 +46,7 @@ class kmainForm(QMainWindow):
         self.actionabort.triggered.connect(self.actionAbort)
         self.actionStop.setEnabled(False)
         self.actionStop.triggered.connect(self.StopAttach)
+        self.actionClearTmp.triggered.connect(self.ClearTmp)
         self.btnShowExport.clicked.connect(self.showExport)
         self.btnWallbreaker.clicked.connect(self.wallBreaker)
         self.btnShowMethods.clicked.connect(self.showMethods)
@@ -96,6 +97,9 @@ class kmainForm(QMainWindow):
         self.jniform=formUtil.jnitraceForm()
         self.zenTracerForm=formUtil.zenTracerForm()
         self.nativesForm = formUtil.nativesForm()
+        self.spawnAttach = formUtil.spawnAttachForm()
+        self.stalkerForm=formUtil.stalkerForm()
+        self.pform = formUtil.patchForm()
 
         self.modules=None
         self.classes=None
@@ -186,6 +190,13 @@ class kmainForm(QMainWindow):
     def StopAttach(self):
         self.th.quit()
 
+    def ClearTmp(self):
+        path="./tmp/"
+        ls = os.listdir(path)
+        for i in ls:
+            c_path = os.path.join(path, i)
+            os.remove(c_path)
+
     #进程结束时的状态切换，和打印
     def taskOver(self):
         self.log("附加进程结束")
@@ -204,7 +215,7 @@ class kmainForm(QMainWindow):
             device = frida.get_usb_device()
             device.enumerate_processes()
             self.changeAttachStatus(True)
-            self.th = TraceThread.Runthread(self.hooksData, "")
+            self.th = TraceThread.Runthread(self.hooksData, "",False)
             self.th.taskOverSignel.connect(self.taskOver)
             self.th.loggerSignel.connect(self.log)
             self.th.outloggerSignel.connect(self.outlog)
@@ -221,7 +232,30 @@ class kmainForm(QMainWindow):
 
     #spawn的方式附加进程
     def actionSpawnStart(self):
-         pass
+        self.log("actionSpawnStart")
+        self.spawnAttach.flushCmb()
+        res=self.spawnAttach.exec()
+        if res==0:
+            return
+        try:
+            # 查下进程。能查到说明frida_server开启了
+            device = frida.get_usb_device()
+            device.enumerate_processes()
+            self.changeAttachStatus(True)
+            self.th = TraceThread.Runthread(self.hooksData, self.spawnAttach.packageName,True)
+            self.th.taskOverSignel.connect(self.taskOver)
+            self.th.loggerSignel.connect(self.log)
+            self.th.outloggerSignel.connect(self.outlog)
+            self.th.loadAppInfoSignel.connect(self.loadAppInfo)
+            self.th.attachOverSignel.connect(self.attachOver)
+            self.th.searchAppInfoSignel.connect(self.searchAppInfoRes)
+            self.th.start()
+            if len(self.hooksData) <= 0:
+                # QMessageBox().information(self, "提示", "未设置hook选项")
+                self.log("未设置hook选项")
+        except Exception as ex:
+            self.log("附加异常.err:" + str(ex))
+            QMessageBox().information(self, "提示", "附加进程失败." + str(ex))
 
     #修改ui的状态表现
     def changeAttachStatus(self,isattach):
@@ -247,7 +281,7 @@ class kmainForm(QMainWindow):
             if res==0:
                 return
             self.changeAttachStatus(True)
-            self.th = TraceThread.Runthread(self.hooksData, selectPackageForm.packageName)
+            self.th = TraceThread.Runthread(self.hooksData, selectPackageForm.packageName,False)
             self.th.taskOverSignel.connect(self.taskOver)
             self.th.loggerSignel.connect(self.log)
             self.th.outloggerSignel.connect(self.outlog)
@@ -274,7 +308,7 @@ class kmainForm(QMainWindow):
             QMessageBox().information(self, "提示", "未附加进程")
             return
         self.log("查询所有类和函数")
-
+        self.mform.flushCmb()
         res=self.mform.exec()
         # className为空则是打印所有class。methodName为空则打印所有函数
         if res==0:
@@ -313,6 +347,7 @@ class kmainForm(QMainWindow):
             QMessageBox().information(self, "提示", "未附加进程")
             return
         self.log("dump指定地址")
+        self.dumpForm.flushCmb()
         res= self.dumpForm.exec()
         print("res:",res)
         if res==0:
@@ -362,6 +397,7 @@ class kmainForm(QMainWindow):
                 self.hooksData.pop(typeStr)
                 self.updateTabHooks()
             return
+        self.jniform.flushCmb()
         res=self.jniform.exec()
         if res==0:
             self.chkJni.setChecked(False)
@@ -412,6 +448,7 @@ class kmainForm(QMainWindow):
             self.log("取消hook证书锁定")
 
     def matchMethod(self):
+        self.zenTracerForm.flushCmb()
         self.zenTracerForm.exec()
         self.log("根据函数名trace hook")
         if len(self.zenTracerForm.traceClass)<=0:
@@ -426,6 +463,7 @@ class kmainForm(QMainWindow):
         self.updateTabHooks()
 
     def hookNatives(self):
+        self.nativesForm.flushCmb()
         res=self.nativesForm.exec()
         if res==0:
             return
@@ -437,7 +475,17 @@ class kmainForm(QMainWindow):
 
     def stalker(self):
         self.log("stalker")
-        QMessageBox().information(self, "提示", "待开发")
+        self.stalkerForm.flushCmb()
+        res= self.stalkerForm.exec()
+        if res==0:
+            return
+        method=self.stalkerForm.symbol+ " "+self.stalkerForm.offset
+        matchHook = {"class": self.stalkerForm.moduleName, "method": method.strip(),
+                     "bak": "参考自项目sktrace.trace汇编并打印寄存器值",
+                     "symbol":self.stalkerForm.symbol,"offset":self.stalkerForm.offset}
+        typeStr = "stakler"
+        self.hooksData[typeStr] = matchHook
+        self.updateTabHooks()
 
     def custom(self):
         self.log("custom")
@@ -453,12 +501,13 @@ class kmainForm(QMainWindow):
         self.updateTabHooks()
 
     def patch(self):
-        pform = formUtil.patchForm()
-        res=pform.exec()
+
+        self.pform.flushCmb()
+        res=self.pform.exec()
         if res==0:
             return
-        self.log("pathch替换模块:"+pform.moduleName+"地址:" + pform.address+"的数据为"+pform.patch)
-        patchHook = {"class": pform.moduleName, "method": pform.address+"|"+pform.patch, "bak": "替换指定地址的二进制数据."}
+        self.log("pathch替换模块:"+self.pform.moduleName+"地址:" + self.pform.address+"的数据为"+self.pform.patch)
+        patchHook = {"class": self.pform.moduleName, "method": self.pform.address+"|"+self.pform.patch, "bak": "替换指定地址的二进制数据."}
         typeStr = "patch"
         if typeStr in self.hooksData:
             self.hooksData[typeStr].append(patchHook)
@@ -588,6 +637,7 @@ class kmainForm(QMainWindow):
         info= json.loads(appinfo)
         self.modules=info["modules"]
         self.classes=info["classes"]
+
         for module in info["modules"]:
             self.listModules.addItem(module["name"]+"----"+module["base"])
 
@@ -597,11 +647,12 @@ class kmainForm(QMainWindow):
         self.listModules.itemClicked.connect(self.listModuleClick)
         self.listClasses.itemClicked.connect(self.listClassClick)
         packageName=self.labPackage.text()
+
         with open("./tmp/"+packageName+".classes.txt","w+",encoding="utf-8") as packageTmpFile:
             for item in info["classes"]:
                 packageTmpFile.write(item+"\n")
-
-        with open("./tmp/"+packageName+".modules.txt","w+",encoding="utf-8") as packageTmpFile:
+        spawnpath = ".spawn" if info["spawn"] == "1" else ""
+        with open("./tmp/"+packageName+".modules"+spawnpath+".txt","w+",encoding="utf-8") as packageTmpFile:
             for module in info["modules"]:
                 packageTmpFile.write(module["name"] + "\n")
 

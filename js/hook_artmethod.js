@@ -1,4 +1,6 @@
 
+(function(){
+
 function initMessage(){
   var message={};
   message["jsname"]="hook_artmethod";
@@ -138,3 +140,5 @@ function main() {
 }
 
 setImmediate(main);
+
+})();

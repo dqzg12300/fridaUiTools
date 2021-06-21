@@ -1,4 +1,6 @@
 
+(function(){
+
 function initMessage(){
   var message={};
   message["jsname"]="hook_art";
@@ -330,4 +332,6 @@ function hook_libart() {
 }
 
 setImmediate(hook_libart);
+
+})();
 

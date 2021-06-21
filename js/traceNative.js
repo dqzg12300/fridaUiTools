@@ -1,4 +1,6 @@
 
+(function(){
+
 function initMessage(){
   var message={};
   message["jsname"]="traceNative";
@@ -93,7 +95,7 @@ function spawn_hook(library_name,function_names){
         },
         onLeave: function(args){
             // if it's the library we want to hook, hooking it
-            if(library_loaded ==  1){
+            if(this.library_loaded ==  1){
                 var msg=initMessage();
                 msg["data"]="[+] Loaded";
                 send(msg)
@@ -117,6 +119,5 @@ function main(){
         native_hook(moduleName, methodName)
     }
 }
-
-
 setImmediate(main);
+})();

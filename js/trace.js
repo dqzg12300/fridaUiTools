@@ -1,3 +1,5 @@
+(function(){
+
 function initMessage(){
   var message={};
   message["jsname"]="ZenTracer";
@@ -129,3 +131,4 @@ if (Java.available) {
         });
     });
 }
+})();

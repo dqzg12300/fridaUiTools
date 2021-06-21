@@ -51,6 +51,8 @@ class matchForm(QDialog):
                 self.listClass.addItem(item)
 
     def changePackage(self, data):
+        if data=="" or data=="选择缓存数据":
+            return
         filepath = "./tmp/" + data + ".modules.txt"
         with open(filepath, "r", encoding="utf-8") as packageFile:
             res = packageFile.read()
@@ -108,6 +110,8 @@ class nativesForm(QDialog):
         self.txtModule.setText(item.text())
 
     def changeModule(self, data):
+        if data=="" or data=="选择缓存数据":
+            return
         self.listModule.clear()
         if len(data) > 0:
             for item in self.modules:
@@ -118,6 +122,8 @@ class nativesForm(QDialog):
                 self.listModule.addItem(item)
 
     def changePackage(self, data):
+        if data=="" or data=="选择缓存数据":
+            return
         filepath = "./tmp/" + data + ".modules.txt"
         with open(filepath, "r", encoding="utf-8") as packageFile:
             res = packageFile.read()
@@ -175,6 +181,8 @@ class dumpAddressForm(QDialog):
         self.txtModule.setText(item.text())
 
     def changeModule(self, data):
+        if data=="" or data=="选择缓存数据":
+            return
         self.listModule.clear()
         if len(data) > 0:
             for item in self.modules:
@@ -185,6 +193,8 @@ class dumpAddressForm(QDialog):
                 self.listModule.addItem(item)
 
     def changePackage(self, data):
+        if data=="" or data=="选择缓存数据":
+            return
         filepath = "./tmp/" + data + ".modules.txt"
         with open(filepath, "r", encoding="utf-8") as packageFile:
             res = packageFile.read()
@@ -281,6 +291,8 @@ class patchForm(QDialog):
         self.txtModule.setText(item.text())
 
     def changeModule(self, data):
+        if data=="" or data=="选择缓存数据":
+            return
         self.listModule.clear()
         if len(data) > 0:
             for item in self.modules:
@@ -291,6 +303,8 @@ class patchForm(QDialog):
                 self.listModule.addItem(item)
 
     def changePackage(self, data):
+        if data=="" or data=="选择缓存数据":
+            return
         filepath = "./tmp/" + data + ".modules.txt"
         with open(filepath, "r", encoding="utf-8") as packageFile:
             res = packageFile.read()
@@ -324,6 +338,8 @@ class selectPackageForm(QDialog):
         self.txtPackage.textChanged.connect(self.changePackage)
 
     def changePackage(self,data):
+        if data=="" or data=="选择缓存数据":
+            return
         self.listPackages.clear()
         if len(data)>0:
             for item in self.packages:
@@ -383,6 +399,8 @@ class jnitraceForm(QDialog):
         self.txtModule.setText(item.text())
 
     def changeModule(self,data):
+        if data=="" or data=="选择缓存数据":
+            return
         self.listModule.clear()
         if len(data) > 0:
             for item in self.modules:
@@ -393,6 +411,8 @@ class jnitraceForm(QDialog):
                 self.listModule.addItem(item)
 
     def changePackage(self,data):
+        if data=="" or data=="选择缓存数据":
+            return
         filepath = "./tmp/" + data + ".modules.txt"
         with open(filepath, "r", encoding="utf-8") as packageFile:
             res = packageFile.read()
@@ -452,6 +472,8 @@ class zenTracerForm(QDialog):
                 self.cmbPackage.addItem(item.replace(".classes.txt",""))
 
     def changePackage(self,data):
+        if data=="" or data=="选择缓存数据":
+            return
         filepath="./tmp/"+data+".classes.txt"
         with open(filepath,"r",encoding="utf-8") as packageFile:
             res=packageFile.read()
@@ -563,3 +585,115 @@ class zenTracerForm(QDialog):
         clearAction = QAction(u"清空", self, triggered=self.hooksClear)
         rightMenu.addAction(clearAction)
         rightMenu.exec_(QCursor.pos())
+
+class spawnAttachForm(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowOpacity(0.93)
+        uic.loadUi("./ui/spawnAttach.ui", self)
+        self.btnSubmit.clicked.connect(self.submit)
+        self.packageName = ""
+        self.packages=[]
+        self.listPackage.itemClicked.connect(self.packageClick)
+
+    def flushCmb(self):
+        self.packages.clear()
+        self.listPackage.clear()
+        packagePath = "./tmp/spawnPackage.txt"
+        if os.path.exists(packagePath):
+            with open("./tmp/spawnPackage.txt", "r") as packageFile:
+                packageData = packageFile.read()
+                packages = packageData.split("\n")
+                for item in packages:
+                    if item in self.packages:
+                        continue
+                    self.packages.append(item)
+                    self.listPackage.addItem(item)
+
+    def packageClick(self,item):
+        self.txtPackage.setText(item.text())
+
+    def submit(self):
+        packageName = self.txtPackage.text()
+        if len(packageName) <= 0:
+            QMessageBox().information(self, "提示", "package为空")
+            return
+        self.packageName = packageName
+        if packageName not in self.packages :
+            self.listPackage.addItem(packageName)
+            with open("./tmp/spawnPackage.txt","a") as packageFile:
+                packageFile.write(packageName+"\n")
+        self.accept()
+
+class stalkerForm(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowOpacity(0.93)
+        uic.loadUi("./ui/stalker.ui", self)
+        self.btnSubmit.clicked.connect(self.submit)
+        self.btnClear.clicked.connect(self.clearUi)
+        self.clearUi()
+        self.flushCmb()
+        self.listModule.itemClicked.connect(self.ModuleItemClick)
+        self.txtModule.textChanged.connect(self.changeModule)
+        self.cmbPackage.currentTextChanged.connect(self.changePackage)
+        self.modules = None
+
+    def initData(self):
+        self.listModule.clear()
+        for item in self.modules:
+            self.listModule.addItem(item)
+
+    def flushCmb(self):
+        self.cmbPackage.clear()
+        files = os.listdir("./tmp/")
+        self.cmbPackage.addItem("选择缓存数据")
+        for item in files:
+            if ".modules.txt" in item:
+                self.cmbPackage.addItem(item.replace(".modules.txt", ""))
+
+    def ModuleItemClick(self, item):
+        self.txtModule.setText(item.text())
+
+    def changeModule(self, data):
+        if data == "" or data == "选择缓存数据":
+            return
+        self.listModule.clear()
+        if len(data) > 0:
+            for item in self.modules:
+                if data in item:
+                    self.listModule.addItem(item)
+        else:
+            for item in self.modules:
+                self.listModule.addItem(item)
+
+    def changePackage(self, data):
+        if data=="" or data=="选择缓存数据":
+            return
+        filepath = "./tmp/" + data + ".modules.txt"
+        with open(filepath, "r", encoding="utf-8") as packageFile:
+            res = packageFile.read()
+            self.modules = res.split("\n")
+        self.initData()
+
+    def clearUi(self):
+        self.txtSymbol.setText("")
+        self.txtOffset.setText("")
+        self.txtModule.setText("")
+
+    def submit(self):
+        moduleName = self.txtModule.text()
+        offset = self.txtOffset.text()
+        symbol= self.txtSymbol.text()
+        if len(moduleName) <= 0:
+            QMessageBox().information(self, "提示", "模块不能为空")
+            return
+        if len(offset) <= 0 and len(symbol)<=0:
+            QMessageBox().information(self, "提示", "offset和symbol至少填写一项")
+            return
+        self.moduleName = moduleName
+        self.offset = offset
+        self.symbol = symbol
+        self.accept()
+
+
