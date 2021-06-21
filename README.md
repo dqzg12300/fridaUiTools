@@ -9,9 +9,6 @@ frida_tools是一个界面化整理脚本的工具。新人的练手作品。参
 > * 整合r0capture
 > * 整合jnitrace
 > * java层的加解密相关自吐
-> * java文件相关自吐
-> * java字符串相关自吐
-> * ssl证书导出
 > * ssl pining（整合DroidSSLUnpinning）
 > * 模糊匹配函数进行批量hook（整合ZenTracer）
 > * 模糊匹配so函数批量hook（参数统一方式打印。所以输出只能做参考）
@@ -20,6 +17,7 @@ frida_tools是一个界面化整理脚本的工具。新人的练手作品。参
 > * 自定义脚本添加
 > * 脱壳相关（整合frida_dump、FRIDA-DEXDump、fart）
 > * patch汇编代码
+> * 整合frida_hook_libart
 
 ## 调用功能如下（附加进程后使用）
 
@@ -31,7 +29,7 @@ frida_tools是一个界面化整理脚本的工具。新人的练手作品。参
 
 ## 应用信息
 
-附加成功时将一些信息带出来给界面展示。目前仅将module列表和class列表展示出来。
+附加成功时将一些信息带出来给界面展示。目前仅将module列表和class列表展示出来。可以查询函数以及符号
 
 ## 日志说明
 
@@ -51,7 +49,7 @@ frida_tools是一个界面化整理脚本的工具。新人的练手作品。参
 
 ## 应用界面
 
-![image-20210618123336357](./img/image-20210618123336357.png)
+
 
 
 

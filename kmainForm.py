@@ -21,7 +21,7 @@ class kmainForm(QMainWindow):
         self.hooksData={}
         self.th = TraceThread.Runthread(self.hooksData,"",False)
         self.updateCmbHooks()
-        self.outlogger = LogUtil.Logger('all.logs', level='debug')
+        self.outlogger = LogUtil.Logger('all.txt', level='debug')
         with open("./config/type.json","r",encoding="utf8") as typeFile:
             self.typeData=json.loads(typeFile.read())
 
@@ -161,8 +161,16 @@ class kmainForm(QMainWindow):
 
     def hooksRemove(self):
         for item in self.tabHooks.selectedItems():
-            self.hooksData.pop(self.tabHooks.item(item.row(),0).text())
-            self.tabHooks.removeRow(item.row())
+            #因为patch是多个的。所以移除的时候要注意。不然会全部移掉的。
+            if self.tabHooks.item(item.row(),0).text()=="patch":
+                removeItemData = self.tabHooks.item(item.row(), 1).text() + self.tabHooks.item(item.row(), 2).text()
+                for idx in range(len(self.hooksData["patch"])):
+                    hookItem=self.hooksData["patch"][idx]
+                    if hookItem["class"]+hookItem["method"]==removeItemData:
+                        self.hooksData["patch"].pop(idx)
+            else:
+                self.hooksData.pop(self.tabHooks.item(item.row(),0).text())
+
         self.updateTabHooks()
         self.refreshChecks()
 
@@ -359,12 +367,13 @@ class kmainForm(QMainWindow):
         self.th.dumpPtr(postdata)
 
     def matchDump(self):
-        if self.isattach() == False:
-            self.log("Error:还未附加进程")
-            QMessageBox().information(self, "提示", "未附加进程")
-            return
-        self.log("指定特征dump内存")
         QMessageBox().information(self, "提示", "待开发")
+        return
+        # if self.isattach() == False:
+        #     self.log("Error:还未附加进程")
+        #     QMessageBox().information(self, "提示", "未附加进程")
+        #     return
+        # self.log("指定特征dump内存")
 
     # ====================end======需要附加后才能使用的功能,基本都是在内存中查数据================================
 

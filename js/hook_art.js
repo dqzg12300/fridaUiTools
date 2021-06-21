@@ -94,7 +94,7 @@ function hook_libart() {
         if (symbol.name.indexOf("art") >= 0 &&
             symbol.name.indexOf("JNI") >= 0 &&
             symbol.name.indexOf("CheckJNI") < 0 &&
-            symbol.name.indexOf("_ZN3art3JNIILb0") >= 0
+            symbol.name.indexOf("_ZN3art3JNI") >= 0
         ) {
             if (symbol.name.indexOf("GetStringUTFChars") >= 0) {
                 addrGetStringUTFChars = symbol.address;
