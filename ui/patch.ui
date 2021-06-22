@@ -87,13 +87,21 @@
        </widget>
       </item>
       <item row="3" column="1">
-       <widget class="QLineEdit" name="txtPatch"/>
+       <widget class="QLineEdit" name="txtPatch">
+        <property name="text">
+         <string>1F 20 03 D5</string>
+        </property>
+       </widget>
       </item>
       <item row="1" column="1">
        <widget class="QListWidget" name="listModule"/>
       </item>
       <item row="0" column="1">
-       <widget class="QLineEdit" name="txtModule"/>
+       <widget class="QLineEdit" name="txtModule">
+        <property name="text">
+         <string>libnative-lib.so</string>
+        </property>
+       </widget>
       </item>
       <item row="3" column="0">
        <widget class="QLabel" name="label_4">
@@ -103,7 +111,11 @@
        </widget>
       </item>
       <item row="2" column="1">
-       <widget class="QLineEdit" name="txtAddress"/>
+       <widget class="QLineEdit" name="txtAddress">
+        <property name="text">
+         <string>0xE548</string>
+        </property>
+       </widget>
       </item>
       <item row="5" column="1">
        <layout class="QHBoxLayout" name="horizontalLayout_2">

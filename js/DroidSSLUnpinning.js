@@ -1,16 +1,22 @@
 
 (function(){
 
-function initMessage(){
-  var message={};
-  message["jsname"]="sslpinning";
-  return message;
+function klog(data){
+    var message={};
+    message["jsname"]="default";
+    message["data"]=data;
+    send(message);
+}
+function klogData(data,key,value){
+    var message={};
+    message["jsname"]="default";
+    message["data"]=data;
+    message[key]=value;
+    send(message);
 }
 
 Java.perform(function() {
-	var msg= initMessage();
-    msg["init"]="DroidSSLUnpinning.js init hook success";
-    send(msg);
+    klogData("","init","DroidSSLUnpinning.js init hook success")
 /*
 hook list:
 1.SSLcontext
@@ -40,12 +46,9 @@ hook list:
 	function quiet_send(data) {
 
 		if (quiet_output) {
-
 			return;
 		}
-		var msg= initMessage();
-		msg["data"]=data
-		send(msg)
+		klog(data);
 	}
 
 
@@ -143,8 +146,7 @@ hook list:
 	try {
 
 		var PinningTrustManager = Java.use('appcelerator.https.PinningTrustManager');
-
-		send('Appcelerator Titanium Found');
+		quiet_send('Appcelerator Titanium Found')
 
 		PinningTrustManager.checkServerTrusted.implementation = function() {
 
@@ -358,9 +360,7 @@ apache httpclient partly
 
 			//weibo not invoke
 			// console.log("Enables or disables public key pinning bypass for local trust anchors = " + arg);
-			var msg= initMessage();
-			msg["data"]="Enables or disables public key pinning bypass for local trust anchors = " + arg;
-			send(msg);
+			quiet_send("Enables or disables public key pinning bypass for local trust anchors = " + arg);
 			//true to enable the bypass, false to disable.
 			var ret = netBuilder.enablePublicKeyPinningBypassForLocalTrustAnchors.call(this, true);
 			return ret;
@@ -368,9 +368,7 @@ apache httpclient partly
 
 		netBuilder.addPublicKeyPins.implementation = function(hostName, pinsSha256, includeSubdomains, expirationDate) {
 			// console.log("cronet addPublicKeyPins hostName = " + hostName);
-			var msg= initMessage();
-			msg["data"]="cronet addPublicKeyPins hostName = " + hostName;
-			send(msg);
+			quiet_send("cronet addPublicKeyPins hostName = " + hostName);
 			//var ret = netBuilder.addPublicKeyPins.call(this,hostName, pinsSha256,includeSubdomains, expirationDate);
 			//this 是调用 addPublicKeyPins 前的对象吗? Yes,CronetEngine.Builder
 			return this;
@@ -378,9 +376,7 @@ apache httpclient partly
 
 	} catch (err) {
 		// console.log('[-] Cronet pinner not found')
-		var msg= initMessage();
-		msg["data"]='[-] Cronet pinner not found';
-		send(msg);
+		quiet_send('[-] Cronet pinner not found')
 	}
 });
 

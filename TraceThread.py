@@ -59,6 +59,7 @@ class Runthread(QThread):
             session = self.device.attach(pname)
         # session.enable_child_gating()
         source=""
+
         for item in self.hooksData:
             if item=="r0capture":
                 source+=open('./js/r0capture.js', 'r',encoding="utf8").read()
@@ -95,6 +96,19 @@ class Runthread(QThread):
                 source = source.replace("%spawn%","1" if self.isSpawn else "")
                 source = source.replace("%symbol%", self.hooksData[item]["symbol"])
                 source = source.replace("%offset%", self.hooksData[item]["offset"])
+            elif item=="patch":
+                patchList = {}
+                for patch in self.hooksData[item]:
+                    patchList[patch["address"]]={
+                        "moduleName":patch["class"],
+                        "code": patch["code"],
+                    }
+                if len(patchList) > 0:
+                    source += open("./js/patchCode.js", 'r', encoding="utf8").read()
+                    print(json.dumps(patchList))
+                    source = source.replace("{PATCHLIST}", json.dumps(patchList))
+
+
         source += open("./js/default.js", 'r', encoding="utf8").read()
         source = source.replace("%spawn%", "1" if self.isSpawn else "")
         script = session.create_script(source)
@@ -134,16 +148,23 @@ class Runthread(QThread):
             self.searchAppInfoSignel.emit(p["appinfo_search"])
         self.outlog(p["data"])
 
-    def jnitrace_message(self,p):
-        self.outlog(p["data"])
 
-    def ZenTracer_message(self,p):
-        self.outlog(p["data"])
+    def sktrace_message(self,p):
+        if "data" in p:
+            self.outlog(p["data"])
+            return
+        optype=p["type"]
+        if optype=="inst":
+            inst=json.loads(p["val"])
+            address=int(p["address"],16)
+            self.outlog("tid:"+str(p["tid"])+" address:"+str(hex(address))+"\t"+inst["mnemonic"]+" "+inst["opStr"])
+        elif optype=="ctx":
+            context=json.loads(p["val"])
+            address=int(p["address"],16)
+            self.outlog("tid:" +str(p["tid"])+" address:"+str(hex(address))+" context:"+ p["val"])
+        else:
+            self.outlog(json.dumps(p))
 
-    def sktrace_message(self,p,data):
-        self.outlog(p["data"])
-        if data!=None:
-            self.outlog(data)
 
     def other_message(self,p):
         self.outlog(p["data"])
@@ -186,13 +207,8 @@ class Runthread(QThread):
             return
         elif message["payload"]["jsname"]=="r0capture":
             self.r0capture_message(message["payload"],data)
-        elif message["payload"]["jsname"]=="jni_trace_new":
-            self.jnitrace_message(message["payload"])
-        elif message["payload"]["jsname"]=="ZenTracer":
-            self.ZenTracer_message(message["payload"])
         elif message["payload"]["jsname"]=="sktrace":
-            # self.sktrace_message(message["payload"],data)
-            print(message, data)
+            self.sktrace_message(message["payload"])
         else:
             self.other_message(message["payload"])
 

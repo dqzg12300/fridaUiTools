@@ -1,16 +1,19 @@
 
 (function(){
 
-function initMessage(){
-  var message={};
-  message["jsname"]="hook_artmethod";
-  return message;
+function klog(data){
+    var message={};
+    message["jsname"]="default";
+    message["data"]=data;
+    send(message);
 }
 
-function log(data){
-    var msg=initMessage();
-    msg["data"]=data;
-    send(msg);
+function klogData(data,key,value){
+    var message={};
+    message["jsname"]="default";
+    message["data"]=data;
+    message[key]=value;
+    send(message);
 }
 
 const STD_STRING_SIZE = 3 * Process.pointerSize;
@@ -62,7 +65,7 @@ function hook_dlopen(module_name, fun) {
                     this.path = (pathptr).readCString();
                     if (this.path.indexOf(module_name) >= 0) {
                         this.canhook = true;
-                        log("android_dlopen_ext:"+this.path);
+                        klog("android_dlopen_ext:"+this.path);
                     }
                 }
             },
@@ -82,7 +85,7 @@ function hook_dlopen(module_name, fun) {
                     this.path = (pathptr).readCString();
                     if (this.path.indexOf(module_name) >= 0) {
                         this.canhook = true;
-                        log("dlopen:"+this.path);
+                        klog("dlopen:"+this.path);
                     }
                 }
             },
@@ -93,7 +96,7 @@ function hook_dlopen(module_name, fun) {
             }
         });
     }
-    log("android_dlopen_ext:"+android_dlopen_ext+",dlopen:"+dlopen);
+    klog("android_dlopen_ext:"+android_dlopen_ext+",dlopen:"+dlopen);
 }
 
 
@@ -113,7 +116,7 @@ function hook_native() {
             && indexThread >= 0
             && indexArtMethod < indexInvoke
             && indexInvoke < indexThread) {
-            log(name);
+            klog(name);
             ArtMethod_Invoke = address;
         }
     }
@@ -122,7 +125,7 @@ function hook_native() {
             onEnter: function (args) {
                 var method_name = prettyMethod(args[0], 0);
                 if (!(method_name.indexOf("java.") == 0 || method_name.indexOf("android.") == 0)) {
-                    log("ArtMethod Invoke:" + method_name + '  called from:\n' +
+                    klog("ArtMethod Invoke:" + method_name + '  called from:\n' +
                         Thread.backtrace(this.context, Backtracer.ACCURATE)
                             .map(DebugSymbol.fromAddress).join('\n') + '\n');
                 }
@@ -132,9 +135,7 @@ function hook_native() {
 }
 
 function main() {
-    var msg= initMessage();
-    msg["init"]="hook_artmethod.js init hook success";
-    send(msg);
+    klogData("","init","hook_artmethod.js init hook success");
     hook_dlopen("libart.so", hook_native);
     hook_native();
 }

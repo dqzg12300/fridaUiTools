@@ -1,10 +1,18 @@
 
 (function(){
 
-function initMessage(){
-  var message={};
-  message["jsname"]="traceNative";
-  return message;
+function klog(data){
+    var message={};
+    message["jsname"]="default";
+    message["data"]=data;
+    send(message);
+}
+function klogData(data,key,value){
+    var message={};
+    message["jsname"]="default";
+    message["data"]=data;
+    message[key]=value;
+    send(message);
 }
 
 //打印参数
@@ -44,9 +52,7 @@ function nativeHookFunction(addr,function_name){
             this.logs.push("arg5 leave:",hexdumpMem(this.arg5));
             this.logs.push("retval leave:",hexdumpMem(retval));
             // console.log(this.logs);
-            var msg=initMessage()
-            msg["data"]=this.logs;
-            send(msg)
+            klog(this.logs)
         }
     })
 }
@@ -63,18 +69,15 @@ function native_hook(library_name,function_names){
                  addrdata+=1;
              }
              var method_addr=base_addr.add(addrdata);
-             msg["data"]="[...] Hooking : " + library_name + " -> " + function_names[i] + " at " + method_addr;
-             send(msg)
+             klog("[...] Hooking : " + library_name + " -> " + function_names[i] + " at " + method_addr);
              nativeHookFunction(method_addr,function_names[i])
          }else{
              var method_addr= Module.getExportByName(library_name,function_names[i]);
              if(method_addr){
-                msg["data"]="[...] Hooking : " + library_name + " -> " + function_names[i] + " at " + method_addr;
-                send(msg)
+                klog("[...] Hooking : " + library_name + " -> " + function_names[i] + " at " + method_addr);
                 nativeHookFunction(method_addr,function_names[i])
              }else{
-                msg["data"]="[...] Hooking : " + library_name + " -> not fount " + function_names[i];
-                send(msg)
+                klog("[...] Hooking : " + library_name + " -> not fount " + function_names[i]);
              }
          }
 
@@ -88,17 +91,14 @@ function spawn_hook(library_name,function_names){
             var library_path = Memory.readCString(args[0])
             if( library_path.includes(library_name)){
                 var msg=initMessage();
-                msg["data"]="[...] Loading library : " + library_path;
-                send(msg)
+                klog("[...] Loading library : " + library_path);
                 this.library_loaded = 1
             }
         },
         onLeave: function(args){
             // if it's the library we want to hook, hooking it
             if(this.library_loaded ==  1){
-                var msg=initMessage();
-                msg["data"]="[+] Loaded";
-                send(msg)
+                klog("[+] Loaded");
                 native_hook(library_name, function_names)
                 this.library_loaded = 0
             }
@@ -110,8 +110,7 @@ function main(){
     var isSpawn = "%spawn%";
     var moduleName = "%moduleName%" // 目标模块
     var methodName = {methodName} // 目标函数,这里是个列表
-    var msg= initMessage();
-    msg["init"]="traceNative.js init hook success";
+    klogData("","init","traceNative.js init hook success");
     send(msg);
     if (isSpawn) {
         spawn_hook(moduleName, methodName)

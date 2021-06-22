@@ -1,10 +1,18 @@
 //默认使用,后面再搞点默认hook功能
 (function(){
 
-function initMessage(){
-  var message={};
-  message["jsname"]="default";
-  return message;
+function klog(data){
+    var message={};
+    message["jsname"]="default";
+    message["data"]=data;
+    send(message);
+}
+function klogData(data,key,value){
+    var message={};
+    message["jsname"]="default";
+    message["data"]=data;
+    message[key]=value;
+    send(message);
 }
 
 //查找java的函数
@@ -12,7 +20,7 @@ function showMethods(postdata){
     var inputClass=postdata["className"];
     var inputMethod=postdata["methodName"];
     var hasMethod=postdata["hasMethod"];
-    var msg= initMessage()
+
     console.log("enter js showMethods")
     Java.perform(function(){
         var cnt=0;
@@ -24,8 +32,7 @@ function showMethods(postdata){
             }
             if(!hasMethod){
                 cnt+=1;
-                msg["data"]="className:"+className;
-                send(msg);
+                klog("className:"+className)
                 return;
             }
             // console.log("loaded: "+className);
@@ -40,15 +47,13 @@ function showMethods(postdata){
                         }
                     }
                     cnt+=1;
-                    msg["data"]="className:"+className+"----method:"+methodName;
-                    send(msg);
+                    klog("className:"+className+"----method:"+methodName)
                 }
             }catch(ex){
 
             }
         })
-        msg["data"]="find count:"+cnt;
-        send(msg)
+        klog("find count:"+cnt);
     });
 }
 //查找so的符号
@@ -57,7 +62,6 @@ function showExport(postdata){
     var inputMethod=postdata["methodName"];
     var showType=postdata["showType"];
     var hasMethod=postdata["hasMethod"];
-    var msg= initMessage()
     var cnt=0;
     console.log("enter js showExport")
     Process.enumerateModules().forEach(function(module){
@@ -68,8 +72,7 @@ function showExport(postdata){
         }
         if(!hasMethod){
                 cnt+=1;
-                msg["data"]="module:"+module.name;
-                send(msg);
+                klog("module:"+module.name)
                 return;
             }
         if(showType=="Export"){
@@ -80,8 +83,7 @@ function showExport(postdata){
                     }
                 }
                 cnt+=1;
-                msg["data"]="module:"+module.name+"----exportName:"+edata.name+"----address:"+edata.address+"----type:"+edata.type;
-                send(msg)
+                klog("module:"+module.name+"----exportName:"+edata.name+"----address:"+edata.address+"----type:"+edata.type)
             });
         }else{
             module.enumerateSymbols().forEach(function(edata){
@@ -91,8 +93,7 @@ function showExport(postdata){
                     }
                 }
                 cnt+=1;
-                msg["data"]="module:"+module.name+"----symbolName:"+edata.name+"----address:"+edata.address+"----type:"+edata.type;
-                send(msg)
+                klog("module:"+module.name+"----symbolName:"+edata.name+"----address:"+edata.address+"----type:"+edata.type)
             });
         }
     });
@@ -103,29 +104,25 @@ function dumpPtr(postdata){
     var inputAddress=postdata["address"];
     var dumpType=postdata["dumpType"];
     var size=postdata["size"];
-    var msg= initMessage()
     console.log("enter js dumpPtr")
     if(inputModule && inputModule.length>0){
         var moduleBase=Module.findBaseAddress(inputModule);
         if(!moduleBase){
-            msg["data"]="not found "+inputModule;
-            send(msg)
+            klog("not found "+inputModule)
             return;
         }
         var dumpAddr= moduleBase.add(inputAddress);
         if(dumpType=="hexdump"){
-            msg["data"]="base:"+moduleBase+",dump address:"+dumpAddr+"\n"+hexdump(ptr(dumpAddr),{length:size});
+            klog("base:"+moduleBase+",dump address:"+dumpAddr+"\n"+hexdump(ptr(dumpAddr),{length:size}))
         }else if(dumpType=="string"){
-            msg["data"]="base:"+moduleBase+",dump address:"+dumpAddr+"\n"+ ptr(dumpAddr).readCString();
+            klog("base:"+moduleBase+",dump address:"+dumpAddr+"\n"+ ptr(dumpAddr).readCString())
         }
-        send(msg);
     }else{
         if(dumpType=="hexdump"){
-            msg["data"]="dump address:"+ptr(inputAddress)+"\n"+hexdump(ptr(inputAddress),{length:size});
+            klog("dump address:"+ptr(inputAddress)+"\n"+hexdump(ptr(inputAddress),{length:size}))
         }else if(dumpType=="string"){
-            msg["data"]="dump address:"+ptr(inputAddress)+"\n"+ ptr(inputAddress).readCString();
+            klog("dump address:"+ptr(inputAddress)+"\n"+ ptr(inputAddress).readCString());
         }
-        send(msg);
     }
 }
 
@@ -133,7 +130,6 @@ function searchInfo(postdata){
     Java.perform(function(){
         var baseName=postdata["baseName"];
         var searchType=postdata["type"];
-        var msg= initMessage();
         var appinfo={};
         appinfo["type"]=searchType;
         if(searchType=="export"){
@@ -153,9 +149,7 @@ function searchInfo(postdata){
                 appinfo["method"].push(methodName);
             });
         }
-        msg["appinfo_search"]=JSON.stringify(appinfo);
-        msg["data"]="appinfo search";
-        send(msg);
+        klogData("appinfo_search","appinfo_search",JSON.stringify(appinfo))
     });
 }
 
@@ -182,21 +176,16 @@ function recvMessage(){
 //动态取一些附加的app信息传给py
 function loadAppInfo(){
     Java.perform(function(){
-        var msg= initMessage();
         var appinfo={};
         appinfo["modules"]=Process.enumerateModules();
         appinfo["classes"]=Java.enumerateLoadedClassesSync()
         appinfo["spawn"]="%spawn%"
-        msg["appinfo"]=JSON.stringify(appinfo);
-        msg["data"]="加载appinfo";
-        send(msg);
+        klogData("加载appinfo","appinfo",JSON.stringify(appinfo))
     })
 }
 
 function main(){
-    var msg= initMessage();
-    msg["init"]="default.js init hook success";
-    send(msg);
+    klogData("","init","default.js init hook success")
     loadAppInfo();
     recvMessage();
 }

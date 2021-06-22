@@ -7,22 +7,28 @@ var library_name = "%moduleName%" // ex: libsqlite.so
 var function_name = "%methodName%" // ex: JNI_OnLoad
 var library_loaded = 0
 
-function initMessage(){
-  var message={};
-  message["jsname"]="jni_trace_new";
-  return message;
+function klog(data){
+    var message={};
+    message["jsname"]="default";
+    message["data"]=data;
+    send(message);
+}
+function klogData(data,key,value){
+    var message={};
+    message["jsname"]="default";
+    message["data"]=data;
+    message[key]=value;
+    send(message);
 }
 
 // Function that will process the JNICall after calculating it from
 // the jnienv pointer in args[0]
 function hook_jni(library_name, function_name){
-    var msg=initMessage();
     // To get the list of exports
     Module.enumerateExportsSync(library_name).forEach(function(symbol){
         // console.log(symbol.name);
         if(symbol.name == function_name){
-            msg["data"]="[...] Hooking : " + library_name + " -> " + function_name + " at " + symbol.address;
-            send(msg)
+            klog("[...] Hooking : " + library_name + " -> " + function_name + " at " + symbol.address)
             Interceptor.attach(symbol.address,{
                 onEnter: function(args){
 
@@ -33,8 +39,7 @@ function hook_jni(library_name, function_name){
 
 
                     // console.log("[+] Hooked successfully, JNIEnv base adress :" + jnienv_addr)
-                    msg["data"]="[+] Hooked successfully, JNIEnv base adress :" + jnienv_addr;
-                    send(msg)
+                    klog("[+] Hooked successfully, JNIEnv base adress :" + jnienv_addr)
                     /*
                      Here you can choose which function to hook
                      Either you hook all to have an overview of the function called
@@ -48,16 +53,14 @@ function hook_jni(library_name, function_name){
 
                     Interceptor.attach(jni.getJNIFunctionAdress(jnienv_addr,"FindClass"),{
                         onEnter: function(args){
-                            msg["data"]="env->FindClass(\"" + Memory.readCString(args[1]) + "\")";
-                            send(msg)
+                            klog("env->FindClass(\"" + Memory.readCString(args[1]) + "\")");
                         }
                     })
                 },
                 onLeave: function(args){
                     // Prevent from displaying junk from other functions
                     Interceptor.detachAll()
-                    msg["data"]="[-] Detaching all interceptors";
-                    send(msg)
+                    klog("[-] Detaching all interceptors")
                 }
             })
         }
@@ -65,14 +68,10 @@ function hook_jni(library_name, function_name){
 }
 
 if(library_name == "" || function_name == ""){
-    var msg=initMessage();
-    msg["data"]="[-] You must provide a function name and a library name to hook";
-    send(msg)
+    klog("[-] You must provide a function name and a library name to hook")
 }else{
 
-var msg= initMessage();
-msg["init"]="jni_trace_new.js init hook success library_name:"+library_name+",function_name:"+function_name;
-send(msg);
+klogData("","init","jni_trace_new.js init hook success library_name:"+library_name+",function_name:"+function_name);
 
 // First Step : waiting for the application to load the good library
 // https://android.googlesource.com/platform/system/core/+/master/libnativeloader/native_loader.cpp#746
@@ -86,9 +85,7 @@ if(isSpawn){
             var library_path = Memory.readCString(args[0])
 
             if( library_path.includes(library_name)){
-                var msg=initMessage();
-                msg["data"]="[...] Loading library : " + library_path;
-                send(msg)
+                klog("[...] Loading library : " + library_path)
                 library_loaded = 1
             }
         },
@@ -96,9 +93,7 @@ if(isSpawn){
 
             // if it's the library we want to hook, hooking it
             if(library_loaded ==  1){
-                var msg=initMessage();
-                msg["data"]="[+] Loaded";
-                send(msg)
+                klog("[+] Loaded")
                 hook_jni(library_name, function_name)
                 library_loaded = 0
             }
@@ -373,9 +368,7 @@ function hook_all(jnienv_addr){
             var func_addr = getJNIFunctionAdress(jnienv_addr,func_name)
             Interceptor.attach(func_addr,{
                 onEnter: function(args){
-                    var msg=initMessage();
-                    msg["data"]="[+] Entered : " + func_name;
-                    send(msg)
+                    klog("[+] Entered : " + func_name)
                 }
             })
         }

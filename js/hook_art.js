@@ -1,24 +1,27 @@
 
 (function(){
 
-function initMessage(){
-  var message={};
-  message["jsname"]="hook_art";
-  return message;
+function klog(data){
+    var message={};
+    message["jsname"]="default";
+    message["data"]=data;
+    send(message);
 }
 
-function log(data){
-    var msg=initMessage();
-    msg["data"]=data;
-    send(msg);
+function klogData(data,key,value){
+    var message={};
+    message["jsname"]="default";
+    message["data"]=data;
+    message[key]=value;
+    send(message);
 }
-
+//替换了console.log
 console.log = (function (oriLogFunc) {
   return function () {
     //判断配置文件是否开启日志调试
     let arr = []
     arr.push(...arguments)
-    log(JSON.stringify(arr))
+    klog(JSON.stringify(arr))
   }
 })(console.log);
 
@@ -73,10 +76,7 @@ FindClass is at  0xe399ae5d _ZN3art3JNI9FindClassEP7_JNIEnvPKc
 */
 
 function hook_libart() {
-
-    var msg= initMessage();
-    msg["init"]="hook_art.js init hook success";
-    send(msg);
+    klogData("","init","hook_art.js init hook success")
 
     var symbols = Module.enumerateSymbolsSync("libart.so");
     var addrGetStringUTFChars = null;

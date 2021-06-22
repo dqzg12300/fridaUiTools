@@ -133,23 +133,35 @@ function stalkerTraceRange(tid, base, size) {
             do {
                 iterator.keep();
                 if (isModuleCode) {
+                    var address=ptr(instruction["address"]-moduleBase);
                     send({
                         type: 'inst',
                         tid: tid,
                         block: startAddress,
                         val: JSON.stringify(instruction),
-                        jsname:"sktrace"
+                        jsname:"sktrace",
+                        moduleBase:moduleBase,
+                        address:address,
                     })
+
                     iterator.putCallout((context) => {
-                            send({
-                                type: 'ctx',
-                                tid: tid,
-                                val: JSON.stringify(context),
-                                jsname:"sktrace"
-                            })
+                        var callOutAddress=ptr(context.pc-moduleBase)
+                        send({
+                            type: 'ctx',
+                            tid: tid,
+                            val: JSON.stringify(context),
+                            jsname:"sktrace",
+                            moduleBase:moduleBase,
+                            address:callOutAddress
+                        })
+
                     })
+
                 }
             } while (iterator.next() !== null);
+            // if(flag){
+            //     send(data)
+            // }
         }
     })
 }
@@ -226,11 +238,13 @@ function watcherLib(libname, callback) {
 
 function trace(symbol,offset){
     const targetModule = Process.getModuleByName(libname);
+    moduleBase=targetModule.base;
     let targetAddress = null;
     if(symbol.length>0) {
         targetAddress = targetModule.findExportByName(symbol);
     } else if(offset.length>0) {
         var offsetData=parseInt(offset,16);
+
         targetAddress = targetModule.base.add(ptr(offsetData));
     }
     traceAddr(targetAddress)
@@ -265,7 +279,7 @@ function spawn_hook(library_name,symbol,offset){
 var msg= initMessage();
 msg["init"]="sktrace.js init hook success";
 send(msg);
-
+var moduleBase=0;
 const libname = "%moduleName%";
 var isSpawn="%spawn%";
 var symbol="%symbol%";

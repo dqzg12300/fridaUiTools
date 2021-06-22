@@ -312,9 +312,9 @@ class patchForm(QDialog):
         self.initData()
 
     def clearUi(self):
-        self.txtModule.setText("")
-        self.txtAddress.setText("")
-        self.txtPatch.setText("")
+        self.txtModule.setText("libnative-lib.so")
+        self.txtAddress.setText("0xE55C")
+        self.txtPatch.setText("1F 20 03 D5")
 
     def submit(self):
         moduleName = self.txtModule.text()

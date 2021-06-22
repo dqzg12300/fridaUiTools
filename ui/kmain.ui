@@ -258,7 +258,7 @@
         <item row="2" column="0">
          <widget class="QTabWidget" name="groupLogs">
           <property name="currentIndex">
-           <number>2</number>
+           <number>1</number>
           </property>
           <widget class="QWidget" name="tab_3">
            <attribute name="title">
@@ -280,7 +280,11 @@
            </attribute>
            <layout class="QGridLayout" name="gridLayout_2">
             <item row="0" column="0">
-             <widget class="QPlainTextEdit" name="txtoutLogs"/>
+             <widget class="QPlainTextEdit" name="txtoutLogs">
+              <property name="readOnly">
+               <bool>true</bool>
+              </property>
+             </widget>
             </item>
            </layout>
           </widget>
@@ -535,6 +539,8 @@
      <string>文件</string>
     </property>
     <addaction name="actionClearTmp"/>
+    <addaction name="actionClearLogs"/>
+    <addaction name="actionClearOutlog"/>
    </widget>
    <widget class="QMenu" name="menuedit">
     <property name="title">
@@ -615,6 +621,16 @@
   <action name="actionClearTmp">
    <property name="text">
     <string>清空缓存数据</string>
+   </property>
+  </action>
+  <action name="actionClearLogs">
+   <property name="text">
+    <string>清空日志文件</string>
+   </property>
+  </action>
+  <action name="actionClearOutlog">
+   <property name="text">
+    <string>清空输出日志</string>
    </property>
   </action>
  </widget>

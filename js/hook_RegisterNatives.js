@@ -1,23 +1,23 @@
 
 (function(){
 
-function initMessage(){
-  var message={};
-  message["jsname"]="hook_RegisterNatives";
-  return message;
+function klog(data){
+    var message={};
+    message["jsname"]="default";
+    message["data"]=data;
+    send(message);
+}
+function klogData(data,key,value){
+    var message={};
+    message["jsname"]="default";
+    message["data"]=data;
+    message[key]=value;
+    send(message);
 }
 
-function log(data){
-    var msg=initMessage();
-    msg["data"]=data;
-    send(msg);
-}
 
 function hook_RegisterNatives() {
-    var msg= initMessage();
-    msg["init"]="hook_RegisterNatives.js init hook success";
-    send(msg);
-
+    klogData("","init","hook_RegisterNatives.js init hook success");
     var symbols = Module.enumerateSymbolsSync("libart.so");
     var addrRegisterNatives = null;
     for (var i = 0; i < symbols.length; i++) {
@@ -29,14 +29,14 @@ function hook_RegisterNatives() {
                 symbol.name.indexOf("RegisterNatives") >= 0 &&
                 symbol.name.indexOf("CheckJNI") < 0) {
             addrRegisterNatives = symbol.address;
-            log("RegisterNatives is at "+symbol.address+" "+symbol.name);
+            klog("RegisterNatives is at "+symbol.address+" "+symbol.name);
         }
     }
 
     if (addrRegisterNatives != null) {
         Interceptor.attach(addrRegisterNatives, {
             onEnter: function (args) {
-                log("[RegisterNatives] method_count:"+ args[3]);
+                klog("[RegisterNatives] method_count:"+ args[3]);
                 var env = args[0];
                 var java_class = args[1];
                 var class_name = Java.vm.tryGetEnv().getClassName(java_class);
@@ -53,7 +53,7 @@ function hook_RegisterNatives() {
                     var name = Memory.readCString(name_ptr);
                     var sig = Memory.readCString(sig_ptr);
                     var find_module = Process.findModuleByAddress(fnPtr_ptr);
-                    log("[RegisterNatives] java_class:"+class_name+" name:"+name+ " sig:"+ sig+ " fnPtr:"+fnPtr_ptr+ " module_name:"+find_module.name+ " module_base:"+ find_module.base+ " offset:"+ ptr(fnPtr_ptr).sub(find_module.base));
+                    klog("[RegisterNatives] java_class:"+class_name+" name:"+name+ " sig:"+ sig+ " fnPtr:"+fnPtr_ptr+ " module_name:"+find_module.name+ " module_base:"+ find_module.base+ " offset:"+ ptr(fnPtr_ptr).sub(find_module.base));
 
                 }
             }

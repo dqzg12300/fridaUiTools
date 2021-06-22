@@ -47,6 +47,9 @@ class kmainForm(QMainWindow):
         self.actionStop.setEnabled(False)
         self.actionStop.triggered.connect(self.StopAttach)
         self.actionClearTmp.triggered.connect(self.ClearTmp)
+        self.actionClearLogs.triggered.connect(self.ClearLogs)
+        self.actionClearOutlog.triggered.connect(self.ClearOutlog)
+
         self.btnShowExport.clicked.connect(self.showExport)
         self.btnWallbreaker.clicked.connect(self.wallBreaker)
         self.btnShowMethods.clicked.connect(self.showMethods)
@@ -204,6 +207,18 @@ class kmainForm(QMainWindow):
         for i in ls:
             c_path = os.path.join(path, i)
             os.remove(c_path)
+    def ClearLogs(self):
+        path = "./logs/"
+        ls = os.listdir(path)
+        for i in ls:
+            c_path = os.path.join(path, i)
+            try:
+                os.remove(c_path)
+            except:
+                pass
+
+    def ClearOutlog(self):
+        self.txtoutLogs.setPlainText("")
 
     #进程结束时的状态切换，和打印
     def taskOver(self):
@@ -510,13 +525,13 @@ class kmainForm(QMainWindow):
         self.updateTabHooks()
 
     def patch(self):
-
         self.pform.flushCmb()
         res=self.pform.exec()
         if res==0:
             return
         self.log("pathch替换模块:"+self.pform.moduleName+"地址:" + self.pform.address+"的数据为"+self.pform.patch)
-        patchHook = {"class": self.pform.moduleName, "method": self.pform.address+"|"+self.pform.patch, "bak": "替换指定地址的二进制数据."}
+        patchHook = {"class": self.pform.moduleName, "method": self.pform.address+"|"+self.pform.patch,
+                     "bak": "替换指定地址的二进制数据.","address":self.pform.address,"code":self.pform.patch}
         typeStr = "patch"
         if typeStr in self.hooksData:
             self.hooksData[typeStr].append(patchHook)
