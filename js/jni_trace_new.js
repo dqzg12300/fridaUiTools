@@ -9,13 +9,13 @@ var library_loaded = 0
 
 function klog(data){
     var message={};
-    message["jsname"]="default";
+    message["jsname"]="jni_trace_new";
     message["data"]=data;
     send(message);
 }
 function klogData(data,key,value){
     var message={};
-    message["jsname"]="default";
+    message["jsname"]="jni_trace_new";
     message["data"]=data;
     message[key]=value;
     send(message);

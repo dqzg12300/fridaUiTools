@@ -96,17 +96,25 @@ class Runthread(QThread):
                 source = source.replace("%spawn%","1" if self.isSpawn else "")
                 source = source.replace("%symbol%", self.hooksData[item]["symbol"])
                 source = source.replace("%offset%", self.hooksData[item]["offset"])
-            elif item=="patch":
-                patchList = {}
-                for patch in self.hooksData[item]:
-                    patchList[patch["address"]]={
-                        "moduleName":patch["class"],
-                        "code": patch["code"],
-                    }
-                if len(patchList) > 0:
-                    source += open("./js/patchCode.js", 'r', encoding="utf8").read()
-                    print(json.dumps(patchList))
-                    source = source.replace("{PATCHLIST}", json.dumps(patchList))
+            elif item=="tuoke":
+                tuokeType=self.hooksData[item]["class"]
+                if tuokeType=="dumpdex":
+                    source += open("./js/dump_dex.js", 'r', encoding="utf8").read()
+                    source = source.replace("%spawn%", "1" if self.isSpawn else "")
+                elif tuokeType=="dumpdexclass":
+                    source += open("./js/dump_dex_class.js", 'r', encoding="utf8").read()
+                    source = source.replace("%spawn%", "1" if self.isSpawn else "")
+            # elif item=="patch":
+            #     patchList = {}
+            #     for patch in self.hooksData[item]:
+            #         patchList[patch["address"]]={
+            #             "moduleName":patch["class"],
+            #             "code": patch["code"],
+            #         }
+            #     if len(patchList) > 0:
+            #         source += open("./js/patchCode.js", 'r', encoding="utf8").read()
+            #         print(json.dumps(patchList))
+            #         source = source.replace("{PATCHLIST}", json.dumps(patchList))
 
 
         source += open("./js/default.js", 'r', encoding="utf8").read()
@@ -183,6 +191,11 @@ class Runthread(QThread):
         postdata["func"] = "dumpPtr"
         self.default_script.post({'type': 'input', 'payload': postdata})
         self.log("post dumpPtr:" + postdata["moduleName"] + "," + str(hex(postdata["address"])))
+
+    def dumpSoPtr(self,postdata):
+        postdata["func"] = "dumpSoPtr"
+        self.default_script.post({'type': 'input', 'payload': postdata})
+        self.log("post dumpSoPtr:" + postdata["moduleName"])
 
     def searchInfo(self,postdata):
         postdata["func"] = "searchInfo"

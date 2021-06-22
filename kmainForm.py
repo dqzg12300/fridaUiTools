@@ -51,10 +51,11 @@ class kmainForm(QMainWindow):
         self.actionClearOutlog.triggered.connect(self.ClearOutlog)
 
         self.btnShowExport.clicked.connect(self.showExport)
-        self.btnWallbreaker.clicked.connect(self.wallBreaker)
         self.btnShowMethods.clicked.connect(self.showMethods)
         self.btnDumpPtr.clicked.connect(self.dumpPtr)
         self.btnMatchDump.clicked.connect(self.matchDump)
+        self.btnDumpSo.clicked.connect(self.dumpSo)
+
         self.chkNetwork.toggled.connect(self.hookNetwork)
         self.chkJni.toggled.connect(self.hookJNI)
         self.chkJavaEnc.toggled.connect(self.hookJavaEnc)
@@ -103,6 +104,7 @@ class kmainForm(QMainWindow):
         self.spawnAttach = formUtil.spawnAttachForm()
         self.stalkerForm=formUtil.stalkerForm()
         self.pform = formUtil.patchForm()
+        self.dumpSoForm= formUtil.dumpSoForm()
 
         self.modules=None
         self.classes=None
@@ -354,16 +356,6 @@ class kmainForm(QMainWindow):
         self.th.showExport(postdata)
 
 
-
-    def wallBreaker(self):
-        if self.isattach() == False:
-            self.log("Error:还未附加进程")
-            QMessageBox().information(self, "提示", "未附加进程")
-            return
-        self.log("wallBreaker功能")
-        QMessageBox().information(self, "提示", "待开发")
-
-
     def dumpPtr(self):
         if self.isattach() == False:
             self.log("Error:还未附加进程")
@@ -380,6 +372,19 @@ class kmainForm(QMainWindow):
                     "dumpType": self.dumpForm.dumpType,
                     "size": self.dumpForm.size}
         self.th.dumpPtr(postdata)
+
+    def dumpSo(self):
+        if self.isattach() == False:
+            self.log("Error:还未附加进程")
+            QMessageBox().information(self, "提示", "未附加进程")
+            return
+        self.log("dump so")
+        self.dumpSoForm.flushCmb()
+        res=self.dumpSoForm.exec()
+        if res==0:
+            return
+        postdata = {"moduleName": self.dumpSoForm.moduleName}
+        self.th.dumpSoPtr(postdata)
 
     def matchDump(self):
         QMessageBox().information(self, "提示", "待开发")
@@ -521,7 +526,7 @@ class kmainForm(QMainWindow):
         if res==0:
             return
         self.log("使用脱壳"+tform.tuokeType)
-        self.hooksData["tuoke"] = {"class": tform.tuokeType, "method": "", "bak": "使用大佬开源的脱壳方法."}
+        self.hooksData["tuoke"] = {"class": tform.tuokeType, "method": "", "bak": self.typeData[tform.tuokeType]["bak"]}
         self.updateTabHooks()
 
     def patch(self):
@@ -564,7 +569,7 @@ class kmainForm(QMainWindow):
         self.chkRegisterNative.setChecked(self.chkRegisterNative.tag in self.hooksData)
         self.chkArtMethod.setChecked(self.chkArtMethod.tag in self.hooksData)
         self.chkLibArt.setChecked(self.chkLibArt.tag in self.hooksData)
-
+        self.chkDumpDex.setChecked(self.chkDumpDex.tag in self.hooksData)
 
     def loadJson(self,filepath):
         with open(filepath, "r", encoding="utf8") as hooksFile:

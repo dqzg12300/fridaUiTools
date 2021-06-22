@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>379</width>
+    <width>322</width>
     <height>218</height>
    </rect>
   </property>
@@ -17,27 +17,34 @@
    <item row="0" column="0">
     <widget class="QGroupBox" name="groupBox">
      <property name="title">
-      <string>开源项目</string>
+      <string>脱壳相关</string>
      </property>
-     <layout class="QHBoxLayout" name="horizontalLayout">
-      <item>
-       <widget class="QRadioButton" name="rdoFridaDump">
+     <layout class="QGridLayout" name="gridLayout_2">
+      <item row="0" column="0">
+       <widget class="QRadioButton" name="rdoDumpDex">
         <property name="text">
-         <string>frida_dump</string>
+         <string>dump_dex</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QRadioButton" name="rdoDumpDexClass">
+        <property name="text">
+         <string>dump_dex_class</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QRadioButton" name="rdoDexDump">
+        <property name="text">
+         <string>FRIDA-DEXDump</string>
         </property>
         <property name="checked">
          <bool>true</bool>
         </property>
        </widget>
       </item>
-      <item>
-       <widget class="QRadioButton" name="rdoDexDump">
-        <property name="text">
-         <string>FRIDA-DEXDump</string>
-        </property>
-       </widget>
-      </item>
-      <item>
+      <item row="1" column="1">
        <widget class="QRadioButton" name="rdoFart">
         <property name="text">
          <string>fart</string>

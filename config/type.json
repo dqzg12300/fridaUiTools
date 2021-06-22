@@ -7,5 +7,7 @@
   "RegisterNative":{"class":"","method":"","bak":"hook动态注册函数，参考自frida_hook_libart"},
   "ArtMethod":{"class":"","method":"","bak":"hook ArtMethod函数调用，参考自frida_hook_libart"},
   "libArm":{"class":"","method":"","bak":"参考自frida_hook_libart的hook_art脚本"},
-  "sslpining":{"class":"","method":"","bak":"hook证书锁定.参考自git项目DroidSSLUnpinning"}
+  "sslpining":{"class":"","method":"","bak":"hook证书锁定.参考自git项目DroidSSLUnpinning"},
+  "dumpdex":{"class":"","method":"","bak":"脱壳dex.参考自git项目frida_dump"},
+  "dumpdexclass":{"class":"","method":"","bak":"加载全部类后再脱壳dex.参考自git项目frida_dump"}
 }

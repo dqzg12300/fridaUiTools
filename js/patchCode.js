@@ -1,3 +1,5 @@
+//还不太明白为什么Memory.protect后就异常了。查清楚了再看看怎么搞。
+
 (function(){
 function dis(address, number) {
     for (var i = 0; i < number; i++) {

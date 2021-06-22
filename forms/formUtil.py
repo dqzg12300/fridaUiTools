@@ -251,11 +251,13 @@ class tuokeForm(QDialog):
 
     def submit(self):
         self.tuokeType = "fart"
-        if self.rdoFridaDump.isChecked():
-            self.tuokeType="fridadump"
-        elif self.rdoDexDump.isChecked():
+        if self.rdoDexDump.isChecked():
             self.tuokeType="dexdump"
-        self.close()
+        elif self.rdoDumpDex.isChecked():
+            self.tuokeType="dumpdex"
+        elif self.rdoDumpDexClass.isChecked():
+            self.tuokeType="dumpdexclass"
+        self.accept()
 
 class patchForm(QDialog):
     def __init__(self):
@@ -425,7 +427,7 @@ class jnitraceForm(QDialog):
 
 
     def submit(self):
-        if len(self.txtModule.text())<=0 or len(self.txtModule.text())<=0:
+        if len(self.txtModule.text())<=0 or len(self.txtMethod.text())<=0:
             QMessageBox().information(self, "提示", "模块名或函数为空")
             return
         self.moduleName = self.txtModule.text()
@@ -696,4 +698,66 @@ class stalkerForm(QDialog):
         self.symbol = symbol
         self.accept()
 
+class dumpSoForm(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowOpacity(0.93)
+        uic.loadUi("./ui/dump_so.ui", self)
+        self.btnSubmit.clicked.connect(self.submit)
+        self.moduleName = ""
+        self.btnClear.clicked.connect(self.clearUi)
+        self.clearUi()
+        self.flushCmb()
+        self.listModule.itemClicked.connect(self.ModuleItemClick)
+        self.txtModule.textChanged.connect(self.changeModule)
+        self.cmbPackage.currentTextChanged.connect(self.changePackage)
+        self.modules=None
+
+    def initData(self):
+        self.listModule.clear()
+        for item in self.modules:
+            self.listModule.addItem(item)
+
+    def flushCmb(self):
+        self.cmbPackage.clear()
+        files = os.listdir("./tmp/")
+        self.cmbPackage.addItem("选择缓存数据")
+        for item in files:
+            if ".modules.txt" in item:
+                self.cmbPackage.addItem(item.replace(".modules.txt",""))
+
+    def ModuleItemClick(self,item):
+        self.txtModule.setText(item.text())
+
+    def changeModule(self,data):
+        if data=="" or data=="选择缓存数据":
+            return
+        self.listModule.clear()
+        if len(data) > 0:
+            for item in self.modules:
+                if data in item:
+                    self.listModule.addItem(item)
+        else:
+            for item in self.modules:
+                self.listModule.addItem(item)
+
+    def changePackage(self,data):
+        if data=="" or data=="选择缓存数据":
+            return
+        filepath = "./tmp/" + data + ".modules.txt"
+        with open(filepath, "r", encoding="utf-8") as packageFile:
+            res = packageFile.read()
+            self.modules = res.split("\n")
+        self.initData()
+
+    def clearUi(self):
+        self.txtModule.setText("")
+
+
+    def submit(self):
+        if len(self.txtModule.text())<=0 or len(self.txtModule.text())<=0:
+            QMessageBox().information(self, "提示", "模块名或函数为空")
+            return
+        self.moduleName = self.txtModule.text()
+        self.accept()
 
