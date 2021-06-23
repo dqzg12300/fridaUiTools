@@ -16,7 +16,7 @@ var addrBase64_encode = null;
 var funcBase64_encode = null;
 var addrFreeptr = null;
 var funcFreeptr = null;
-var savepath = "/data/local/tmp/fart";
+var savepath = "/sdcard/fart";
 //savepath = "/data/data/com.example.packagename"
 var dex_maps = {};
 var artmethod_maps = {};
@@ -114,6 +114,7 @@ function hookart() {
                         }
 
                     } catch (e) {
+                        console.log("filepath:",dexfile_path);
                         dexfile_handle = new File(dexfile_path, "a+");
                         if (dexfile_handle && dexfile_handle != null) {
                             var dex_buffer = ptr(dexfilebegin).readByteArray(dexfilesize);

@@ -8,12 +8,11 @@ from PyQt5.QtGui import QStandardItemModel, QStandardItem, QCursor
 from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog, QStatusBar, QLabel, QMessageBox, QHeaderView, \
     QTableWidgetItem, QMenu, QAction
 
-from utils import LogUtil
+from utils import LogUtil, CmdUtil
 import json,os,threading,frida
 
 from forms import formUtil
 import TraceThread
-from utils.CmdUtil import execCmd
 
 
 class kmainForm(QMainWindow):
@@ -228,19 +227,35 @@ class kmainForm(QMainWindow):
         self.txtoutLogs.setPlainText("")
 
     def PushFartSo(self):
-        res=execCmd("adb push ./lib/fart.so /data/app/fart.so")
+        # 有些手机是用su 0来执行shell命令的。不太懂怎么判断是哪种。
+        res = CmdUtil.adbshellCmd("mkdir /data/local/tmp/fart", 2)
         self.log(res)
-        res=execCmd("adb push ./lib/fart64.so /data/app/fart64.so")
+        res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/fart", 2)
         self.log(res)
-        res=execCmd("adb shell su -c 'chmod 0777 /data/app/fart.so'")
+
+        res = CmdUtil.adbshellCmd("mkdir /sdcard/fart", 2)
         self.log(res)
-        res=execCmd("adb shell su -c 'chmod 0777 /data/app/fart64.so'")
+        res = CmdUtil.adbshellCmd("chmod 0777 /sdcard/fart", 2)
         self.log(res)
-        res = execCmd("adb shell su -c 'mkdir /data/local/tmp/fart'")
+
+        res=CmdUtil.execCmd("adb push ./lib/fart.so /data/local/tmp/fart/fart.so")
         self.log(res)
-        res = execCmd("adb shell su -c 'chmod 0777 /data/local/tmp/fart'")
+        res=CmdUtil.execCmd("adb push ./lib/fart64.so /data/local/tmp/fart/fart64.so")
         self.log(res)
+
+        res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/fart/fart.so", 2)
+        self.log(res)
+        res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/fart/fart64.so", 2)
+        self.log(res)
+        #因为好像有些手机不能直接push到/data/app目录。所以先放tmp再拷贝过去
+        res = CmdUtil.adbshellCmd("cp /data/local/tmp/fart/fart.so /data/app/", 2)
+        self.log(res)
+        res = CmdUtil.adbshellCmd("cp /data/local/tmp/fart/fart64.so /data/app/", 2)
+        self.log(res)
+
+
         QMessageBox().information(self, "提示", "上传完成")
+
     #进程结束时的状态切换，和打印
     def taskOver(self):
         self.log("附加进程结束")
@@ -249,6 +264,11 @@ class kmainForm(QMainWindow):
 
     #这是附加结束时的状态栏显示包名
     def attachOver(self,name):
+        tmppath="./tmp/spawnPackage.txt"
+        with open(tmppath, "a+") as packageFile:
+            packageData = packageFile.read()
+            if name not in packageData:
+                packageFile.write(name + "\n")
         self.labPackage.setText(name)
 
     #启动附加
