@@ -13,19 +13,20 @@ frida_tools是一个界面化整理脚本的工具。新人的练手作品。参
 > * 模糊匹配函数进行批量hook（整合ZenTracer）
 > * 模糊匹配so函数批量hook（参数统一方式打印。所以输出只能做参考）
 > * native的sub函数批量hook（参数统一方式打印。所以输出只能做参考）
-> * stalker的trace
-> * 自定义脚本添加
-> * 脱壳相关（整合frida_dump、FRIDA-DEXDump、fart）
-> * patch汇编代码
+> * stalker的trace（整合sktrace）
 > * 整合frida_hook_libart
+> * 脱壳相关（整合frida_dump、FRIDA-DEXDump、fart）
+> * 自定义脚本添加 (todo 待开发)
+> * patch汇编代码 (todo 待开发)
+
 
 ## 调用功能如下（附加进程后使用）
 
 > * 模糊匹配类和函数打印（输出时间较长，如果想打印全部。就都填空即可）
 > * 模糊匹配so符号打印（输出时间较长，如果想打印全。就都填空即可）
 > * dump打印指定地址
-> * 特征dump（搜索内存中的指定特征，然后匹配指定大小。是对之前脱壳里面的功能单独抽出）
-> * 整合wallbreaker（内存中搜索到类的结构数据打印）
+> * dump指定模块
+> * 特征dump（todo 待开发）
 
 ## 应用信息
 
@@ -47,11 +48,19 @@ frida_tools是一个界面化整理脚本的工具。新人的练手作品。参
 
 
 
-## 应用界面
+## 应用部分界面
 
+![image-20210623223153869](./img/image-20210618123336357.png)
 
+![image-20210623224721847](./img/image-20210623224721847.png)
 
+![image-20210623224754971](./img/image-20210623224754971.png)
 
+## 使用说明
+
+软件里面有很多地方用到了缓存数据。缓存数据是附加一次进程后，保存下来的module和class列表。这样方便智能的检索。所以一般第一次使用的时候，先附加一次目标进程，就有缓存数据可以使用了。
+
+软件目前应该还存在很多瑕疵和bug。我会在实用中慢慢修补。
 
 ## 感谢
 
@@ -62,4 +71,5 @@ frida_tools是一个界面化整理脚本的工具。新人的练手作品。参
 * [frida_dump](https://github.com/lasting-yang/frida_dump)
 * [FRIDA-DEXDump](https://github.com/hluwa/FRIDA-DEXDump)
 * [FART](https://github.com/hanbinglengyue/FART)
+* [sktrace](https://github.com/bmax121/sktrace)
 

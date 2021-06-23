@@ -1,3 +1,5 @@
 PyQt5==5.10.1
-frida==12.8.0
+frida==14.2.18
 hexdump==3.3
+capstone==4.0.2
+keystone==19.0.0

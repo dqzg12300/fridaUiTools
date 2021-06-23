@@ -51,6 +51,7 @@ class kmainForm(QMainWindow):
         self.actionClearLogs.triggered.connect(self.ClearLogs)
         self.actionClearOutlog.triggered.connect(self.ClearOutlog)
         self.actionPushFartSo.triggered.connect(self.PushFartSo)
+        self.actionClearHookJson.triggered.connect(self.ClearHookJson)
 
         self.btnShowExport.clicked.connect(self.showExport)
         self.btnShowMethods.clicked.connect(self.showMethods)
@@ -252,9 +253,18 @@ class kmainForm(QMainWindow):
         self.log(res)
         res = CmdUtil.adbshellCmd("cp /data/local/tmp/fart/fart64.so /data/app/", 2)
         self.log(res)
-
-
         QMessageBox().information(self, "提示", "上传完成")
+
+    def ClearHookJson(self):
+        path = "./hooks/"
+        ls = os.listdir(path)
+        for i in ls:
+            c_path = os.path.join(path, i)
+            try:
+                os.remove(c_path)
+            except:
+                pass
+        self.updateCmbHooks()
 
     #进程结束时的状态切换，和打印
     def taskOver(self):
@@ -605,6 +615,9 @@ class kmainForm(QMainWindow):
 
     def saveHooks(self):
         self.log("保存hook列表")
+        if len(self.hooksData)<=0:
+            QMessageBox().information(self, "提示", "未设置hook项,无法保存")
+            return
         saveHooks=self.txtSaveHooks.text()
         if len(saveHooks)<=0:
             self.log("未填写保存的别名")
@@ -627,7 +640,6 @@ class kmainForm(QMainWindow):
         self.chkRegisterNative.setChecked(self.chkRegisterNative.tag in self.hooksData)
         self.chkArtMethod.setChecked(self.chkArtMethod.tag in self.hooksData)
         self.chkLibArt.setChecked(self.chkLibArt.tag in self.hooksData)
-        self.chkDumpDex.setChecked(self.chkDumpDex.tag in self.hooksData)
 
     def loadJson(self,filepath):
         with open(filepath, "r", encoding="utf8") as hooksFile:
@@ -660,9 +672,12 @@ class kmainForm(QMainWindow):
         self.tabHooks.setRowCount(0)
         self.tabHooks.setHorizontalHeaderLabels(self.header)
         self.tabHooks.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.updateCmbHooks()
 
     #更新加载hook列表
     def updateCmbHooks(self):
+        self.cmbHooks.clear()
+        self.cmbHooks.addItem("选择hook列表")
         for name in os.listdir("./hooks"):
             if name.index(name)>=0:
                 self.cmbHooks.addItem(name.replace(".json",""))

@@ -553,7 +553,7 @@
      <x>0</x>
      <y>0</y>
      <width>845</width>
-     <height>26</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menufile">
@@ -563,6 +563,7 @@
     <addaction name="actionClearTmp"/>
     <addaction name="actionClearLogs"/>
     <addaction name="actionClearOutlog"/>
+    <addaction name="actionClearHookJson"/>
     <addaction name="actionPushFartSo"/>
    </widget>
    <widget class="QMenu" name="menuedit">
@@ -659,6 +660,11 @@
   <action name="actionPushFartSo">
    <property name="text">
     <string>上传fart.so到设备</string>
+   </property>
+  </action>
+  <action name="actionClearHookJson">
+   <property name="text">
+    <string>清空json列表</string>
    </property>
   </action>
  </widget>
