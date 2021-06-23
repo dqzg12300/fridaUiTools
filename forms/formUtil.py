@@ -22,11 +22,11 @@ class matchForm(QDialog):
         self.listClass.itemClicked.connect(self.ClassItemClick)
         self.txtClass.textChanged.connect(self.changeClass)
         self.cmbPackage.currentTextChanged.connect(self.changePackage)
-        self.modules = None
+        self.classes = None
 
     def initData(self):
         self.listClass.clear()
-        for item in self.modules:
+        for item in self.classes:
             self.listClass.addItem(item)
 
     def flushCmb(self):
@@ -41,22 +41,24 @@ class matchForm(QDialog):
         self.txtClass.setText(item.text())
 
     def changeClass(self, data):
+        if self.classes==None or len(self.classes)<=0:
+            return
         self.listClass.clear()
         if len(data) > 0:
-            for item in self.modules:
+            for item in self.classes:
                 if data in item:
                     self.listClass.addItem(item)
         else:
-            for item in self.modules:
+            for item in self.classes:
                 self.listClass.addItem(item)
 
     def changePackage(self, data):
         if data=="" or data=="选择缓存数据":
             return
-        filepath = "./tmp/" + data + ".modules.txt"
+        filepath = "./tmp/" + data + ".classes.txt"
         with open(filepath, "r", encoding="utf-8") as packageFile:
             res = packageFile.read()
-            self.modules = res.split("\n")
+            self.classes = res.split("\n")
         self.initData()
 
     def clearUi(self):
@@ -110,6 +112,8 @@ class nativesForm(QDialog):
         self.txtModule.setText(item.text())
 
     def changeModule(self, data):
+        if self.modules==None or len(self.modules)<=0:
+            return
         if data=="" or data=="选择缓存数据":
             return
         self.listModule.clear()
@@ -181,6 +185,8 @@ class dumpAddressForm(QDialog):
         self.txtModule.setText(item.text())
 
     def changeModule(self, data):
+        if self.modules==None or len(self.modules)<=0:
+            return
         if data=="" or data=="选择缓存数据":
             return
         self.listModule.clear()
@@ -252,7 +258,7 @@ class tuokeForm(QDialog):
     def submit(self):
         self.tuokeType = "fart"
         if self.rdoDexDump.isChecked():
-            self.tuokeType="dexdump"
+            self.tuokeType="FRIDA-DEXDump"
         elif self.rdoDumpDex.isChecked():
             self.tuokeType="dumpdex"
         elif self.rdoDumpDexClass.isChecked():
@@ -293,6 +299,8 @@ class patchForm(QDialog):
         self.txtModule.setText(item.text())
 
     def changeModule(self, data):
+        if self.modules==None or len(self.modules)<=0:
+            return
         if data=="" or data=="选择缓存数据":
             return
         self.listModule.clear()
@@ -401,6 +409,8 @@ class jnitraceForm(QDialog):
         self.txtModule.setText(item.text())
 
     def changeModule(self,data):
+        if self.modules==None or len(self.modules)<=0:
+            return
         if data=="" or data=="选择缓存数据":
             return
         self.listModule.clear()
@@ -490,6 +500,8 @@ class zenTracerForm(QDialog):
             self.listClasses2.addItem(item)
 
     def changeClass(self,data):
+        if self.classes==None or len(self.classes)<=0:
+            return
         self.listClasses1.clear()
         if len(data) > 0:
             for item in self.classes:
@@ -658,6 +670,8 @@ class stalkerForm(QDialog):
         self.txtModule.setText(item.text())
 
     def changeModule(self, data):
+        if self.modules==None or len(self.modules)<=0:
+            return
         if data == "" or data == "选择缓存数据":
             return
         self.listModule.clear()
@@ -730,6 +744,8 @@ class dumpSoForm(QDialog):
         self.txtModule.setText(item.text())
 
     def changeModule(self,data):
+        if self.modules==None or len(self.modules)<=0:
+            return
         if data=="" or data=="选择缓存数据":
             return
         self.listModule.clear()
@@ -761,3 +777,68 @@ class dumpSoForm(QDialog):
         self.moduleName = self.txtModule.text()
         self.accept()
 
+class fartForm(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowOpacity(0.93)
+        uic.loadUi("./ui/fart.ui", self)
+        self.btnSubmitFart.clicked.connect(self.submitFart)
+        self.btnSubmitFartClass.clicked.connect(self.submitFartClass)
+        self.className=""
+        self.clearUi()
+        self.flushCmb()
+        self.listClass.itemClicked.connect(self.ClassItemClick)
+        self.txtClass.textChanged.connect(self.changeClass)
+        self.cmbPackage.currentTextChanged.connect(self.changePackage)
+        self.classes = None
+
+    def initData(self):
+        self.listClass.clear()
+        for item in self.classes:
+            self.listClass.addItem(item)
+
+    def flushCmb(self):
+        self.cmbPackage.clear()
+        files = os.listdir("./tmp/")
+        self.cmbPackage.addItem("选择缓存数据")
+        for item in files:
+            if ".classes.txt" in item:
+                self.cmbPackage.addItem(item.replace(".classes.txt", ""))
+
+    def ClassItemClick(self, item):
+        self.txtClass.setText(item.text())
+
+    def changeClass(self, data):
+        if self.classes==None or len(self.classes)<=0:
+            return
+        self.listClass.clear()
+        if len(data) > 0:
+            for item in self.classes:
+                if data in item:
+                    self.listClass.addItem(item)
+        else:
+            for item in self.classes:
+                self.listClass.addItem(item)
+
+    def changePackage(self, data):
+        if data=="" or data=="选择缓存数据":
+            return
+        filepath = "./tmp/" + data + ".classes.txt"
+        with open(filepath, "r", encoding="utf-8") as packageFile:
+            res = packageFile.read()
+            self.classes = res.split("\n")
+        self.initData()
+
+    def clearUi(self):
+        self.txtClass.setText("")
+
+    def submitFartClass(self):
+        className=self.txtClass.text()
+        if len(className)<=0:
+            QMessageBox().information(self, "提示", "未填写类名")
+            return
+        self.className=className
+        self.done(1)
+
+    def submitFart(self):
+        self.done(2)

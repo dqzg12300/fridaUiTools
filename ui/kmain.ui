@@ -37,32 +37,6 @@
            <string>功能(附加进程后使用)</string>
           </property>
           <layout class="QGridLayout" name="gridLayout_4">
-           <item row="0" column="0">
-            <widget class="QPushButton" name="btnShowMethods">
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>40</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>打印类和函数</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QPushButton" name="btnShowExport">
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>40</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>显示so符号</string>
-             </property>
-            </widget>
-           </item>
            <item row="2" column="0">
             <widget class="QPushButton" name="btnDumpPtr">
              <property name="minimumSize">
@@ -76,8 +50,11 @@
              </property>
             </widget>
            </item>
-           <item row="2" column="1">
+           <item row="2" column="2">
             <widget class="QPushButton" name="btnMatchDump">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
              <property name="minimumSize">
               <size>
                <width>0</width>
@@ -86,6 +63,45 @@
              </property>
              <property name="text">
               <string>特征dump</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="0">
+            <widget class="QPushButton" name="btnShowMethods">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>打印类和函数</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QPushButton" name="btnFart">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Fart</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QPushButton" name="btnShowExport">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>显示so符号</string>
              </property>
             </widget>
            </item>
@@ -537,7 +553,7 @@
      <x>0</x>
      <y>0</y>
      <width>845</width>
-     <height>22</height>
+     <height>26</height>
     </rect>
    </property>
    <widget class="QMenu" name="menufile">
@@ -547,6 +563,7 @@
     <addaction name="actionClearTmp"/>
     <addaction name="actionClearLogs"/>
     <addaction name="actionClearOutlog"/>
+    <addaction name="actionPushFartSo"/>
    </widget>
    <widget class="QMenu" name="menuedit">
     <property name="title">
@@ -637,6 +654,11 @@
   <action name="actionClearOutlog">
    <property name="text">
     <string>清空输出日志</string>
+   </property>
+  </action>
+  <action name="actionPushFartSo">
+   <property name="text">
+    <string>上传fart.so到设备</string>
    </property>
   </action>
  </widget>

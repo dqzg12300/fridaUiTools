@@ -13,6 +13,8 @@ import json,os,threading,frida
 
 from forms import formUtil
 import TraceThread
+from utils.CmdUtil import execCmd
+
 
 class kmainForm(QMainWindow):
     def __init__(self):
@@ -49,12 +51,14 @@ class kmainForm(QMainWindow):
         self.actionClearTmp.triggered.connect(self.ClearTmp)
         self.actionClearLogs.triggered.connect(self.ClearLogs)
         self.actionClearOutlog.triggered.connect(self.ClearOutlog)
+        self.actionPushFartSo.triggered.connect(self.PushFartSo)
 
         self.btnShowExport.clicked.connect(self.showExport)
         self.btnShowMethods.clicked.connect(self.showMethods)
         self.btnDumpPtr.clicked.connect(self.dumpPtr)
         self.btnMatchDump.clicked.connect(self.matchDump)
         self.btnDumpSo.clicked.connect(self.dumpSo)
+        self.btnFart.clicked.connect(self.dumpFart)
 
         self.chkNetwork.toggled.connect(self.hookNetwork)
         self.chkJni.toggled.connect(self.hookJNI)
@@ -105,6 +109,7 @@ class kmainForm(QMainWindow):
         self.stalkerForm=formUtil.stalkerForm()
         self.pform = formUtil.patchForm()
         self.dumpSoForm= formUtil.dumpSoForm()
+        self.fartForm= formUtil.fartForm()
 
         self.modules=None
         self.classes=None
@@ -222,6 +227,20 @@ class kmainForm(QMainWindow):
     def ClearOutlog(self):
         self.txtoutLogs.setPlainText("")
 
+    def PushFartSo(self):
+        res=execCmd("adb push ./lib/fart.so /data/app/fart.so")
+        self.log(res)
+        res=execCmd("adb push ./lib/fart64.so /data/app/fart64.so")
+        self.log(res)
+        res=execCmd("adb shell su -c 'chmod 0777 /data/app/fart.so'")
+        self.log(res)
+        res=execCmd("adb shell su -c 'chmod 0777 /data/app/fart64.so'")
+        self.log(res)
+        res = execCmd("adb shell su -c 'mkdir /data/local/tmp/fart'")
+        self.log(res)
+        res = execCmd("adb shell su -c 'chmod 0777 /data/local/tmp/fart'")
+        self.log(res)
+        QMessageBox().information(self, "提示", "上传完成")
     #进程结束时的状态切换，和打印
     def taskOver(self):
         self.log("附加进程结束")
@@ -385,6 +404,25 @@ class kmainForm(QMainWindow):
             return
         postdata = {"moduleName": self.dumpSoForm.moduleName}
         self.th.dumpSoPtr(postdata)
+
+    def dumpFart(self):
+        if self.isattach() == False:
+            self.log("Error:还未附加进程")
+            QMessageBox().information(self, "提示", "未附加进程")
+            return
+        if "tuoke" not in self.hooksData:
+            self.log("Error:未勾选fart脚本")
+            QMessageBox().information(self, "提示", "请在附加前勾选脱壳中的fart脚本")
+            return
+        self.fartForm.flushCmb()
+        res=self.fartForm.exec()
+        if res==0:
+            return
+
+        t1 = threading.Thread(target=self.th.fart, args=(res,self.fartForm.className))
+        t1.start()
+        # self.th.fart(res,self.fartForm.className)
+
 
     def matchDump(self):
         QMessageBox().information(self, "提示", "待开发")

@@ -148,20 +148,33 @@ function dumpSo(postdata){
     });
 }
 
+function dumpFart(postdata){
+    var tp=postdata["type"];
+    var className=postdata["className"];
+    if(tp==1){
+        console.log(dump_class);
+    }else if(tp==2){
+        console.log(fart);
+    }
+}
+
 function searchInfo(postdata){
     Java.perform(function(){
         var baseName=postdata["baseName"];
         var searchType=postdata["type"];
         var appinfo={};
         appinfo["type"]=searchType;
+        var count=0;
         if(searchType=="export"){
             var module=Process.getModuleByName(baseName);
             var exports=module.enumerateExports();
             appinfo["export"]=exports;
+            count=exports.length;
         }else if(searchType=="symbol"){
             var module=Process.getModuleByName(baseName);
             var symbols=module.enumerateSymbols();
             appinfo["symbol"]=symbols;
+            count=symbols.length;
         }else if(searchType=="method"){
             var classModel=Java.use(baseName);
             var methods=classModel.class.getDeclaredMethods();
@@ -170,8 +183,9 @@ function searchInfo(postdata){
                 var methodName = method.getName();
                 appinfo["method"].push(methodName);
             });
+            count=methods.length;
         }
-        klogData("appinfo_search","appinfo_search",JSON.stringify(appinfo))
+        klogData("appinfo_search count:"+count,"appinfo_search",JSON.stringify(appinfo))
     });
 }
 
@@ -191,6 +205,8 @@ function recvMessage(){
                 searchInfo(payload);
             }else if(func=="dumpSoPtr"){
                 dumpSo(payload);
+            }else if(func=="fart"){
+                dumpFart(payload);
             }
         });
         op.wait();

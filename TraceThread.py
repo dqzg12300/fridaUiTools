@@ -6,8 +6,10 @@ from PyQt5.QtCore import *
 import frida
 import json
 import hexdump
+import hashlib
+import os
 
-
+md5 = lambda bs: hashlib.md5(bs).hexdigest()
 # 继承QThread
 class Runthread(QThread):
     #  通过类成员对象定义信号对象
@@ -30,6 +32,8 @@ class Runthread(QThread):
         self.default_script=None
         self.device=None
         self.isSpawn=isSpawn
+        self.DEXDump=False
+        self.enable_deep_search=False
 
     def quit(self):
         if self.scripts:
@@ -104,6 +108,11 @@ class Runthread(QThread):
                 elif tuokeType=="dumpdexclass":
                     source += open("./js/dump_dex_class.js", 'r', encoding="utf8").read()
                     source = source.replace("%spawn%", "1" if self.isSpawn else "")
+                elif tuokeType=="FRIDA-DEXDump":
+                    source += open("./js/FRIDA-DEXDump.js", 'r', encoding="utf8").read()
+                    self.DEXDump=True
+                elif tuokeType=="fart":
+                    source += open("./js/frida_fart_hook.js", 'r', encoding="utf8").read()
             # elif item=="patch":
             #     patchList = {}
             #     for patch in self.hooksData[item]:
@@ -125,6 +134,14 @@ class Runthread(QThread):
         script.load()
         self.default_script=script
         self.scripts.append(script)
+        if self.DEXDump:
+            if self.enable_deep_search:
+                script.exports.switchmode(True)
+                self.outlog("[DEXDump]: deep search mode is enable, maybe wait long time.")
+            mds = []
+            self.dump(pname, script.exports, mds=mds)
+
+
 
     def r0capture_message(self,p,data):
         if data==None or len(data) == 1:
@@ -202,6 +219,15 @@ class Runthread(QThread):
         self.default_script.post({'type': 'input', 'payload': postdata})
         self.log("post searchInfo")
 
+    def fart(self,fartType,className):
+        # postdata["func"] = "fart"
+        # self.default_script.post({'type': 'input', 'payload': postdata})
+        # self.log("post fart")
+        api=self.default_script.exports
+        if fartType==1:
+            api.fartClass(className)
+        elif fartType==2:
+            api.fart()
 
     def on_message(self,message, data):
         if message["type"] == "error":
@@ -246,3 +272,46 @@ class Runthread(QThread):
         print("thread over")
         # self.taskOverSignel.emit()
 
+
+    #DEXDump相关的
+    def dex_fix(self,dex_bytes):
+        import struct
+        dex_size = len(dex_bytes)
+
+        if dex_bytes[:4] != b"dex\n":
+            dex_bytes = b"dex\n035\x00" + dex_bytes[8:]
+
+        if dex_size >= 0x24:
+            dex_bytes = dex_bytes[:0x20] + struct.Struct("<I").pack(dex_size) + dex_bytes[0x24:]
+
+        if dex_size >= 0x28:
+            dex_bytes = dex_bytes[:0x24] + struct.Struct("<I").pack(0x70) + dex_bytes[0x28:]
+
+        if dex_size >= 0x2C and dex_bytes[0x28:0x2C] not in [b'\x78\x56\x34\x12', b'\x12\x34\x56\x78']:
+            dex_bytes = dex_bytes[:0x28] + b'\x78\x56\x34\x12' + dex_bytes[0x2C:]
+
+        return dex_bytes
+
+    def dump(self,pkg_name, api, mds=None):
+        """
+        """
+        if mds is None:
+            mds = []
+        matches = api.scandex()
+        for info in matches:
+            try:
+                bs = api.memorydump(info['addr'], info['size'])
+                md = md5(bs)
+                if md in mds:
+                    self.outlog("[DEXDump]: Skip duplicate dex {}<{}>".format(info['addr'], md))
+                    continue
+                mds.append(md)
+                if not os.path.exists("./" + pkg_name + "/"):
+                    os.mkdir("./" + pkg_name + "/")
+                bs = self.dex_fix(bs)
+                with open(pkg_name + "/" + info['addr'] + ".dex", 'wb') as out:
+                    out.write(bs)
+                self.outlog("[DEXDump]: DexSize={}, DexMd5={}, SavePath={}/{}/{}.dex"
+                            .format(hex(info['size']), md, os.getcwd(), pkg_name, info['addr']))
+            except Exception as e:
+                self.outlog("[Except] - {}: {}".format(e, info))
