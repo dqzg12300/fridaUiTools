@@ -125,57 +125,10 @@ function dump_dex() {
     }
 }
 
-var is_hook_libart = false;
 
-function hook_dlopen() {
-    Interceptor.attach(Module.findExportByName(null, "dlopen"), {
-        onEnter: function(args) {
-            var pathptr = args[0];
-            if (pathptr !== undefined && pathptr != null) {
-                var path = ptr(pathptr).readCString();
-                //console.log("dlopen:", path);
-                if (path.indexOf("libart.so") >= 0) {
-                    this.can_hook_libart = true;
-                    klog("[dlopen:]"+path);
-                }
-            }
-        },
-        onLeave: function(retval) {
-            if (this.can_hook_libart && !is_hook_libart) {
-                dump_dex();
-                is_hook_libart = true;
-            }
-        }
-    })
-
-    Interceptor.attach(Module.findExportByName(null, "android_dlopen_ext"), {
-        onEnter: function(args) {
-            var pathptr = args[0];
-            if (pathptr !== undefined && pathptr != null) {
-                var path = ptr(pathptr).readCString();
-                //console.log("android_dlopen_ext:", path);
-                if (path.indexOf("libart.so") >= 0) {
-                    this.can_hook_libart = true;
-                    klog("[android_dlopen_ext:]"+ path);
-                }
-            }
-        },
-        onLeave: function(retval) {
-            if (this.can_hook_libart && !is_hook_libart) {
-                dump_dex();
-                is_hook_libart = true;
-            }
-        }
-    });
-}
 function main(){
-    var spawn="%spawn%";
     klogData("","init","dump_dex.js init hook success")
-    if(spawn){
-        hook_dlopen();
-    }else{
-        dump_dex();
-    }
+    dump_dex();
 }
 
 setImmediate(main);

@@ -101,7 +101,6 @@ function dump_dex() {
     for (var base in dex_maps) {
         var size = dex_maps[base];
         klog(base);
-
         var magic = ptr(base).readCString();
         if (magic.indexOf("dex") == 0) {
             var process_name = get_self_process_name();
@@ -120,6 +119,7 @@ function dump_dex() {
             }
         }
     }
+    klog("[dump dex]: task over");
 }
 
 function hook_dex() {
@@ -154,7 +154,6 @@ function hook_dex() {
                     dex_maps[base] = size;
                     klog("hook_dex:"+ base+" "+ size);
                 }
-                dump_dex();
             },
             onLeave: function (retval) {}
         });
@@ -162,59 +161,17 @@ function hook_dex() {
 
 }
 
-var is_hook_libart = false;
-
-function hook_dlopen() {
-    Interceptor.attach(Module.findExportByName(null, "dlopen"), {
-        onEnter: function (args) {
-            var pathptr = args[0];
-            if (pathptr !== undefined && pathptr != null) {
-                var path = ptr(pathptr).readCString();
-                //console.log("dlopen:", path);
-                if (path.indexOf("libart.so") >= 0) {
-                    this.can_hook_libart = true;
-                    klog("[dlopen:]"+ path);
-                }
-            }
-        },
-        onLeave: function (retval) {
-            if (this.can_hook_libart && !is_hook_libart) {
-                hook_dex();
-                is_hook_libart = true;
-            }
-        }
-    })
-
-    Interceptor.attach(Module.findExportByName(null, "android_dlopen_ext"), {
-        onEnter: function (args) {
-            var pathptr = args[0];
-            if (pathptr !== undefined && pathptr != null) {
-                var path = ptr(pathptr).readCString();
-                //console.log("android_dlopen_ext:", path);
-                if (path.indexOf("libart.so") >= 0) {
-                    this.can_hook_libart = true;
-                    klog("[android_dlopen_ext:]"+path);
-                }
-            }
-        },
-        onLeave: function (retval) {
-            if (this.can_hook_libart && !is_hook_libart) {
-                hook_dex();
-                is_hook_libart = true;
-            }
-        }
-    });
-}
-
 function main(){
-    var spawn="%spawn%";
     klogData("","init","dump_dex_class.js init hook success")
-    if(spawn){
-        hook_dlopen();
-    }else{
-        hook_dex();
-    }
+    hook_dex();
 }
 
 setImmediate(main);
+
+rpc.exports = {
+    dumpdex:function(){
+        dump_dex();
+    },
+}
+
 })();

@@ -11,6 +11,14 @@ def execCmd(cmd):
         text ="cmd命令执行" + cmd + "完毕"
     return text
 
+def dumpdexInit(packageName):
+    path = "/data/data/" + packageName + "/files/" + "/dump_dex_" + packageName
+    res=""
+    res += adbshellCmd("mkdir -p " + path)+"\n"
+    res += adbshellCmd("chmod 0777 " + "/data/data/" + packageName + "/files/")+"\n"
+    res += adbshellCmd("chmod 0777 " + path)+"\n"
+    return res
+
 def adbshellCmd(cmd,deviceType=1):
     cmdstart="adb shell su -c '%s'"
     if deviceType==2:

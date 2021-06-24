@@ -6,15 +6,45 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>322</width>
-    <height>218</height>
+    <width>375</width>
+    <height>353</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>脱壳</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout">
+  <layout class="QGridLayout" name="gridLayout_3">
    <item row="0" column="0">
+    <widget class="QGroupBox" name="groupBox_2">
+     <property name="title">
+      <string>提示</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout">
+      <item row="0" column="0">
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string>fart在功能里主动调用功能耗时很长</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_2">
+        <property name="text">
+         <string>dump_dex需要使用spawn附加</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_3">
+        <property name="text">
+         <string>dump_dex_class需要在功能的按钮触发dump</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="1" column="0">
     <widget class="QGroupBox" name="groupBox">
      <property name="title">
       <string>脱壳相关</string>
@@ -54,7 +84,7 @@
      </layout>
     </widget>
    </item>
-   <item row="1" column="0">
+   <item row="2" column="0">
     <widget class="QPushButton" name="btnSubmit">
      <property name="maximumSize">
       <size>

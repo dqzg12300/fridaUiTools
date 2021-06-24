@@ -9,6 +9,8 @@ import hexdump
 import hashlib
 import os
 
+from utils import CmdUtil
+
 md5 = lambda bs: hashlib.md5(bs).hexdigest()
 # 继承QThread
 class Runthread(QThread):
@@ -55,14 +57,18 @@ class Runthread(QThread):
     def _attach(self,pname):
         if not self.device: return
         self.log("attach '{}'".format(pname))
-        if self.isSpawn:
-            pid = self.device.spawn([pname])
-            session =self.device.attach(pid)
-            self.device.resume(pid)
-        else:
-            session = self.device.attach(pname)
-        # session.enable_child_gating()
-        source=""
+        try:
+            if self.isSpawn:
+                pid = self.device.spawn([pname])
+                session =self.device.attach(pid)
+                self.device.resume(pid)
+            else:
+                session = self.device.attach(pname)
+            # session.enable_child_gating()
+            source=""
+        except Exception as ex:
+            self.log("附加异常:"+str(ex))
+            return
 
         for item in self.hooksData:
             if item=="r0capture":
@@ -103,9 +109,13 @@ class Runthread(QThread):
             elif item=="tuoke":
                 tuokeType=self.hooksData[item]["class"]
                 if tuokeType=="dumpdex":
+                    res = CmdUtil.dumpdexInit(self.attachName)
+                    self.log(res)
                     source += open("./js/dump_dex.js", 'r', encoding="utf8").read()
                     source = source.replace("%spawn%", "1" if self.isSpawn else "")
                 elif tuokeType=="dumpdexclass":
+                    res=CmdUtil.dumpdexInit(self.attachName)
+                    self.log(res)
                     source += open("./js/dump_dex_class.js", 'r', encoding="utf8").read()
                     source = source.replace("%spawn%", "1" if self.isSpawn else "")
                 elif tuokeType=="FRIDA-DEXDump":
@@ -128,6 +138,8 @@ class Runthread(QThread):
 
         source += open("./js/default.js", 'r', encoding="utf8").read()
         source = source.replace("%spawn%", "1" if self.isSpawn else "")
+        source += open("./js/Wallbreaker.js", 'r', encoding="utf8").read()
+
         script = session.create_script(source)
         script.on("message", self.on_message)
         self.attachOverSignel.emit(pname)
@@ -229,6 +241,10 @@ class Runthread(QThread):
         elif fartType==2:
             api.fart()
 
+    def dumpdex(self):
+        api = self.default_script.exports
+        api.dumpdex()
+
     def on_message(self,message, data):
         if message["type"] == "error":
             self.outlog(json.dumps(message))
@@ -259,8 +275,11 @@ class Runthread(QThread):
 
     def run(self):
         self.device = frida.get_usb_device()
-        self.device.on("child-added", self._on_child_added)
+        # self.device.on("child-added", self._on_child_added)
         application = self.device.get_frontmost_application()
+        if application == None:
+            self.log("附加异常,application is None")
+            return
         target = 'Gadget' if application.identifier == 're.frida.Gadget' else application.identifier
         if len(self.attachName)<=0:
             for process in self.device.enumerate_processes():

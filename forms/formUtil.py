@@ -609,8 +609,9 @@ class spawnAttachForm(QDialog):
         self.packageName = ""
         self.packages=[]
         self.listPackage.itemClicked.connect(self.packageClick)
+        self.flushList()
 
-    def flushCmb(self):
+    def flushList(self):
         self.packages.clear()
         self.listPackage.clear()
         packagePath = "./tmp/spawnPackage.txt"
@@ -635,7 +636,7 @@ class spawnAttachForm(QDialog):
         self.packageName = packageName
         if packageName not in self.packages :
             self.listPackage.addItem(packageName)
-            with open("./tmp/spawnPackage.txt","a") as packageFile:
+            with open("./tmp/spawnPackage.txt","w") as packageFile:
                 packageFile.write(packageName+"\n")
         self.accept()
 
@@ -842,3 +843,6 @@ class fartForm(QDialog):
 
     def submitFart(self):
         self.done(2)
+
+
+

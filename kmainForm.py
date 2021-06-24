@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog, QStatusBar, 
 from utils import LogUtil, CmdUtil
 import json,os,threading,frida
 
-from forms import formUtil
+from forms import formUtil, Wallbreaker
 import TraceThread
 
 
@@ -33,6 +33,8 @@ class kmainForm(QMainWindow):
             os.makedirs("./logs")
         if os.path.exists("./tmp")==False:
             os.makedirs("./tmp")
+        if os.path.exists("./dumpdex")==False:
+            os.makedirs("./dumpdex")
 
         self.statusBar = QStatusBar()
         self.labStatus = QLabel('当前状态:未连接')
@@ -52,13 +54,15 @@ class kmainForm(QMainWindow):
         self.actionClearOutlog.triggered.connect(self.ClearOutlog)
         self.actionPushFartSo.triggered.connect(self.PushFartSo)
         self.actionClearHookJson.triggered.connect(self.ClearHookJson)
+        self.actionPullDumpDexRes.triggered.connect(self.PullDumpDex)
 
         self.btnShowExport.clicked.connect(self.showExport)
         self.btnShowMethods.clicked.connect(self.showMethods)
         self.btnDumpPtr.clicked.connect(self.dumpPtr)
-        self.btnMatchDump.clicked.connect(self.matchDump)
         self.btnDumpSo.clicked.connect(self.dumpSo)
         self.btnFart.clicked.connect(self.dumpFart)
+        self.btnDumpDex.clicked.connect(self.dumpDex)
+        self.btnWallbreaker.clicked.connect(self.wallBreaker)
 
         self.chkNetwork.toggled.connect(self.hookNetwork)
         self.chkJni.toggled.connect(self.hookJNI)
@@ -105,11 +109,12 @@ class kmainForm(QMainWindow):
         self.jniform=formUtil.jnitraceForm()
         self.zenTracerForm=formUtil.zenTracerForm()
         self.nativesForm = formUtil.nativesForm()
-        self.spawnAttach = formUtil.spawnAttachForm()
+        self.spawnAttachForm = formUtil.spawnAttachForm()
         self.stalkerForm=formUtil.stalkerForm()
         self.pform = formUtil.patchForm()
         self.dumpSoForm= formUtil.dumpSoForm()
         self.fartForm= formUtil.fartForm()
+        self.wallBreakerForm=Wallbreaker.wallBreakerForm()
 
         self.modules=None
         self.classes=None
@@ -255,6 +260,21 @@ class kmainForm(QMainWindow):
         self.log(res)
         QMessageBox().information(self, "提示", "上传完成")
 
+    def PullDumpDex(self):
+        cmd=""
+        if len(self.th.attachName)>0:
+            pname=self.th.attachName
+        else:
+            self.spawnAttachForm.flushList()
+            res=self.spawnAttachForm.exec()
+            if res==0:
+                return
+            pname=self.spawnAttachForm.packageName
+        cmd="adb pull /data/data/%s/files ./dumpdex/%s/"%(pname,pname)
+        res = CmdUtil.execCmd(cmd)
+        self.log(res)
+        QMessageBox().information(self, "提示", "下载完成")
+
     def ClearHookJson(self):
         path = "./hooks/"
         ls = os.listdir(path)
@@ -307,8 +327,8 @@ class kmainForm(QMainWindow):
     #spawn的方式附加进程
     def actionSpawnStart(self):
         self.log("actionSpawnStart")
-        self.spawnAttach.flushCmb()
-        res=self.spawnAttach.exec()
+        self.spawnAttachForm.flushList()
+        res=self.spawnAttachForm.exec()
         if res==0:
             return
         try:
@@ -316,7 +336,7 @@ class kmainForm(QMainWindow):
             device = frida.get_usb_device()
             device.enumerate_processes()
             self.changeAttachStatus(True)
-            self.th = TraceThread.Runthread(self.hooksData, self.spawnAttach.packageName,True)
+            self.th = TraceThread.Runthread(self.hooksData, self.spawnAttachForm.packageName, True)
             self.th.taskOverSignel.connect(self.taskOver)
             self.th.loggerSignel.connect(self.log)
             self.th.outloggerSignel.connect(self.outlog)
@@ -441,9 +461,14 @@ class kmainForm(QMainWindow):
             QMessageBox().information(self, "提示", "未附加进程")
             return
         if "tuoke" not in self.hooksData:
-            self.log("Error:未勾选fart脚本")
-            QMessageBox().information(self, "提示", "请在附加前勾选脱壳中的fart脚本")
+            self.log("Error:未勾选脱壳脚本")
+            QMessageBox().information(self, "提示", "未勾选脱壳脚本")
             return
+        if self.hooksData["tuoke"]["class"] != "fart":
+            self.log("Error:未勾选fart脱壳脚本")
+            QMessageBox().information(self, "提示", "未勾选fart脱壳脚本")
+            return
+
         self.fartForm.flushCmb()
         res=self.fartForm.exec()
         if res==0:
@@ -453,15 +478,37 @@ class kmainForm(QMainWindow):
         t1.start()
         # self.th.fart(res,self.fartForm.className)
 
+    def dumpDex(self):
+        if self.isattach() == False:
+            self.log("Error:还未附加进程")
+            QMessageBox().information(self, "提示", "未附加进程")
+            return
+        if "tuoke" not in self.hooksData:
+            self.log("Error:未勾选脱壳脚本")
+            QMessageBox().information(self, "提示", "未勾选脱壳脚本")
+            return
+        if self.hooksData["tuoke"]["class"] != "dumpdexclass":
+            self.log("Error:未勾选dumpdexclass脱壳脚本")
+            QMessageBox().information(self, "提示", "未勾选dumpdexclass脱壳脚本")
+            return
+        t1 = threading.Thread(target=self.th.dumpdex)
+        t1.start()
 
-    def matchDump(self):
-        QMessageBox().information(self, "提示", "待开发")
-        return
-        # if self.isattach() == False:
-        #     self.log("Error:还未附加进程")
-        #     QMessageBox().information(self, "提示", "未附加进程")
-        #     return
-        # self.log("指定特征dump内存")
+    def wallBreaker(self):
+        if self.isattach() == False:
+            self.log("Error:还未附加进程")
+            QMessageBox().information(self, "提示", "未附加进程")
+            return
+        if self.classes==None or len(self.classes)<=0:
+            self.log("Error:未附加进程或操作太快,请稍等")
+            QMessageBox().information(self, "提示", "未附加进程或操作太快,请稍等")
+            return
+        self.wallBreakerForm.classes=self.classes
+        self.wallBreakerForm.api=self.th.default_script.exports
+        self.wallBreakerForm.initData()
+        self.wallBreakerForm.show()
+
+
 
     # ====================end======需要附加后才能使用的功能,基本都是在内存中查数据================================
 

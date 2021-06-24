@@ -26,7 +26,7 @@ frida_tools是一个界面化整理脚本的工具。新人的练手作品。参
 > * 模糊匹配so符号打印（输出时间较长，如果想打印全。就都填空即可）
 > * dump打印指定地址
 > * dump指定模块
-> * 特征dump（todo 待开发）
+> * wallBreak整合
 
 ## 应用信息
 
@@ -56,6 +56,8 @@ frida_tools是一个界面化整理脚本的工具。新人的练手作品。参
 
 ![image-20210623224754971](./img/image-20210623224754971.png)
 
+![image-20210624170512882](.\img\image-20210624170512882.png)
+
 ## 使用说明
 
 软件里面有很多地方用到了缓存数据。缓存数据是附加一次进程后，保存下来的module和class列表。这样方便智能的检索。所以一般第一次使用的时候，先附加一次目标进程，就有缓存数据可以使用了。
@@ -72,4 +74,4 @@ frida_tools是一个界面化整理脚本的工具。新人的练手作品。参
 * [FRIDA-DEXDump](https://github.com/hluwa/FRIDA-DEXDump)
 * [FART](https://github.com/hanbinglengyue/FART)
 * [sktrace](https://github.com/bmax121/sktrace)
-
+* [Wallbreaker](https://github.com/hluwa/Wallbreaker)
