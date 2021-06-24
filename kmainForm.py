@@ -56,8 +56,6 @@ class kmainForm(QMainWindow):
         self.actionClearHookJson.triggered.connect(self.ClearHookJson)
         self.actionPullDumpDexRes.triggered.connect(self.PullDumpDex)
 
-        self.btnShowExport.clicked.connect(self.showExport)
-        self.btnShowMethods.clicked.connect(self.showMethods)
         self.btnDumpPtr.clicked.connect(self.dumpPtr)
         self.btnDumpSo.clicked.connect(self.dumpSo)
         self.btnFart.clicked.connect(self.dumpFart)
@@ -105,7 +103,6 @@ class kmainForm(QMainWindow):
 
 
         self.dumpForm = formUtil.dumpAddressForm()
-        self.mform = formUtil.matchForm()
         self.jniform=formUtil.jnitraceForm()
         self.zenTracerForm=formUtil.zenTracerForm()
         self.nativesForm = formUtil.nativesForm()
@@ -396,44 +393,22 @@ class kmainForm(QMainWindow):
 
     #====================start======需要附加后才能使用的功能,基本都是在内存中查数据================================
 
-    def showMethods(self):
-        if self.isattach() == False:
-            self.log("Error:还未附加进程")
-            QMessageBox().information(self, "提示", "未附加进程")
-            return
-        self.log("查询所有类和函数")
-        self.mform.flushCmb()
-        res=self.mform.exec()
-        # className为空则是打印所有class。methodName为空则打印所有函数
-        if res==0:
-            return
-        postdata={"className":self.mform.className,"methodName":self.mform.methodName,"hasMethod":self.mform.hasMethod}
-        self.th.showMethods(postdata)
-
-    def showExport(self):
-        if self.isattach()==False:
-            self.log("Error:还未附加进程")
-            QMessageBox().information(self, "提示", "未附加进程")
-            return
-        self.log("查询so的所有符号")
-
-        res=self.m2form.exec()
-        if res==0:
-            return
-        #moduleName为空则是打印所有module。methodName为空则打印所有符号
-        postdata={"moduleName":self.m2form.moduleName,"methodName":self.m2form.methodName,"showType":self.m2form.showType,"hasMethod":self.m2form.hasMethod}
-        self.th.showExport(postdata)
-
-
     def dumpPtr(self):
         if self.isattach() == False:
             self.log("Error:还未附加进程")
             QMessageBox().information(self, "提示", "未附加进程")
             return
+        if self.modules==None or len(self.modules)<=0:
+            self.log("Error:未附加进程或操作太快,请稍等")
+            QMessageBox().information(self, "提示", "未附加进程或操作太快,请稍等")
+            return
+        mods=[]
+        for item in self.modules:
+            mods.append(item["name"])
         self.log("dump指定地址")
-        self.dumpForm.flushCmb()
+        self.dumpForm.modules=mods
+        self.dumpForm.initData()
         res= self.dumpForm.exec()
-        print("res:",res)
         if res==0:
             return
         #设置了module就会以module为基址再加上address去dump。如果不设置module。就会直接dump指定的address
@@ -447,8 +422,16 @@ class kmainForm(QMainWindow):
             self.log("Error:还未附加进程")
             QMessageBox().information(self, "提示", "未附加进程")
             return
+        if self.modules==None or len(self.modules)<=0:
+            self.log("Error:未附加进程或操作太快,请稍等")
+            QMessageBox().information(self, "提示", "未附加进程或操作太快,请稍等")
+            return
+        mods = []
+        for item in self.modules:
+            mods.append(item["name"])
         self.log("dump so")
-        self.dumpSoForm.flushCmb()
+        self.dumpSoForm.modules = mods
+        self.dumpSoForm.initData()
         res=self.dumpSoForm.exec()
         if res==0:
             return
@@ -468,8 +451,12 @@ class kmainForm(QMainWindow):
             self.log("Error:未勾选fart脱壳脚本")
             QMessageBox().information(self, "提示", "未勾选fart脱壳脚本")
             return
-
-        self.fartForm.flushCmb()
+        if self.classes==None or len(self.classes)<=0:
+            self.log("Error:未附加进程或操作太快,请稍等")
+            QMessageBox().information(self, "提示", "未附加进程或操作太快,请稍等")
+            return
+        self.fartForm.classes=self.classes
+        self.fartForm.initData()
         res=self.fartForm.exec()
         if res==0:
             return

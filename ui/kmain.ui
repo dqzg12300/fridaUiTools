@@ -37,32 +37,6 @@
            <string>功能(附加进程后使用)</string>
           </property>
           <layout class="QGridLayout" name="gridLayout_4">
-           <item row="0" column="0">
-            <widget class="QPushButton" name="btnShowMethods">
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>40</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>打印类和函数</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QPushButton" name="btnShowExport">
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>40</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>显示so符号</string>
-             </property>
-            </widget>
-           </item>
            <item row="2" column="0">
             <widget class="QPushButton" name="btnDumpPtr">
              <property name="minimumSize">
@@ -73,19 +47,6 @@
              </property>
              <property name="text">
               <string>dump指定地址</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="2">
-            <widget class="QPushButton" name="btnDumpSo">
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>40</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>dump so</string>
              </property>
             </widget>
            </item>
@@ -115,7 +76,20 @@
              </property>
             </widget>
            </item>
-           <item row="0" column="3">
+           <item row="0" column="0">
+            <widget class="QPushButton" name="btnDumpSo">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>dump so</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
             <widget class="QPushButton" name="btnWallbreaker">
              <property name="minimumSize">
               <size>

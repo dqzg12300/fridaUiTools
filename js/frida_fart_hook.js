@@ -306,7 +306,7 @@ rpc.exports = {
     fart:function(){
         fart();
     },
-    fartClass:function(name){
+    fartclass:function(name){
         dumpclass(name);
     }
 }

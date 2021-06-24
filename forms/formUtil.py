@@ -6,78 +6,78 @@ from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QWidget, QMessageBox, QDialog, QMenu, QAction, QHeaderView, QTableWidgetItem
 from utils import AsmUtil
 
-class matchForm(QDialog):
-    def __init__(self):
-        super().__init__()
-        self.setWindowOpacity(0.93)
-        uic.loadUi("./ui/match.ui", self)
-        self.btnSubmit.clicked.connect(self.submit)
-        self.className=""
-        self.methodName=""
-        self.hasMethod = True
-        self.chkHasMethod.toggled.connect(self.changeHasMethod)
-        self.btnClear.clicked.connect(self.clearUi)
-        self.clearUi()
-        self.flushCmb()
-        self.listClass.itemClicked.connect(self.ClassItemClick)
-        self.txtClass.textChanged.connect(self.changeClass)
-        self.cmbPackage.currentTextChanged.connect(self.changePackage)
-        self.classes = None
-
-    def initData(self):
-        self.listClass.clear()
-        for item in self.classes:
-            self.listClass.addItem(item)
-
-    def flushCmb(self):
-        self.cmbPackage.clear()
-        files = os.listdir("./tmp/")
-        self.cmbPackage.addItem("选择缓存数据")
-        for item in files:
-            if ".classes.txt" in item:
-                self.cmbPackage.addItem(item.replace(".classes.txt", ""))
-
-    def ClassItemClick(self, item):
-        self.txtClass.setText(item.text())
-
-    def changeClass(self, data):
-        if self.classes==None or len(self.classes)<=0:
-            return
-        self.listClass.clear()
-        if len(data) > 0:
-            for item in self.classes:
-                if data in item:
-                    self.listClass.addItem(item)
-        else:
-            for item in self.classes:
-                self.listClass.addItem(item)
-
-    def changePackage(self, data):
-        if data=="" or data=="选择缓存数据":
-            return
-        filepath = "./tmp/" + data + ".classes.txt"
-        with open(filepath, "r", encoding="utf-8") as packageFile:
-            res = packageFile.read()
-            self.classes = res.split("\n")
-        self.initData()
-
-    def clearUi(self):
-        self.txtClass.setText("")
-        self.txtMethod.setText("")
-
-    def changeHasMethod(self,chk):
-        if chk:
-            self.txtMethod.setEnabled(True)
-        else:
-            self.txtMethod.setEnabled(False)
-
-    def submit(self):
-        className=self.txtClass.text()
-        methodName=self.txtMethod.text()
-        self.className=className
-        self.methodName=methodName
-        self.hasMethod = self.chkHasMethod.isChecked()
-        self.accept()
+# class matchForm(QDialog):
+#     def __init__(self):
+#         super().__init__()
+#         self.setWindowOpacity(0.93)
+#         uic.loadUi("./ui/match.ui", self)
+#         self.btnSubmit.clicked.connect(self.submit)
+#         self.className=""
+#         self.methodName=""
+#         self.hasMethod = True
+#         self.chkHasMethod.toggled.connect(self.changeHasMethod)
+#         self.btnClear.clicked.connect(self.clearUi)
+#         self.clearUi()
+#         self.flushCmb()
+#         self.listClass.itemClicked.connect(self.ClassItemClick)
+#         self.txtClass.textChanged.connect(self.changeClass)
+#         self.cmbPackage.currentTextChanged.connect(self.changePackage)
+#         self.classes = None
+# 
+#     def initData(self):
+#         self.listClass.clear()
+#         for item in self.classes:
+#             self.listClass.addItem(item)
+# 
+#     def flushCmb(self):
+#         self.cmbPackage.clear()
+#         files = os.listdir("./tmp/")
+#         self.cmbPackage.addItem("选择缓存数据")
+#         for item in files:
+#             if ".classes.txt" in item:
+#                 self.cmbPackage.addItem(item.replace(".classes.txt", ""))
+# 
+#     def ClassItemClick(self, item):
+#         self.txtClass.setText(item.text())
+# 
+#     def changeClass(self, data):
+#         if self.classes==None or len(self.classes)<=0:
+#             return
+#         self.listClass.clear()
+#         if len(data) > 0:
+#             for item in self.classes:
+#                 if data in item:
+#                     self.listClass.addItem(item)
+#         else:
+#             for item in self.classes:
+#                 self.listClass.addItem(item)
+# 
+#     def changePackage(self, data):
+#         if data=="" or data=="选择缓存数据":
+#             return
+#         filepath = "./tmp/" + data + ".classes.txt"
+#         with open(filepath, "r", encoding="utf-8") as packageFile:
+#             res = packageFile.read()
+#             self.classes = res.split("\n")
+#         self.initData()
+# 
+#     def clearUi(self):
+#         self.txtClass.setText("")
+#         self.txtMethod.setText("")
+# 
+#     def changeHasMethod(self,chk):
+#         if chk:
+#             self.txtMethod.setEnabled(True)
+#         else:
+#             self.txtMethod.setEnabled(False)
+# 
+#     def submit(self):
+#         className=self.txtClass.text()
+#         methodName=self.txtMethod.text()
+#         self.className=className
+#         self.methodName=methodName
+#         self.hasMethod = self.chkHasMethod.isChecked()
+#         self.accept()
 
 class nativesForm(QDialog):
     def __init__(self):
@@ -162,24 +162,14 @@ class dumpAddressForm(QDialog):
         self.cmbDumpType.currentIndexChanged.connect(self.changeDumpType)
         self.btnClear.clicked.connect(self.clearUi)
         self.clearUi()
-        self.flushCmb()
         self.listModule.itemClicked.connect(self.ModuleItemClick)
         self.txtModule.textChanged.connect(self.changeModule)
-        self.cmbPackage.currentTextChanged.connect(self.changePackage)
         self.modules = None
 
     def initData(self):
         self.listModule.clear()
         for item in self.modules:
             self.listModule.addItem(item)
-
-    def flushCmb(self):
-        self.cmbPackage.clear()
-        files = os.listdir("./tmp/")
-        self.cmbPackage.addItem("选择缓存数据")
-        for item in files:
-            if ".modules.txt" in item:
-                self.cmbPackage.addItem(item.replace(".modules.txt", ""))
 
     def ModuleItemClick(self, item):
         self.txtModule.setText(item.text())
@@ -197,16 +187,6 @@ class dumpAddressForm(QDialog):
         else:
             for item in self.modules:
                 self.listModule.addItem(item)
-
-    def changePackage(self, data):
-        if data=="" or data=="选择缓存数据":
-            return
-        filepath = "./tmp/" + data + ".modules.txt"
-        with open(filepath, "r", encoding="utf-8") as packageFile:
-            res = packageFile.read()
-            self.modules = res.split("\n")
-        self.initData()
-
 
     def clearUi(self):
         self.txtSize.setText("0x30")
@@ -369,7 +349,7 @@ class selectPackageForm(QDialog):
         self.txtPackage.setText(item.text())
 
     def submit(self):
-        packageName = self.cmbPackages.currentText()
+        packageName = self.txtPackage.text()
         if len(packageName) <= 0:
             QMessageBox().information(self, "提示", "未选择package")
             return
@@ -722,24 +702,14 @@ class dumpSoForm(QDialog):
         self.moduleName = ""
         self.btnClear.clicked.connect(self.clearUi)
         self.clearUi()
-        self.flushCmb()
         self.listModule.itemClicked.connect(self.ModuleItemClick)
         self.txtModule.textChanged.connect(self.changeModule)
-        self.cmbPackage.currentTextChanged.connect(self.changePackage)
         self.modules=None
 
     def initData(self):
         self.listModule.clear()
         for item in self.modules:
             self.listModule.addItem(item)
-
-    def flushCmb(self):
-        self.cmbPackage.clear()
-        files = os.listdir("./tmp/")
-        self.cmbPackage.addItem("选择缓存数据")
-        for item in files:
-            if ".modules.txt" in item:
-                self.cmbPackage.addItem(item.replace(".modules.txt",""))
 
     def ModuleItemClick(self,item):
         self.txtModule.setText(item.text())
@@ -757,15 +727,6 @@ class dumpSoForm(QDialog):
         else:
             for item in self.modules:
                 self.listModule.addItem(item)
-
-    def changePackage(self,data):
-        if data=="" or data=="选择缓存数据":
-            return
-        filepath = "./tmp/" + data + ".modules.txt"
-        with open(filepath, "r", encoding="utf-8") as packageFile:
-            res = packageFile.read()
-            self.modules = res.split("\n")
-        self.initData()
 
     def clearUi(self):
         self.txtModule.setText("")
@@ -787,24 +748,14 @@ class fartForm(QDialog):
         self.btnSubmitFartClass.clicked.connect(self.submitFartClass)
         self.className=""
         self.clearUi()
-        self.flushCmb()
         self.listClass.itemClicked.connect(self.ClassItemClick)
         self.txtClass.textChanged.connect(self.changeClass)
-        self.cmbPackage.currentTextChanged.connect(self.changePackage)
         self.classes = None
 
     def initData(self):
         self.listClass.clear()
         for item in self.classes:
             self.listClass.addItem(item)
-
-    def flushCmb(self):
-        self.cmbPackage.clear()
-        files = os.listdir("./tmp/")
-        self.cmbPackage.addItem("选择缓存数据")
-        for item in files:
-            if ".classes.txt" in item:
-                self.cmbPackage.addItem(item.replace(".classes.txt", ""))
 
     def ClassItemClick(self, item):
         self.txtClass.setText(item.text())
@@ -820,15 +771,6 @@ class fartForm(QDialog):
         else:
             for item in self.classes:
                 self.listClass.addItem(item)
-
-    def changePackage(self, data):
-        if data=="" or data=="选择缓存数据":
-            return
-        filepath = "./tmp/" + data + ".classes.txt"
-        with open(filepath, "r", encoding="utf-8") as packageFile:
-            res = packageFile.read()
-            self.classes = res.split("\n")
-        self.initData()
 
     def clearUi(self):
         self.txtClass.setText("")

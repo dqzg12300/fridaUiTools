@@ -330,33 +330,66 @@ var classkit_1 = require("./classkit");
 
 var objectkit_1 = require("./objectkit");
 
-rpc.exports = {
-  classMatch: function classMatch(name) {
+rpc.exports.classMatch=function classMatch(name) {
     return classkit_1.match(name);
-  },
-  classUse: function classUse(name) {
+  };
+
+rpc.exports.classUse=function classUse(name) {
     var clazz = classkit_1.use(name);
     return (0, _stringify["default"])(clazz);
-  },
-  objectSearch: function objectSearch(clazz, stop) {
+  }
+
+rpc.exports.objectSearch=function objectSearch(clazz, stop) {
     return objectkit_1.searchHandles(clazz, stop);
-  },
-  objectGetClass: function objectGetClass(handle) {
+  }
+
+rpc.exports.objectGetClass=function objectGetClass(handle) {
     return objectkit_1.getRealClassNameByHandle(handle);
-  },
-  objectGetField: function objectGetField(handle, field, clazz) {
+  }
+
+rpc.exports.objectGetField=function objectGetField(handle, field, clazz) {
     return objectkit_1.getObjectFieldValue(handle, field, clazz);
-  },
-  instanceOf: function instanceOf(handle, className) {
+  }
+
+rpc.exports.instanceOf=function instanceOf(handle, className) {
     return objectkit_1.instanceOf(handle, className);
-  },
-  mapDump: function mapDump(handle) {
+  }
+
+rpc.exports.mapDump=function mapDump(handle) {
     return objectkit_1.mapDump(handle);
-  },
-  collectionDump: function collectionDump(handle) {
+  }
+
+rpc.exports.collectionDump=function collectionDump(handle) {
     return objectkit_1.collectionDump(handle);
   }
-};
+
+// rpc.exports = {
+//   classMatch: function classMatch(name) {
+//     return classkit_1.match(name);
+//   },
+//   classUse: function classUse(name) {
+//     var clazz = classkit_1.use(name);
+//     return (0, _stringify["default"])(clazz);
+//   },
+//   objectSearch: function objectSearch(clazz, stop) {
+//     return objectkit_1.searchHandles(clazz, stop);
+//   },
+//   objectGetClass: function objectGetClass(handle) {
+//     return objectkit_1.getRealClassNameByHandle(handle);
+//   },
+//   objectGetField: function objectGetField(handle, field, clazz) {
+//     return objectkit_1.getObjectFieldValue(handle, field, clazz);
+//   },
+//   instanceOf: function instanceOf(handle, className) {
+//     return objectkit_1.instanceOf(handle, className);
+//   },
+//   mapDump: function mapDump(handle) {
+//     return objectkit_1.mapDump(handle);
+//   },
+//   collectionDump: function collectionDump(handle) {
+//     return objectkit_1.collectionDump(handle);
+//   }
+// };
 
 },{"./classkit":25,"./objectkit":27,"@babel/runtime-corejs2/core-js/json/stringify":1,"@babel/runtime-corejs2/core-js/object/define-property":2,"@babel/runtime-corejs2/helpers/interopRequireDefault":5}],27:[function(require,module,exports){
 "use strict";

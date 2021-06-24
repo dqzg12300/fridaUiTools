@@ -122,6 +122,8 @@ class Runthread(QThread):
                     source += open("./js/FRIDA-DEXDump.js", 'r', encoding="utf8").read()
                     self.DEXDump=True
                 elif tuokeType=="fart":
+                    res=CmdUtil.fartInit()
+                    self.log(res)
                     source += open("./js/frida_fart_hook.js", 'r', encoding="utf8").read()
             # elif item=="patch":
             #     patchList = {}
@@ -237,7 +239,7 @@ class Runthread(QThread):
         # self.log("post fart")
         api=self.default_script.exports
         if fartType==1:
-            api.fartClass(className)
+            api.fartclass(className)
         elif fartType==2:
             api.fart()
 
