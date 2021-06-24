@@ -812,7 +812,7 @@ class kmainForm(QMainWindow):
     #关于我
     def actionAbort(self):
         QMessageBox().about(self, "About",
-                            "\nfrida_tools: 缝合怪,常用脚本整合的界面化工具 \nAuthor: https://github.com/dqzg12300")
+                            "\nfridaUiTools: 缝合怪,常用脚本整合的界面化工具 \nAuthor: https://github.com/dqzg12300")
 
 if __name__=="__main__":
     app=QApplication(sys.argv)
