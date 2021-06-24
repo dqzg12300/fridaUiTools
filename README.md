@@ -1,6 +1,6 @@
 # frida_tools
 
-frida_tools是一个界面化整理脚本的工具。新人的练手作品。参考项目ZenTracer，觉得既然可以界面化，那么应该可以把功能做的更加完善一些。
+frida_tools是一个界面化整理脚本的工具。新人的练手作品。参考项目ZenTracer，觉得既然可以界面化，那么应该可以把功能做的更加完善一些。跨平台支持：win、mac、linux
 
 功能缝合怪。把一些常用的frida的hook脚本简单统一输出方式后，整合进来。并且将自己觉得常用的功能做成界面调用的。还想动态获取一些信息默认的直接展示。后续会根据自己实战的经验。不断完善这个工具。
 
@@ -11,7 +11,6 @@ frida_tools是一个界面化整理脚本的工具。新人的练手作品。参
 > * java层的加解密相关自吐
 > * ssl pining（整合DroidSSLUnpinning）
 > * 模糊匹配函数进行批量hook（整合ZenTracer）
-> * 模糊匹配so函数批量hook（参数统一方式打印。所以输出只能做参考）
 > * native的sub函数批量hook（参数统一方式打印。所以输出只能做参考）
 > * stalker的trace（整合sktrace）
 > * 整合frida_hook_libart
@@ -22,8 +21,8 @@ frida_tools是一个界面化整理脚本的工具。新人的练手作品。参
 
 ## 调用功能如下（附加进程后使用）
 
-> * 模糊匹配类和函数打印（输出时间较长，如果想打印全部。就都填空即可）
-> * 模糊匹配so符号打印（输出时间较长，如果想打印全。就都填空即可）
+> * fart主动调用
+> * DUMPDex主动调用
 > * dump打印指定地址
 > * dump指定模块
 > * wallBreak整合
@@ -50,11 +49,11 @@ frida_tools是一个界面化整理脚本的工具。新人的练手作品。参
 
 ## 应用部分界面
 
-![image-20210623223153869](./img/image-20210618123336357.png)
+![image-20210624181034368](D:\git_src\fridaUiTools\img\image-20210624181034368.png)
 
-![image-20210623224721847](./img/image-20210623224721847.png)
+![image-20210624181058850](D:\git_src\fridaUiTools\img\image-20210624181058850.png)
 
-![image-20210623224754971](./img/image-20210623224754971.png)
+![image-20210624181148559](D:\git_src\fridaUiTools\img\image-20210624181148559.png)
 
 ![image-20210624170512882](.\img\image-20210624170512882.png)
 
