@@ -49,11 +49,11 @@ frida_tools是一个界面化整理脚本的工具。新人的练手作品。参
 
 ## 应用部分界面
 
-![image-20210624181034368](D:\git_src\fridaUiTools\img\image-20210624181034368.png)
+![image-20210624181034368](.\img\image-20210624181034368.png)
 
-![image-20210624181058850](D:\git_src\fridaUiTools\img\image-20210624181058850.png)
+![image-20210624181058850](.\img\image-20210624181058850.png)
 
-![image-20210624181148559](D:\git_src\fridaUiTools\img\image-20210624181148559.png)
+![image-20210624181148559](.\img\image-20210624181148559.png)
 
 ![image-20210624170512882](.\img\image-20210624170512882.png)
 
