@@ -4,6 +4,8 @@ import click
 from PyQt5 import uic
 from PyQt5.QtWidgets import QDialog, QMessageBox
 
+from ui.wallBreaker import Ui_Wallbreaker
+
 
 class DvmDescConverter:
     def __init__(self, desc):
@@ -32,11 +34,11 @@ class DvmDescConverter:
         return result
 
 
-class wallBreakerForm(QDialog):
-    def __init__(self):
-        super().__init__()
+class wallBreakerForm(QDialog,Ui_Wallbreaker):
+    def __init__(self, parent=None):
+        super(wallBreakerForm, self).__init__(parent)
+        self.setupUi(self)
         self.setWindowOpacity(0.93)
-        uic.loadUi("./ui/wallBreaker.ui", self)
         self.btnClassSearch.clicked.connect(self.classSearch)
         self.btnClassDump.clicked.connect(self.classDump)
         self.btnObjectSearch.clicked.connect(self.objectSearch)

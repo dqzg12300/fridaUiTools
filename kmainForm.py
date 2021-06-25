@@ -8,16 +8,28 @@ from PyQt5.QtGui import QStandardItemModel, QStandardItem, QCursor
 from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog, QStatusBar, QLabel, QMessageBox, QHeaderView, \
     QTableWidgetItem, QMenu, QAction
 
+from forms.DumpAddress import dumpAddressForm
+from forms.DumpSo import dumpSoForm
+from forms.Fart import fartForm
+from forms.JniTrace import jnitraceForm
+from forms.Natives import nativesForm
+from forms.Patch import patchForm
+from forms.SpawnAttach import spawnAttachForm
+from forms.Stalker import stalkerForm
+from forms.Tuoke import tuokeForm
+from forms.Wallbreaker import wallBreakerForm
+from forms.ZenTracer import zenTracerForm
+from ui.kmain import Ui_KmainWindow
 from utils import LogUtil, CmdUtil
 import json,os,threading,frida
 
-from forms import formUtil, Wallbreaker
 import TraceThread
 
 
-class kmainForm(QMainWindow):
-    def __init__(self):
-        super().__init__()
+class kmainForm(QMainWindow,Ui_KmainWindow):
+    def __init__(self, parent=None):
+        super(kmainForm, self).__init__(parent)
+        self.setupUi(self)
         self.initUi()
         self.hooksData={}
         self.th = TraceThread.Runthread(self.hooksData,"",False)
@@ -28,7 +40,6 @@ class kmainForm(QMainWindow):
 
     def initUi(self):
         self.setWindowOpacity(0.93)
-        uic.loadUi("./ui/kmain.ui", self)
         if os.path.exists("./logs")==False:
             os.makedirs("./logs")
         if os.path.exists("./tmp")==False:
@@ -102,16 +113,16 @@ class kmainForm(QMainWindow):
         self.txtSymbol.textChanged.connect(self.changeSymbol)
 
 
-        self.dumpForm = formUtil.dumpAddressForm()
-        self.jniform=formUtil.jnitraceForm()
-        self.zenTracerForm=formUtil.zenTracerForm()
-        self.nativesForm = formUtil.nativesForm()
-        self.spawnAttachForm = formUtil.spawnAttachForm()
-        self.stalkerForm=formUtil.stalkerForm()
-        self.pform = formUtil.patchForm()
-        self.dumpSoForm= formUtil.dumpSoForm()
-        self.fartForm= formUtil.fartForm()
-        self.wallBreakerForm=Wallbreaker.wallBreakerForm()
+        self.dumpForm = dumpAddressForm()
+        self.jniform=jnitraceForm()
+        self.zenTracerForm=zenTracerForm()
+        self.nativesForm = nativesForm()
+        self.spawnAttachForm = spawnAttachForm()
+        self.stalkerForm=stalkerForm()
+        self.pform = patchForm()
+        self.dumpSoForm= dumpSoForm()
+        self.fartForm= fartForm()
+        self.wallBreakerForm=wallBreakerForm()
 
         self.modules=None
         self.classes=None
@@ -623,7 +634,7 @@ class kmainForm(QMainWindow):
         QMessageBox().information(self, "提示", "待开发")
 
     def tuoke(self):
-        tform = formUtil.tuokeForm()
+        tform = tuokeForm()
         res=tform.exec()
         if res==0:
             return
