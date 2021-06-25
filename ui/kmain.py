@@ -96,7 +96,7 @@ class Ui_KmainWindow(object):
         self.btnTuoke.setObjectName("btnTuoke")
         self.horizontalLayout.addWidget(self.btnTuoke)
         self.btnCustom = QtWidgets.QPushButton(self.groupBox_2)
-        self.btnCustom.setEnabled(True)
+        self.btnCustom.setEnabled(False)
         self.btnCustom.setMinimumSize(QtCore.QSize(0, 40))
         self.btnCustom.setObjectName("btnCustom")
         self.horizontalLayout.addWidget(self.btnCustom)

@@ -1,6 +1,6 @@
 import os
 
-from PyQt5.QtWidgets import QDialog
+from PyQt5.QtWidgets import QDialog, QMessageBox
 
 from ui.jnitrace import Ui_JniTraceDialog
 

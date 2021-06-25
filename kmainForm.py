@@ -8,6 +8,7 @@ from PyQt5.QtGui import QStandardItemModel, QStandardItem, QCursor
 from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog, QStatusBar, QLabel, QMessageBox, QHeaderView, \
     QTableWidgetItem, QMenu, QAction
 
+from forms.Custom import customForm
 from forms.DumpAddress import dumpAddressForm
 from forms.DumpSo import dumpSoForm
 from forms.Fart import fartForm
@@ -40,12 +41,18 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
 
     def initUi(self):
         self.setWindowOpacity(0.93)
+        #日志目录
         if os.path.exists("./logs")==False:
             os.makedirs("./logs")
+        #缓存数据目录 modules  classes
         if os.path.exists("./tmp")==False:
             os.makedirs("./tmp")
+        #从手机下载dumpdex脱壳的数据
         if os.path.exists("./dumpdex")==False:
             os.makedirs("./dumpdex")
+        #自定义脚本目录
+        if os.path.exists("./custom")==False:
+            os.makedirs("./custom")
 
         self.statusBar = QStatusBar()
         self.labStatus = QLabel('当前状态:未连接')
@@ -123,6 +130,7 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         self.dumpSoForm= dumpSoForm()
         self.fartForm= fartForm()
         self.wallBreakerForm=wallBreakerForm()
+        self.customForm=customForm()
 
         self.modules=None
         self.classes=None
@@ -631,7 +639,10 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
 
     def custom(self):
         self.log("custom")
-        QMessageBox().information(self, "提示", "待开发")
+        QMessageBox().information(self, "提示", "todo待开发")
+        return
+        # self.customForm.initData()
+        # self.customForm.exec()
 
     def tuoke(self):
         tform = tuokeForm()
