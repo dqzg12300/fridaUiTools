@@ -134,17 +134,21 @@ class Runthread(QThread):
                     self.log(res)
                     source += open("./js/frida_fart_hook.js", 'r', encoding="utf8").read()
                     source=source.replace("%savepath%",savepath)
-            # elif item=="patch":
-            #     patchList = {}
-            #     for patch in self.hooksData[item]:
-            #         patchList[patch["address"]]={
-            #             "moduleName":patch["class"],
-            #             "code": patch["code"],
-            #         }
-            #     if len(patchList) > 0:
-            #         source += open("./js/patchCode.js", 'r', encoding="utf8").read()
-            #         print(json.dumps(patchList))
-            #         source = source.replace("{PATCHLIST}", json.dumps(patchList))
+            elif item=="patch":
+                patchList = {}
+                moduleName=""
+                for patch in self.hooksData[item]:
+                    patchList[patch["address"]]={
+                        "moduleName":patch["class"],
+                        "code": patch["code"],
+                    }
+                    moduleName=patch["class"]
+                if len(patchList) > 0:
+                    source += open("./js/patchCode.js", 'r', encoding="utf8").read()
+                    print(json.dumps(patchList))
+                    source = source.replace("{PATCHLIST}", json.dumps(patchList))
+                    source = source.replace("%spawn%", "1" if self.isSpawn else "")
+                    source = source.replace("%moduleName%",moduleName)
 
 
         source += open("./js/default.js", 'r', encoding="utf8").read()

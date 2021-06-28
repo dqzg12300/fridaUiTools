@@ -8,6 +8,7 @@ from PyQt5.QtGui import QStandardItemModel, QStandardItem, QCursor
 from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog, QStatusBar, QLabel, QMessageBox, QHeaderView, \
     QTableWidgetItem, QMenu, QAction
 
+from forms import SelectPackage
 from forms.Custom import customForm
 from forms.DumpAddress import dumpAddressForm
 from forms.DumpSo import dumpSoForm
@@ -26,6 +27,7 @@ import json,os,threading,frida
 import platform
 
 import TraceThread
+
 
 
 class kmainForm(QMainWindow,Ui_KmainWindow):
@@ -436,7 +438,7 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         try:
             device = frida.get_usb_device()
             process= device.enumerate_processes()
-            selectPackageForm = formUtil.selectPackageForm()
+            selectPackageForm = SelectPackage.selectPackageForm()
             selectPackageForm.setPackages(process)
             res=selectPackageForm.exec()
             if res==0:

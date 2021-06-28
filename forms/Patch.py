@@ -3,6 +3,7 @@ import os
 from PyQt5.QtWidgets import QDialog, QMessageBox
 
 from ui.patch import Ui_PatchDialog
+from utils import AsmUtil
 
 
 class patchForm(QDialog,Ui_PatchDialog):
@@ -21,6 +22,8 @@ class patchForm(QDialog,Ui_PatchDialog):
         self.txtModule.textChanged.connect(self.changeModule)
         self.cmbPackage.currentTextChanged.connect(self.changePackage)
         self.modules = None
+        self.txtPatch.textChanged.connect(self.changePatchCode)
+        self.txtPatchAsm.textChanged.connect(self.changePatchAsm)
 
     def initData(self):
         self.listModule.clear()
@@ -61,10 +64,29 @@ class patchForm(QDialog,Ui_PatchDialog):
             self.modules = res.split("\n")
         self.initData()
 
+    def changePatchCode(self,data):
+        try:
+            codebuff=AsmUtil.StrToHexSplit(data)
+            res=AsmUtil.disasm(self.cmbMode.currentIndex(),codebuff)
+            self.txtPatchAsm.textChanged.disconnect(self.changePatchAsm)
+            self.txtPatchAsm.setText(res)
+            self.txtPatchAsm.textChanged.connect(self.changePatchAsm)
+        except:
+            pass
+
+    def changePatchAsm(self,data):
+        try:
+            res= AsmUtil.asm(self.cmbMode.currentIndex(),data)
+            self.txtPatch.textChanged.disconnect(self.changePatchCode)
+            self.txtPatch.setText(res)
+            self.txtPatch.textChanged.connect(self.changePatchCode)
+        except:
+            pass
+
     def clearUi(self):
-        self.txtModule.setText("libnative-lib.so")
-        self.txtAddress.setText("0xE55C")
-        self.txtPatch.setText("1F 20 03 D5")
+        self.txtModule.setText("")
+        self.txtAddress.setText("")
+        self.txtPatch.setText("")
 
     def submit(self):
         moduleName = self.txtModule.text()

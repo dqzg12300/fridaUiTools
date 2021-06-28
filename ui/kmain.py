@@ -101,7 +101,7 @@ class Ui_KmainWindow(object):
         self.btnCustom.setObjectName("btnCustom")
         self.horizontalLayout.addWidget(self.btnCustom)
         self.btnPatch = QtWidgets.QPushButton(self.groupBox_2)
-        self.btnPatch.setEnabled(False)
+        self.btnPatch.setEnabled(True)
         self.btnPatch.setMinimumSize(QtCore.QSize(0, 40))
         self.btnPatch.setObjectName("btnPatch")
         self.horizontalLayout.addWidget(self.btnPatch)

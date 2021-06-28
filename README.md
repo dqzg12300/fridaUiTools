@@ -16,7 +16,7 @@ fridaUiTools是一个界面化整理脚本的工具。新人的练手作品。�
 > * 整合frida_hook_libart
 > * 脱壳相关（整合frida_dump、FRIDA-DEXDump、fart）
 > * 自定义脚本添加
-> * patch汇编代码 (todo 待开发)
+> * patch汇编代码 
 
 
 ## 调用功能如下（附加进程后使用）
@@ -76,6 +76,8 @@ fart如果第一次使用，需要在上传与下载菜单栏中点击上传fart
 > fart的dump结果下载
 >
 > 优化细节
+>
+> 增加patch功能
 
 ## 感谢
 

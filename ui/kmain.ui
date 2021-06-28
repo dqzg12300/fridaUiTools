@@ -243,7 +243,7 @@
              <item>
               <widget class="QPushButton" name="btnPatch">
                <property name="enabled">
-                <bool>false</bool>
+                <bool>true</bool>
                </property>
                <property name="minimumSize">
                 <size>
