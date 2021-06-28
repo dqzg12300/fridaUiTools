@@ -59,7 +59,10 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         if os.path.exists("./custom")==False:
             os.makedirs("./custom")
 
-
+        projectPath = os.path.dirname(os.path.abspath(__file__))
+        if platform.system()!="Windows":
+            CmdUtil.execCmd("chmod 0777 " + projectPath + "/sh/linux/*")
+            CmdUtil.execCmd("chmod 0777 " + projectPath + "/sh/mac/*")
         self.statusBar = QStatusBar()
         self.labStatus = QLabel('当前状态:未连接')
         self.setStatusBar(self.statusBar)
@@ -331,18 +334,18 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         if platform.system() == "Windows":
             os.system("start " + projectPath+r"\sh\win\frida32.bat")
         elif platform.system()=='Linux':
-            os.system("bash -c "+ projectPath+"./sh/linux/frida32.sh")
+            os.system("bash -c "+ projectPath+"/sh/linux/frida32.sh")
         else:
-            os.system("bash -c " + projectPath+"./sh/mac/frida32.sh")
+            os.system("bash -c " + projectPath+"/sh/mac/frida32.sh")
 
     def Frida64Start(self):
         projectPath = os.path.dirname(os.path.abspath(__file__))
         if platform.system() == "Windows":
             os.system("start " +projectPath+ r"\sh\win\frida64.bat")
         elif platform.system() == 'Linux':
-            os.system("bash -c " +projectPath+ "./sh/linux/frida64.sh")
+            os.system("bash -c " +projectPath+ "/sh/linux/frida64.sh")
         else:
-            os.system("bash -c " +projectPath+ "./sh/mac/frida64.sh")
+            os.system("bash -c " +projectPath+ "/sh/mac/frida64.sh")
 
     def ClearHookJson(self):
         path = "./hooks/"
