@@ -44,15 +44,32 @@
       <string>添加自定义脚本</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_3">
+      <item row="3" column="3">
+       <widget class="QPlainTextEdit" name="txtJsData"/>
+      </item>
       <item row="0" column="4">
        <widget class="QPushButton" name="btnSubmit">
         <property name="text">
-         <string>添加</string>
+         <string>提交</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_5">
+        <property name="text">
+         <string>备注：</string>
         </property>
        </widget>
       </item>
       <item row="2" column="3">
-       <widget class="QPlainTextEdit" name="txtJsData"/>
+       <widget class="QLineEdit" name="txtBak"/>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="label_2">
+        <property name="text">
+         <string>HOOK脚本：</string>
+        </property>
+       </widget>
       </item>
       <item row="0" column="0">
        <widget class="QLabel" name="label">
@@ -61,25 +78,25 @@
         </property>
        </widget>
       </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="label_2">
-        <property name="text">
-         <string>HOOK脚本：</string>
-        </property>
-       </widget>
-      </item>
       <item row="0" column="3">
        <widget class="QLineEdit" name="txtJsName"/>
       </item>
       <item row="1" column="0">
-       <widget class="QLabel" name="label_5">
+       <widget class="QLabel" name="label_6">
         <property name="text">
-         <string>备注：</string>
+         <string>脚本名：</string>
         </property>
        </widget>
       </item>
       <item row="1" column="3">
-       <widget class="QLineEdit" name="txtBak"/>
+       <widget class="QLineEdit" name="txtJsFileName"/>
+      </item>
+      <item row="1" column="4">
+       <widget class="QPushButton" name="btnClear">
+        <property name="text">
+         <string>清空</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>
@@ -93,7 +110,7 @@
       <item row="0" column="0">
        <widget class="QLabel" name="label_3">
         <property name="text">
-         <string>双击自定义脚本列表的项目添加到使用列表，窗口关闭会添加使用列表的项到hook的列表</string>
+         <string>双击自定义脚本列表的项目进入编辑，右键菜单添加使用脚本。窗口关闭使用添加的列表到hook</string>
         </property>
        </widget>
       </item>

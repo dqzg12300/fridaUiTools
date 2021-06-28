@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import socket
 import struct
 from copy import copy
@@ -106,6 +107,12 @@ class Runthread(QThread):
                 source = source.replace("%spawn%","1" if self.isSpawn else "")
                 source = source.replace("%symbol%", self.hooksData[item]["symbol"])
                 source = source.replace("%offset%", self.hooksData[item]["offset"])
+            elif item=="custom":
+                for item in self.hooksData["custom"]:
+                    customJs= open("./custom/"+item["fileName"], 'r', encoding="utf8").read()
+                    customJs=customJs.replace("%customName%",item["class"])
+                    customJs = customJs.replace("%customFileName%", item["fileName"])
+                    source+="(function(){\n%s\n})();"%customJs
             elif item=="tuoke":
                 tuokeType=self.hooksData[item]["class"]
                 if tuokeType=="dumpdex":
@@ -122,9 +129,11 @@ class Runthread(QThread):
                     source += open("./js/FRIDA-DEXDump.js", 'r', encoding="utf8").read()
                     self.DEXDump=True
                 elif tuokeType=="fart":
-                    res=CmdUtil.fartInit()
+                    savepath="/data/local/tmp/fart/"+self.attachName
+                    res=CmdUtil.fartInit(savepath)
                     self.log(res)
                     source += open("./js/frida_fart_hook.js", 'r', encoding="utf8").read()
+                    source=source.replace("%savepath%",savepath)
             # elif item=="patch":
             #     patchList = {}
             #     for patch in self.hooksData[item]:

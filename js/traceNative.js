@@ -90,7 +90,6 @@ function spawn_hook(library_name,function_names){
             // first arg is the path to the library loaded
             var library_path = Memory.readCString(args[0])
             if( library_path.includes(library_name)){
-                var msg=initMessage();
                 klog("[...] Loading library : " + library_path);
                 this.library_loaded = 1
             }
@@ -111,7 +110,6 @@ function main(){
     var moduleName = "%moduleName%" // 目标模块
     var methodName = {methodName} // 目标函数,这里是个列表
     klogData("","init","traceNative.js init hook success");
-    send(msg);
     if (isSpawn) {
         spawn_hook(moduleName, methodName)
     } else {

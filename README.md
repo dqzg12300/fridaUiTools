@@ -15,7 +15,7 @@ fridaUiTools是一个界面化整理脚本的工具。新人的练手作品。�
 > * stalker的trace（整合sktrace）
 > * 整合frida_hook_libart
 > * 脱壳相关（整合frida_dump、FRIDA-DEXDump、fart）
-> * 自定义脚本添加 (todo 待开发)
+> * 自定义脚本添加
 > * patch汇编代码 (todo 待开发)
 
 
@@ -61,7 +61,21 @@ fridaUiTools是一个界面化整理脚本的工具。新人的练手作品。�
 
 软件里面有很多地方用到了缓存数据。缓存数据是附加一次进程后，保存下来的module和class列表。这样方便智能的检索。所以一般第一次使用的时候，先附加一次目标进程，就有缓存数据可以使用了。
 
+fart如果第一次使用，需要在上传与下载菜单栏中点击上传fart的so。
+
 软件目前应该还存在很多瑕疵和bug。我会在实用中慢慢修补。
+
+## 新增功能
+
+> frida-server14.2的自动上传到手机
+>
+> frida-server的启动
+>
+> 自定义脚本功能
+>
+> fart的dump结果下载
+>
+> 优化细节
 
 ## 感谢
 

@@ -22,7 +22,8 @@ class customForm(QDialog,Ui_CustomDialog):
         self.tabCustomList.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.tabCustomList.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tabCustomList.customContextMenuRequested[QPoint].connect(self.cusTomRightMenuShow)
-
+        self.tabCustomList.itemDoubleClicked.connect(self.cusTomDoubleClicked)
+        self.btnClear.clicked.connect(self.UiClear)
         self.tabCustomHookList.setColumnCount(3)
         self.tabCustomHookList.setHorizontalHeaderLabels(self.header)
         self.tabCustomHookList.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -31,8 +32,25 @@ class customForm(QDialog,Ui_CustomDialog):
         self.customs=[]
         self.customHooks=[]
         self.initData()
+        self.txtJsName.textChanged.connect(self.jsNameChanged)
 
+    def cusTomDoubleClicked(self,item):
+        data=self.customs[item.row()]
+        path = "./custom/" + data["fileName"]
+        if os.path.exists(path):
+            with open(path,"r",encoding="utf-8") as jsfile:
+                jsdata=jsfile.read()
+                self.txtJsData.setPlainText(jsdata)
+                self.txtJsName.setText(data["name"])
+                self.txtBak.setText(data["bak"])
+        else:
+            QMessageBox().information(self, "提示", "文件" + data["fileName"] + "不存在")
 
+    def UiClear(self):
+        self.txtBak.setText("")
+        self.txtJsName.setText("")
+        self.txtJsFileName.setText("")
+        self.txtJsData.setPlainText("")
 
     # 右键菜单
     def cusTomRightMenuShow(self):
@@ -50,71 +68,87 @@ class customForm(QDialog,Ui_CustomDialog):
         rightMenu.addAction(removeAction)
         rightMenu.exec_(QCursor.pos())
 
+    def jsNameChanged(self):
+        self.txtJsFileName.setText(self.txtJsName.text()+".js")
+
     def customAdd(self):
         for item in self.tabCustomList.selectedItems():
-            addItemData = self.tabCustomList.item(item.row(), 0).text() + self.tabCustomList.item(item.row(), 1).text()
-            for idx in self.customs:
-                if addItemData == self.customs[idx]["name"] + self.customs[idx]["fileName"]:
-                    self.customHooks.append(self.customs[idx])
-                    break
+            if item.row()< len(self.customs):
+                flag=False
+                for cdata in self.customHooks:
+                    if cdata["fileName"]==self.customs[item.row()]["fileName"]:
+                        flag=True
+                        break
+                if flag:
+                    QMessageBox().information(self, "提示", "文件"+self.customs[item.row()]["fileName"]+",已添加到hook,不能重复添加")
+                    continue
+                self.customHooks.append(self.customs[item.row()])
+                break
         self.updateTabCustomHook()
 
     def customRemove(self):
         for item in self.tabCustomList.selectedItems():
-            removeItemData = self.tabCustomList.item(item.row(), 0).text() + self.tabCustomList.item(item.row(), 1).text()
-            for idx in self.customs:
-                if removeItemData==self.customs[idx]["name"]+self.customs[idx]["fileName"]:
-                    self.customs.remove(idx)
-                    path="./custom/"+self.customs[idx]["name"]
-                    if os.path.exists(path):
-                        os.remove(path)
-                    break
+            if item.row() < len(self.customs):
+                print(item.row())
+                path = "./custom/" + self.customs[item.row()]["fileName"]
+                if os.path.exists(path):
+                    os.remove(path)
+                self.customs.remove(self.customs[item.row()])
+        self.save()
         self.updateTabCustom()
 
     def hooksRemove(self):
         for item in self.tabCustomHookList.selectedItems():
-            removeItemData = self.tabCustomHookList.item(item.row(), 0).text() + self.tabCustomHookList.item(item.row(), 1).text()
-            for idx in self.customHooks:
-                if removeItemData == self.customHooks[idx]["name"] + self.customHooks[idx]["fileName"]:
-                    self.customHooks.remove(idx)
-                    break
+            if item.row() < len(self.customHooks):
+                self.customHooks.remove(self.customHooks[item.row()])
+                break
         self.updateTabCustomHook()
 
     def initData(self):
         self.customs.clear()
         customPath="./custom/customs.txt"
+        customs = []
         if os.path.exists(customPath)==False:
             return
         with open(customPath,"r",encoding="utf-8") as costomFile:
             customData=costomFile.read()
-            customs=json.loads(customData)
+            try:
+                if len(customData)>0:
+                    customs=json.loads(customData)
+            except Exception as ex:
+                return
         if len(customs)<=0:
             return
 
         for item in customs:
-            if os.path.exists("./custom/"+item["fileName"]+".js"):
+            if os.path.exists("./custom/"+item["fileName"]):
                 self.customs.append(item)
+        self.save()
         self.updateTabCustom()
 
     def updateTabCustom(self):
         self.tabCustomList.clear()
         self.tabCustomList.setColumnCount(3)
         self.tabCustomList.setHorizontalHeaderLabels(self.header)
+        self.tabCustomList.setRowCount(len(self.customs))
+        line=0
         for item in self.customs:
-            self.tabCustomList.insertRow(0)
-            self.tabCustomList.setItem(0, 0, QTableWidgetItem(item["name"]))
-            self.tabCustomList.setItem(0, 1, QTableWidgetItem(item["fileName"]))
-            self.tabCustomList.setItem(0, 2, QTableWidgetItem(item["bak"]))
+            self.tabCustomList.setItem(line, 0, QTableWidgetItem(item["name"]))
+            self.tabCustomList.setItem(line, 1, QTableWidgetItem(item["fileName"]))
+            self.tabCustomList.setItem(line, 2, QTableWidgetItem(item["bak"]))
+            line+=1
 
     def updateTabCustomHook(self):
         self.tabCustomHookList.clear()
         self.tabCustomHookList.setColumnCount(3)
         self.tabCustomHookList.setHorizontalHeaderLabels(self.header)
+        self.tabCustomHookList.setRowCount(len(self.customHooks))
+        line = 0
         for item in self.customHooks:
-            self.tabCustomHookList.insertRow(0)
-            self.tabCustomHookList.setItem(0, 0, QTableWidgetItem(item["name"]))
-            self.tabCustomHookList.setItem(0, 1, QTableWidgetItem(item["fileName"]))
-            self.tabCustomHookList.setItem(0, 2, QTableWidgetItem(item["bak"]))
+            self.tabCustomHookList.setItem(line, 0, QTableWidgetItem(item["name"]))
+            self.tabCustomHookList.setItem(line, 1, QTableWidgetItem(item["fileName"]))
+            self.tabCustomHookList.setItem(line, 2, QTableWidgetItem(item["bak"]))
+            line +=1
 
     def save(self):
         with open("./custom/customs.txt","w",encoding="utf-8") as customFile:
@@ -128,12 +162,11 @@ class customForm(QDialog,Ui_CustomDialog):
         if len(self.txtJsData.toPlainText())<=0:
             QMessageBox().information(self, "提示", "脚本不能为空")
             return
-        datestr = datetime.now().strftime('%Y_%m_%d_%H_%M_%S_')
         data={}
         data["name"]=self.txtJsName.text()
-        data["fileName"]=datestr+self.txtJsName.text()
+        data["fileName"]=self.txtJsFileName.text()
         data["bak"]=self.txtBak.text()
-        savepath="./custom/"+data["fileName"]+".js"
+        savepath="./custom/"+data["fileName"]
         with open(savepath,"w",encoding="utf-8") as saveFile:
             saveFile.write(self.txtJsData.toPlainText())
         self.customs.append(data)

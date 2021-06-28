@@ -19,11 +19,10 @@ def dumpdexInit(packageName):
     res += adbshellCmd("chmod 0777 " + path)+"\n"
     return res
 
-def fartInit():
-    path = "/sdcard/fart"
+def fartInit(savepath):
     res=""
-    res += adbshellCmd("mkdir -p " + path)+"\n"
-    res += adbshellCmd("chmod 0777 " + path)+"\n"
+    res += adbshellCmd("mkdir -p " + savepath)+"\n"
+    res += adbshellCmd("chmod 0777 " + savepath)+"\n"
     return res
 
 def adbshellCmd(cmd,deviceType=1):

@@ -227,7 +227,7 @@
              <item>
               <widget class="QPushButton" name="btnCustom">
                <property name="enabled">
-                <bool>false</bool>
+                <bool>true</bool>
                </property>
                <property name="minimumSize">
                 <size>
@@ -548,8 +548,6 @@
     <addaction name="actionClearLogs"/>
     <addaction name="actionClearOutlog"/>
     <addaction name="actionClearHookJson"/>
-    <addaction name="actionPushFartSo"/>
-    <addaction name="actionPullDumpDexRes"/>
    </widget>
    <widget class="QMenu" name="menuedit">
     <property name="title">
@@ -565,6 +563,8 @@
     </widget>
     <addaction name="menuAttach"/>
     <addaction name="actionStop"/>
+    <addaction name="actionFrida32Start"/>
+    <addaction name="actionFrida64Start"/>
    </widget>
    <widget class="QMenu" name="menuhelp">
     <property name="title">
@@ -572,8 +572,18 @@
     </property>
     <addaction name="actionabort"/>
    </widget>
+   <widget class="QMenu" name="menu">
+    <property name="title">
+     <string>上传与下载</string>
+    </property>
+    <addaction name="actionPushFridaServer"/>
+    <addaction name="actionPushFartSo"/>
+    <addaction name="actionPullDumpDexRes"/>
+    <addaction name="actionPullFartRes"/>
+   </widget>
    <addaction name="menufile"/>
    <addaction name="menuedit"/>
+   <addaction name="menu"/>
    <addaction name="menuhelp"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
@@ -655,6 +665,26 @@
   <action name="actionPullDumpDexRes">
    <property name="text">
     <string>下载dump_dex结果</string>
+   </property>
+  </action>
+  <action name="actionPushFridaServer">
+   <property name="text">
+    <string>上传frida-server-14-2</string>
+   </property>
+  </action>
+  <action name="actionPullFartRes">
+   <property name="text">
+    <string>下载fart脱壳结果</string>
+   </property>
+  </action>
+  <action name="actionFrida32Start">
+   <property name="text">
+    <string>启动frida-server for 32</string>
+   </property>
+  </action>
+  <action name="actionFrida64Start">
+   <property name="text">
+    <string>启动frida-server for 64</string>
    </property>
   </action>
  </widget>

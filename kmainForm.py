@@ -23,6 +23,7 @@ from forms.ZenTracer import zenTracerForm
 from ui.kmain import Ui_KmainWindow
 from utils import LogUtil, CmdUtil
 import json,os,threading,frida
+import platform
 
 import TraceThread
 
@@ -50,9 +51,12 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         #从手机下载dumpdex脱壳的数据
         if os.path.exists("./dumpdex")==False:
             os.makedirs("./dumpdex")
+        if os.path.exists("./fartdump") == False:
+            os.makedirs("./fartdump")
         #自定义脚本目录
         if os.path.exists("./custom")==False:
             os.makedirs("./custom")
+
 
         self.statusBar = QStatusBar()
         self.labStatus = QLabel('当前状态:未连接')
@@ -73,6 +77,10 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         self.actionPushFartSo.triggered.connect(self.PushFartSo)
         self.actionClearHookJson.triggered.connect(self.ClearHookJson)
         self.actionPullDumpDexRes.triggered.connect(self.PullDumpDex)
+        self.actionPushFridaServer.triggered.connect(self.PushFridaServer)
+        self.actionPullFartRes.triggered.connect(self.PullFartRes)
+        self.actionFrida32Start.triggered.connect(self.Frida32Start)
+        self.actionFrida64Start.triggered.connect(self.Frida64Start)
 
         self.btnDumpPtr.clicked.connect(self.dumpPtr)
         self.btnDumpSo.clicked.connect(self.dumpSo)
@@ -290,6 +298,49 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         res = CmdUtil.execCmd(cmd)
         self.log(res)
         QMessageBox().information(self, "提示", "下载完成")
+
+    def PushFridaServer(self):
+        res=CmdUtil.execCmd("adb push ./exec/frida-server-14.2.18-android-arm /data/local/tmp")
+        self.log(res)
+        res = CmdUtil.execCmd("adb push ./exec/frida-server-14.2.18-android-arm64 /data/local/tmp")
+        self.log(res)
+        res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/frida*")
+        self.log(res)
+        QMessageBox().information(self, "提示", "上传完成")
+
+    def PullFartRes(self):
+        cmd = ""
+        if len(self.th.attachName) > 0:
+            pname = self.th.attachName
+        else:
+            self.spawnAttachForm.flushList()
+            res = self.spawnAttachForm.exec()
+            if res == 0:
+                return
+            pname = self.spawnAttachForm.packageName
+        cmd = "adb pull /data/local/tmp/fart/%s ./fartdump/%s/" % (pname, pname)
+        res = CmdUtil.execCmd(cmd)
+        self.log(res)
+        QMessageBox().information(self, "提示", "下载完成")
+
+
+    def Frida32Start(self):
+        projectPath=os.path.dirname(os.path.abspath(__file__))
+        if platform.system() == "Windows":
+            os.system("start " + projectPath+r"\sh\win\frida32.bat")
+        elif platform.system()=='Linux':
+            os.system("bash -c "+ projectPath+"./sh/linux/frida32.sh")
+        else:
+            os.system("bash -c " + projectPath+"./sh/mac/frida32.sh")
+
+    def Frida64Start(self):
+        projectPath = os.path.dirname(os.path.abspath(__file__))
+        if platform.system() == "Windows":
+            os.system("start " +projectPath+ r"\sh\win\frida64.bat")
+        elif platform.system() == 'Linux':
+            os.system("bash -c " +projectPath+ "./sh/linux/frida64.sh")
+        else:
+            os.system("bash -c " +projectPath+ "./sh/mac/frida64.sh")
 
     def ClearHookJson(self):
         path = "./hooks/"
@@ -639,10 +690,18 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
 
     def custom(self):
         self.log("custom")
-        QMessageBox().information(self, "提示", "todo待开发")
-        return
-        # self.customForm.initData()
-        # self.customForm.exec()
+        self.customForm.initData()
+        self.customForm.exec()
+        if len(self.customForm.customHooks)>0:
+            self.hooksData["custom"]=[]
+            for item in self.customForm.customHooks:
+                self.hooksData["custom"].append({"class": item["name"], "method": item["fileName"],
+                                           "bak": item["bak"],"fileName":item["fileName"]})
+                self.updateTabHooks()
+        else:
+            if "custom" in self.hooksData:
+                self.hooksData.pop("custom")
+                self.updateTabHooks()
 
     def tuoke(self):
         tform = tuokeForm()
