@@ -344,7 +344,8 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         if platform.system() == "Windows":
             os.system("start " + projectPath+r"\sh\win\frida32.bat")
         elif platform.system()=='Linux':
-            os.system("bash -c "+ projectPath+"/sh/linux/frida32.sh")
+            shfile = projectPath + "/sh/linux/frida32.sh"
+            os.system("gnome-terminal -e 'bash -c \"" + shfile + "; exec bash\"'")
         else:
             os.system("bash -c " + projectPath+"/sh/mac/frida32.sh")
 
@@ -353,7 +354,8 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         if platform.system() == "Windows":
             os.system("start " +projectPath+ r"\sh\win\frida64.bat")
         elif platform.system() == 'Linux':
-            os.system("bash -c " +projectPath+ "/sh/linux/frida64.sh")
+            shfile = projectPath + "/sh/linux/frida64.sh"
+            os.system("gnome-terminal -e 'bash -c \"" + shfile + "; exec bash\"'")
         else:
             os.system("bash -c " +projectPath+ "/sh/mac/frida64.sh")
 

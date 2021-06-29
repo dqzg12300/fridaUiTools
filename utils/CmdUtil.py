@@ -1,7 +1,6 @@
 
 import subprocess
 
-
 def exec(cmd):
     proc = subprocess.Popen(
         cmd,
