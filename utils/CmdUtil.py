@@ -1,14 +1,26 @@
-import os
 
+import subprocess
+
+
+def exec(cmd):
+    proc = subprocess.Popen(
+        cmd,
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        stdin=subprocess.PIPE  # 重定向输入值
+    )
+    proc.stdin.close()  # 既然没有命令行窗口，那就关闭输入
+    result = proc.stdout.read()  # 读取cmd执行的输出结果（是byte类型，需要decode）
+    proc.stdout.close()
+    return str(result)
 
 def execCmd(cmd):
-    cmddata = os.popen(cmd)
-    text = cmddata.read()
-    cmddata.close()
+    text = exec(cmd)
     if len(text)>0:
-        text+="\ncmd命令执行"+cmd+"完毕"
+        text+="\ncmd命令执行"+cmd
     else:
-        text ="cmd命令执行" + cmd + "完毕"
+        text ="cmd命令执行" + cmd
     return text
 
 def dumpdexInit(packageName):
@@ -30,11 +42,9 @@ def adbshellCmd(cmd,deviceType=1):
     if deviceType==2:
         cmdstart="adb shell su 0 '%s'"
     cmd=cmdstart%cmd
-    cmddata = os.popen(cmd)
-    text = cmddata.read()
-    cmddata.close()
+    text = exec(cmd)
     if len(text) > 0:
-        text += "\ncmd命令执行" + cmd + "完毕"
+        text += "\ncmd命令执行" + cmd
     else:
-        text = "cmd命令执行" + cmd + "完毕"
+        text = "cmd命令执行" + cmd
     return text

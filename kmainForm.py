@@ -1,7 +1,6 @@
 # coding=utf-8
 import datetime
 import sys
-
 from PyQt5 import uic, QtWidgets
 from PyQt5.QtCore import Qt, QPoint
 from PyQt5.QtGui import QStandardItemModel, QStandardItem, QCursor
@@ -262,6 +261,9 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         # 有些手机是用su 0来执行shell命令的。不太懂怎么判断是哪种。
         res = CmdUtil.adbshellCmd("mkdir /data/local/tmp/fart", 2)
         self.log(res)
+        if "error" in res:
+            QMessageBox().information(self, "提示", "操作失败."+res)
+            return
         res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/fart", 2)
         self.log(res)
 
@@ -299,17 +301,25 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         cmd="adb pull /data/data/%s/files ./dumpdex/%s/"%(pname,pname)
         res = CmdUtil.execCmd(cmd)
         self.log(res)
+        if "error" in res:
+            QMessageBox().information(self, "提示", "下载失败."+res)
+            return
         QMessageBox().information(self, "提示", "下载完成")
 
     def PushFridaServer(self):
-        res=CmdUtil.execCmd("adb push ./exec/frida-server-14.2.18-android-arm /data/local/tmp")
-        self.log(res)
-        res = CmdUtil.execCmd("adb push ./exec/frida-server-14.2.18-android-arm64 /data/local/tmp")
-        self.log(res)
-        res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/frida*")
-        self.log(res)
-        QMessageBox().information(self, "提示", "上传完成")
-
+        try:
+            res=CmdUtil.execCmd("adb push ./exec/frida-server-14.2.18-android-arm /data/local/tmp")
+            self.log(res)
+            if "error" in res:
+                QMessageBox().information(self, "提示", "上传失败."+res)
+                return
+            res = CmdUtil.execCmd("adb push ./exec/frida-server-14.2.18-android-arm64 /data/local/tmp")
+            self.log(res)
+            res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/frida*")
+            self.log(res)
+            QMessageBox().information(self, "提示", "上传完成")
+        except Exception as ex:
+            QMessageBox().information(self, "提示", "上传异常."+str(ex))
     def PullFartRes(self):
         cmd = ""
         if len(self.th.attachName) > 0:
