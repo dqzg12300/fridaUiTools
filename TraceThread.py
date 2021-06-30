@@ -191,7 +191,7 @@ class Runthread(QThread):
 
         self.outlog(p["stack"])
         res= hexdump.hexdump(data,"return")
-        self.outlog(res)
+        self.outlog("\n"+res)
 
     def default_message(self,p):
         if "appinfo" in p:

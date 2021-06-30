@@ -311,14 +311,14 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
 
     def PushFridaServer(self):
         try:
-            res=CmdUtil.execCmd("adb push ./exec/frida-server-14.2.18-android-arm /data/local/tmp")
+            res=CmdUtil.execCmd("adb push ./exec/hluda-server-14.2.18-android-arm /data/local/tmp")
             self.log(res)
             if "error" in res:
                 QMessageBox().information(self, "提示", "上传失败."+res)
                 return
-            res = CmdUtil.execCmd("adb push ./exec/frida-server-14.2.18-android-arm64 /data/local/tmp")
+            res = CmdUtil.execCmd("adb push ./exec/hluda-server-14.2.18-android-arm64 /data/local/tmp")
             self.log(res)
-            res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/frida*")
+            res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/hluda*")
             self.log(res)
             QMessageBox().information(self, "提示", "上传完成")
         except Exception as ex:
