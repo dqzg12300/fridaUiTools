@@ -169,6 +169,12 @@ class customForm(QDialog,Ui_CustomDialog):
         savepath="./custom/"+data["fileName"]
         with open(savepath,"w",encoding="utf-8") as saveFile:
             saveFile.write(self.txtJsData.toPlainText())
-        self.customs.append(data)
+        flag=False
+        for idx in range(len(self.customs)):
+            if self.customs[idx]["fileName"]==data["fileName"]:
+                self.customs[idx]=data
+                flag=True
+        if flag==False:
+            self.customs.append(data)
         self.save()
         self.updateTabCustom()

@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog, QStatusBar, 
     QTableWidgetItem, QMenu, QAction
 
 from forms import SelectPackage
+from forms.CallFunction import callFunctionForm
 from forms.Custom import customForm
 from forms.DumpAddress import dumpAddressForm
 from forms.DumpSo import dumpSoForm
@@ -91,6 +92,7 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         self.btnFart.clicked.connect(self.dumpFart)
         self.btnDumpDex.clicked.connect(self.dumpDex)
         self.btnWallbreaker.clicked.connect(self.wallBreaker)
+        self.btnCallFunction.clicked.connect(self.callFunction)
 
         self.chkNetwork.toggled.connect(self.hookNetwork)
         self.chkJni.toggled.connect(self.hookJNI)
@@ -143,6 +145,7 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         self.fartForm= fartForm()
         self.wallBreakerForm=wallBreakerForm()
         self.customForm=customForm()
+        self.callFunctionForm=callFunctionForm()
 
         self.modules=None
         self.classes=None
@@ -582,8 +585,23 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         self.wallBreakerForm.initData()
         self.wallBreakerForm.show()
 
-
-
+    def callFunction(self):
+        if self.isattach() == False:
+            self.log("Error:还未附加进程")
+            QMessageBox().information(self, "提示", "未附加进程")
+            return
+        if "custom" not in self.hooksData:
+            self.log("Error:未使用自定义脚本,无主动调用函数")
+            QMessageBox().information(self, "提示", "未使用自定义脚本,无主动调用函数")
+            return
+        if len(self.th.customCallFuns)<=0:
+            self.log("Error:自定义脚本中未找到主动调用函数")
+            QMessageBox().information(self, "提示", "自定义脚本中未找到主动调用函数")
+            return
+        self.callFunctionForm.api=self.th.default_script.exports
+        self.callFunctionForm.callMethods=self.th.customCallFuns
+        self.callFunctionForm.initData()
+        self.callFunctionForm.show()
     # ====================end======需要附加后才能使用的功能,基本都是在内存中查数据================================
 
     # ====================start======附加前使用的功能,基本都是在内存中查数据================================

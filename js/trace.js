@@ -52,6 +52,10 @@ function traceClass(clsname) {
         var methods = target.class.getDeclaredMethods();
         methods.forEach(function (method) {
             var methodName = method.getName();
+            //测试的时候发现这个hook了，应用出现崩溃的情况。就跳过了
+            if (clsname=="android.os.Bundle" && methodName.indexOf("writeToParcel")!=0){
+                return;
+            }
             var overloads = target[methodName].overloads;
             overloads.forEach(function (overload) {
                 var proto = "(";

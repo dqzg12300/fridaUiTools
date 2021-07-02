@@ -63,6 +63,19 @@
       <string>快捷操作</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_6">
+      <item row="0" column="1">
+       <widget class="QPushButton" name="btnClassStringAdd">
+        <property name="maximumSize">
+         <size>
+          <width>120</width>
+          <height>16777215</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>JavaString</string>
+        </property>
+       </widget>
+      </item>
       <item row="0" column="0">
        <widget class="QPushButton" name="btnClassFileAdd">
         <property name="maximumSize">
@@ -76,8 +89,8 @@
         </property>
        </widget>
       </item>
-      <item row="0" column="1">
-       <widget class="QPushButton" name="btnClassStringAdd">
+      <item row="0" column="2">
+       <widget class="QPushButton" name="btnClassBundle">
         <property name="maximumSize">
          <size>
           <width>120</width>
@@ -85,7 +98,20 @@
          </size>
         </property>
         <property name="text">
-         <string>JavaString</string>
+         <string>JavaBundle</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="3">
+       <widget class="QPushButton" name="btnClassBase64">
+        <property name="maximumSize">
+         <size>
+          <width>120</width>
+          <height>16777215</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>JavaBase64</string>
         </property>
        </widget>
       </item>

@@ -26,6 +26,8 @@ class zenTracerForm(QDialog,Ui_ZenTracerDialog):
 
         self.btnClassFileAdd.clicked.connect(self.classFileAdd)
         self.btnClassStringAdd.clicked.connect(self.classStringAdd)
+        self.btnClassBundle.clicked.connect(self.classBundleAdd)
+        self.btnClassBase64.clicked.connect(self.classBase64Add)
 
         self.cmbPackage.currentTextChanged.connect(self.changePackage)
 
@@ -114,6 +116,20 @@ class zenTracerForm(QDialog,Ui_ZenTracerDialog):
 
     def classStringAdd(self):
         className = "java.lang.String"
+        if className in self.traceClass:
+            return
+        self.traceClass.append(className)
+        self.updateTabTracer()
+
+    def classBundleAdd(self):
+        className = "android.os.Bundle"
+        if className in self.traceClass:
+            return
+        self.traceClass.append(className)
+        self.updateTabTracer()
+
+    def classBase64Add(self):
+        className = "android.util.Base64"
         if className in self.traceClass:
             return
         self.traceClass.append(className)

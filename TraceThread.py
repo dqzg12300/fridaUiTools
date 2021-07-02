@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import re
 import socket
 import struct
 from copy import copy
@@ -37,6 +38,7 @@ class Runthread(QThread):
         self.isSpawn=isSpawn
         self.DEXDump=False
         self.enable_deep_search=False
+        self.customCallFuns=[]
 
     def quit(self):
         if self.scripts:
@@ -112,6 +114,11 @@ class Runthread(QThread):
                     customJs= open("./custom/"+item["fileName"], 'r', encoding="utf8").read()
                     customJs=customJs.replace("%customName%",item["class"])
                     customJs = customJs.replace("%customFileName%", item["fileName"])
+                    #rpc.export.call_demo1= 匹配出主动调用要用的rpc函数
+                    it = re.finditer(r"call_funs\.(.+?)=",customJs)
+                    self.customCallFuns.clear()
+                    for match in it:
+                        self.customCallFuns.append(match.group(1))
                     source+="(function(){\n%s\n})();"%customJs
             elif item=="tuoke":
                 tuokeType=self.hooksData[item]["class"]
