@@ -7,13 +7,13 @@
     <x>0</x>
     <y>0</y>
     <width>963</width>
-    <height>527</height>
+    <height>585</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>ZenTracer</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout_5">
+  <layout class="QGridLayout" name="gridLayout_7">
    <item row="0" column="0">
     <widget class="QGroupBox" name="groupBox_5">
      <property name="title">
@@ -189,9 +189,32 @@
      <property name="title">
       <string>结果</string>
      </property>
-     <layout class="QGridLayout" name="gridLayout_3">
+     <layout class="QGridLayout" name="gridLayout_5">
       <item row="0" column="0">
        <widget class="QTableWidget" name="tabTracer"/>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="3" column="0" colspan="2">
+    <widget class="QGroupBox" name="groupBox_6">
+     <property name="title">
+      <string>其他选项</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_3">
+      <item row="0" column="0">
+       <widget class="QCheckBox" name="chkStack">
+        <property name="text">
+         <string>打印堆栈</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QCheckBox" name="chkInit">
+        <property name="text">
+         <string>hook init</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>

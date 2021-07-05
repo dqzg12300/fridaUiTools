@@ -16,6 +16,13 @@ function log(text) {
     send(msg)
 }
 
+function klog(data){
+    var message={};
+    message["jsname"]="ZenTracer";
+    message["data"]=data;
+    send(message);
+}
+
 function enter(tid, tname, cls, method, args) {
     var packet = {
         'cmd': 'enter',
@@ -45,13 +52,27 @@ function getTName() {
     var Thread = Java.use("java.lang.Thread")
     return Thread.currentThread().getName();
 }
+function getStack(){
+		return Java.use("android.util.Log").getStackTraceString(Java.use("java.lang.Exception").$new());
+	}
 
 function traceClass(clsname) {
     try {
         var target = Java.use(clsname);
         var methods = target.class.getDeclaredMethods();
+        var stack="%stack%";
+        var hookInit="%hookInit%";
+        var methodNames=[]
         methods.forEach(function (method) {
-            var methodName = method.getName();
+            methodNames.push(method.getName());
+        });
+        if(hookInit){
+            // var methodConstructors=target.class.getDeclaredConstructors();
+            // console.log("hook:"+methodConstructors);
+            methodNames.push("$init");
+        }
+        methodNames.forEach(function (methodName) {
+            // var methodName = method.getName();
             //测试的时候发现这个hook了，应用出现崩溃的情况。就跳过了
             if (clsname=="android.os.Bundle" && methodName.indexOf("writeToParcel")!=0){
                 return;
@@ -75,6 +96,10 @@ function traceClass(clsname) {
                         args[j] = arguments[j] + ""
                     }
                     enter(tid, tName, clsname, methodName + proto, args);
+                    if(stack){
+                        var stackLog=getStack();
+                        klog(stackLog);
+                    }
                     var retval = this[methodName].apply(this, arguments);
                     exit(tid, "" + retval);
                     return retval;
@@ -82,6 +107,8 @@ function traceClass(clsname) {
 
             });
         });
+
+
     } catch (e) {
         log("'" + clsname + "' hook fail: " + e)
     }
@@ -111,7 +138,8 @@ if (Java.available) {
             onMatch: function (aClass) {
                 for (var index in matchRegEx) {
                     // console.log(matchRegEx[index]);
-                    if (match(matchRegEx[index], aClass)) {
+                    // if (match(matchRegEx[index], aClass)) {
+                    if (aClass==matchRegEx[index]) {
                         var is_black = false;
                         for (var i in blackRegEx) {
                             if (match(blackRegEx[i]["class"], aClass)) {

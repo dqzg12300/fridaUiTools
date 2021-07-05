@@ -691,10 +691,17 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
             return
         # matchHook={"class":mform.className,"method":mform.methodName,"bak":"匹配指定类中的指定函数.无类名则hook所有类中的指定函数.无函数名则hook类的所有函数"}
         typeStr="ZenTracer"
+        stack=""
+        hookInit=""
+        if self.zenTracerForm.chkStack.isChecked():
+            stack="1"
+        if self.zenTracerForm.chkInit.isChecked():
+            hookInit = "1"
         classNames= ",".join(self.zenTracerForm.traceClass)
         matchHook = {"class":classNames, "method":"",
                      "bak": "ZenTracer的改造功能,匹配类和函数进行批量hook",
-                     "traceClass":self.zenTracerForm.traceClass,"traceBClass":self.zenTracerForm.traceBClass}
+                     "traceClass":self.zenTracerForm.traceClass,"traceBClass":self.zenTracerForm.traceBClass,
+                     "stack":stack,"hookInit":hookInit}
         self.hooksData[typeStr]=matchHook
         self.updateTabHooks()
 
