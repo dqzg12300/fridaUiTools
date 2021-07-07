@@ -97,6 +97,8 @@ class Runthread(QThread):
                 source = source.replace('{methodName}', methods_s)
             elif item=="sslpining":
                 source += open('./js/DroidSSLUnpinning.js', 'r', encoding="utf8").read()
+            elif item=="hookEvent":
+                source += open("./js/hookEvent.js", 'r', encoding="utf8").read()
             elif item=="RegisterNative":
                 source += open("./js/hook_RegisterNatives.js", 'r', encoding="utf8").read()
             elif item=="ArtMethod":
@@ -349,12 +351,13 @@ class Runthread(QThread):
                     self.outlog("[DEXDump]: Skip duplicate dex {}<{}>".format(info['addr'], md))
                     continue
                 mds.append(md)
-                if not os.path.exists("./" + pkg_name + "/"):
-                    os.mkdir("./" + pkg_name + "/")
+                savePath="./FRIDA_DEXDump/" + pkg_name + "/"
+                if not os.path.exists(savePath):
+                    os.makedirs(savePath)
                 bs = self.dex_fix(bs)
-                with open(pkg_name + "/" + info['addr'] + ".dex", 'wb') as out:
+                with open(savePath + info['addr'] + ".dex", 'wb') as out:
                     out.write(bs)
-                self.outlog("[DEXDump]: DexSize={}, DexMd5={}, SavePath={}/{}/{}.dex"
-                            .format(hex(info['size']), md, os.getcwd(), pkg_name, info['addr']))
+                self.outlog("[DEXDump]: DexSize={}, DexMd5={}, SavePath={}/{}.dex"
+                            .format(hex(info['size']), md, savePath, info['addr']))
             except Exception as e:
                 self.outlog("[Except] - {}: {}".format(e, info))

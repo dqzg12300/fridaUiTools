@@ -97,6 +97,7 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         self.chkNetwork.toggled.connect(self.hookNetwork)
         self.chkJni.toggled.connect(self.hookJNI)
         self.chkJavaEnc.toggled.connect(self.hookJavaEnc)
+        self.chkHookEvent.toggled.connect(self.hookEvent)
         self.chkRegisterNative.toggled.connect(self.hookRegisterNative)
         self.chkArtMethod.toggled.connect(self.hookArtMethod)
         self.chkLibArt.toggled.connect(self.hookLibArm)
@@ -157,6 +158,7 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         self.chkRegisterNative.tag = "RegisterNative"
         self.chkArtMethod.tag = "ArtMethod"
         self.chkLibArt.tag = "libArt"
+        self.chkHookEvent.tag="hookEvent"
 
     def clearSymbol(self):
         self.listSymbol.clear()
@@ -650,6 +652,14 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
             self.log("hook java的算法加解密所有函数")
         else:
             self.log("取消hook java的算法加解密所有函数")
+
+    def hookEvent(self,checked):
+        typeStr = "hookEvent"
+        self.hook_add(checked, typeStr)
+        if checked:
+            self.log("hook所有控件的点击事件")
+        else:
+            self.log("取消hook所有控件的点击事件")
 
     def hookRegisterNative(self,checked):
         typeStr = "RegisterNative"

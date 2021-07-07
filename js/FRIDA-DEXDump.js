@@ -5,6 +5,16 @@
 * */
 
 (function(){
+function klogData(data,key,value){
+    var message={};
+    message["jsname"]="FRIDA-DEXDump";
+    message["data"]=data;
+    message[key]=value;
+    send(message);
+}
+
+klogData("","init","FRIDA-DEXDump.js init hook success");
+
 var enable_deep_search = false;
 
 function verify_by_maps(dexptr, mapsptr) {

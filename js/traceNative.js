@@ -58,7 +58,6 @@ function nativeHookFunction(addr,function_name){
 }
 
 function native_hook(library_name,function_names){
-     var msg=initMessage();
      var base_addr=Module.getBaseAddress(library_name);
      for(var i=0;i<function_names.length;i++){
          if(function_names[i].toUpperCase().startsWith("SUB_")){

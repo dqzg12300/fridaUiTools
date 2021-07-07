@@ -74,7 +74,7 @@ function traceClass(clsname) {
         methodNames.forEach(function (methodName) {
             // var methodName = method.getName();
             //测试的时候发现这个hook了，应用出现崩溃的情况。就跳过了
-            if (clsname=="android.os.Bundle" && methodName.indexOf("writeToParcel")!=0){
+            if (clsname=="android.os.Bundle" && methodName.indexOf("writeToParcel")==0){
                 return;
             }
             var overloads = target[methodName].overloads;
@@ -138,8 +138,8 @@ if (Java.available) {
             onMatch: function (aClass) {
                 for (var index in matchRegEx) {
                     // console.log(matchRegEx[index]);
-                    // if (match(matchRegEx[index], aClass)) {
-                    if (aClass==matchRegEx[index]) {
+                    if (match(matchRegEx[index], aClass)) {
+                    // if (aClass==matchRegEx[index]) {
                         var is_black = false;
                         for (var i in blackRegEx) {
                             if (match(blackRegEx[i]["class"], aClass)) {
