@@ -113,6 +113,8 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
 
         self.txtModule.textChanged.connect(self.changeModule)
         self.txtClass.textChanged.connect(self.changeClass)
+        self.txtSymbol.textChanged.connect(self.changeSymbol)
+        self.txtMethod.textChanged.connect(self.changeMethod)
 
         self.btnSaveHooks.clicked.connect(self.saveHooks)
         self.btnImportHooks.clicked.connect(self.importHooks)
@@ -875,7 +877,7 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         if len(data) > 0:
             for item in self.modules:
                 data=data.split("----")[0]
-                if data in item["name"]:
+                if data.upper() in item["name"].upper():
                     self.listModules.addItem(item["name"]+"----"+item["base"])
         else:
             for item in self.modules:
@@ -887,11 +889,35 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         self.listClasses.clear()
         if len(data) > 0:
             for item in self.classes:
-                if data in item:
+                if data.upper() in item.upper():
                     self.listClasses.addItem(item)
         else:
             for item in self.classes:
                 self.listClasses.addItem(item)
+
+    def changeSymbol(self,data):
+        if self.symbols == None:
+            return
+        self.listSymbol.clear()
+        if len(data) > 0:
+            for item in self.symbols:
+                if data.upper() in item["name"].upper():
+                    self.listSymbol.addItem(item["name"])
+        else:
+            for item in self.symbols:
+                self.listSymbol.addItem(item["name"])
+
+    def changeMethod(self,data):
+        if self.methods == None:
+            return
+        self.listMethod.clear()
+        if len(data) > 0:
+            for item in self.methods:
+                if data.upper() in item.upper():
+                    self.listMethod.addItem(item)
+        else:
+            for item in self.methods:
+                self.listMethod.addItem(item)
 
     def listModuleClick(self,item):
         self.txtModule.setText(item.text())
