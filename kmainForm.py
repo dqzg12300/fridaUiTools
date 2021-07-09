@@ -982,11 +982,13 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         if m1==None:
             self.log(res)
             self.log("未找到焦点窗口数据，可能未连接手机")
+            QMessageBox().information(self, "提示", "未找到焦点窗口数据，可能未连接手机")
             return
         m1sp=m1.group(1).split(" ")
         if len(m1sp)<3:
             self.log(m1.group(1))
             self.log("焦点数据格式不正确")
+            QMessageBox().information(self, "提示", "焦点数据格式不正确")
             return
         m1data=m1sp[2]
         if m1data=="StatusBar":
@@ -997,26 +999,21 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         if len(m1dataSp)<2:
             self.log(m1)
             self.log("焦点数据格式不正确")
+            QMessageBox().information(self, "提示", "焦点数据格式不正确")
             return
         self.txtProcessName.setText(m1dataSp[0])
         self.txtCurrentFocus.setText(m1dataSp[1])
         res = CmdUtil.exec("adb shell dumpsys activity -p "+self.txtProcessName.text())
         m2=re.search(r" (\d+?):%s/"%m1dataSp[0],res)
         if m2==None:
-            self.log(res)
-            self.log("未找到进程id，可能未连接手机")
             return
         self.txtPid.setText(m2.group(1))
         m3 = re.search(r"android.intent.action.MAIN.+?cmp=(%s.+) "% self.txtProcessName.text(), res)
         if m3==None:
-            self.log(res)
-            self.log("未找到启动页面数据，可能未连接手机")
             return
         self.txtComponent.setText(m3.group(1))
         m4 = re.search(r"baseDir=(/data/app/%s.+)"%self.txtProcessName.text(), res)
         if m4 == None:
-            self.log(res)
-            self.log("未找到base路径，可能未连接手机")
             return
         self.txtBaseDir.setText(m4.group(1))
 
