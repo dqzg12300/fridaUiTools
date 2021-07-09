@@ -1,6 +1,8 @@
 
 import subprocess
 
+cmdhead="adb shell su -c "       #切换使用adb shell su -c 和 adb shell su 0
+
 def exec(cmd):
     proc = subprocess.Popen(
         cmd,
@@ -12,7 +14,7 @@ def exec(cmd):
     proc.stdin.close()  # 既然没有命令行窗口，那就关闭输入
     result = proc.stdout.read()  # 读取cmd执行的输出结果（是byte类型，需要decode）
     proc.stdout.close()
-    return str(result)
+    return result.decode(encoding="utf-8")
 
 def execCmd(cmd):
     text = exec(cmd)
@@ -36,11 +38,8 @@ def fartInit(savepath):
     res += adbshellCmd("chmod 0777 " + savepath)+"\n"
     return res
 
-def adbshellCmd(cmd,deviceType=1):
-    cmdstart="adb shell su -c '%s'"
-    if deviceType==2:
-        cmdstart="adb shell su 0 '%s'"
-    cmd=cmdstart%cmd
+def adbshellCmd(cmd):
+    cmd="%s '%s'"%(cmdhead,cmd)
     text = exec(cmd)
     if len(text) > 0:
         text += "\ncmd命令执行" + cmd

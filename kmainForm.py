@@ -1,5 +1,6 @@
 # coding=utf-8
 import datetime
+import re
 import sys
 from PyQt5 import uic, QtWidgets
 from PyQt5.QtCore import Qt, QPoint
@@ -133,6 +134,8 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         self.btnMethodClear.clicked.connect(self.clearMethod)
         self.txtMethod.textChanged.connect(self.changeMethod)
         self.txtSymbol.textChanged.connect(self.changeSymbol)
+        
+        self.btnFlush.clicked.connect(self.appInfoFlush)
 
 
         self.dumpForm = dumpAddressForm()
@@ -267,17 +270,17 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
 
     def PushFartSo(self):
         # 有些手机是用su 0来执行shell命令的。不太懂怎么判断是哪种。
-        res = CmdUtil.adbshellCmd("mkdir /data/local/tmp/fart", 2)
+        res = CmdUtil.adbshellCmd("mkdir /data/local/tmp/fart")
         self.log(res)
         if "error" in res:
             QMessageBox().information(self, "提示", "操作失败."+res)
             return
-        res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/fart", 2)
+        res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/fart")
         self.log(res)
 
-        res = CmdUtil.adbshellCmd("mkdir /sdcard/fart", 2)
+        res = CmdUtil.adbshellCmd("mkdir /sdcard/fart")
         self.log(res)
-        res = CmdUtil.adbshellCmd("chmod 0777 /sdcard/fart", 2)
+        res = CmdUtil.adbshellCmd("chmod 0777 /sdcard/fart")
         self.log(res)
 
         res=CmdUtil.execCmd("adb push ./lib/fart.so /data/local/tmp/fart/fart.so")
@@ -285,14 +288,14 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         res=CmdUtil.execCmd("adb push ./lib/fart64.so /data/local/tmp/fart/fart64.so")
         self.log(res)
 
-        res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/fart/fart.so", 2)
+        res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/fart/fart.so")
         self.log(res)
-        res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/fart/fart64.so", 2)
+        res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/fart/fart64.so")
         self.log(res)
         #因为好像有些手机不能直接push到/data/app目录。所以先放tmp再拷贝过去
-        res = CmdUtil.adbshellCmd("cp /data/local/tmp/fart/fart.so /data/app/", 2)
+        res = CmdUtil.adbshellCmd("cp /data/local/tmp/fart/fart.so /data/app/")
         self.log(res)
-        res = CmdUtil.adbshellCmd("cp /data/local/tmp/fart/fart64.so /data/app/", 2)
+        res = CmdUtil.adbshellCmd("cp /data/local/tmp/fart/fart64.so /data/app/")
         self.log(res)
         QMessageBox().information(self, "提示", "上传完成")
 
@@ -946,6 +949,51 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
     def actionAbort(self):
         QMessageBox().about(self, "About",
                             "\nfridaUiTools: 缝合怪,常用脚本整合的界面化工具 \nAuthor: https://github.com/dqzg12300")
+
+    def appInfoFlush(self):
+        res=CmdUtil.exec("adb shell dumpsys window")
+        m1=re.search("mCurrentFocus=Window\\{(.+?)\\}", res)
+        if m1==None:
+            self.log(res)
+            self.log("未找到焦点窗口数据，可能未连接手机")
+            return
+        m1sp=m1.group(1).split(" ")
+        if len(m1sp)<3:
+            self.log(m1.group(1))
+            self.log("焦点数据格式不正确")
+            return
+        m1data=m1sp[2]
+        if m1data=="StatusBar":
+            self.log("请解锁屏幕")
+            QMessageBox().information(self, "提示", "请解锁手机屏幕")
+            return
+        m1dataSp=m1data.split("/")
+        if len(m1dataSp)<2:
+            self.log(m1)
+            self.log("焦点数据格式不正确")
+            return
+        self.txtProcessName.setText(m1dataSp[0])
+        self.txtCurrentFocus.setText(m1dataSp[1])
+        res = CmdUtil.exec("adb shell dumpsys activity -p "+self.txtProcessName.text())
+        m2=re.search(r" (\d+?):%s/"%m1dataSp[0],res)
+        if m2==None:
+            self.log(res)
+            self.log("未找到进程id，可能未连接手机")
+            return
+        self.txtPid.setText(m2.group(1))
+        m3 = re.search(r"android.intent.action.MAIN.+?cmp=(%s.+) "% self.txtProcessName.text(), res)
+        if m3==None:
+            self.log(res)
+            self.log("未找到启动页面数据，可能未连接手机")
+            return
+        self.txtComponent.setText(m3.group(1))
+        m4 = re.search(r"baseDir=(/data/app/%s.+)"%self.txtProcessName.text(), res)
+        if m4 == None:
+            self.log(res)
+            self.log("未找到base路径，可能未连接手机")
+            return
+        self.txtBaseDir.setText(m4.group(1))
+
 
 if __name__=="__main__":
     app=QApplication(sys.argv)
