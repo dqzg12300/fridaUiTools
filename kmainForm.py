@@ -87,6 +87,8 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         self.actionPullFartRes.triggered.connect(self.PullFartRes)
         self.actionFrida32Start.triggered.connect(self.Frida32Start)
         self.actionFrida64Start.triggered.connect(self.Frida64Start)
+        self.actionSuC.triggered.connect(self.changeSuC)
+        self.actionSu0.triggered.connect(self.changeSu0)
 
         self.btnDumpPtr.clicked.connect(self.dumpPtr)
         self.btnDumpSo.clicked.connect(self.dumpSo)
@@ -349,25 +351,49 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         QMessageBox().information(self, "提示", "下载完成")
 
 
-    def Frida32Start(self):
-        projectPath=os.path.dirname(os.path.abspath(__file__))
-        if platform.system() == "Windows":
-            os.system("start " + projectPath+r"\sh\win\frida32.bat")
-        elif platform.system()=='Linux':
-            shfile = projectPath + "/sh/linux/frida32.sh"
-            os.system("gnome-terminal -e 'bash -c \"" + shfile + "; exec bash\"'")
-        else:
-            os.system("bash -c " + projectPath+"/sh/mac/frida32.sh")
-
-    def Frida64Start(self):
+    def ShStart(self,name):
         projectPath = os.path.dirname(os.path.abspath(__file__))
         if platform.system() == "Windows":
-            os.system("start " +projectPath+ r"\sh\win\frida64.bat")
+            shfile="%s\sh\win\%s.bat"%(projectPath,name)
+            cmd=r"start "+shfile
+
         elif platform.system() == 'Linux':
-            shfile = projectPath + "/sh/linux/frida64.sh"
-            os.system("gnome-terminal -e 'bash -c \"" + shfile + "; exec bash\"'")
+            shfile = "%s/sh/linux/%s.sh"%(projectPath,name)
+            cmd="gnome-terminal -e 'bash -c \"%s; exec bash\"'"%shfile
         else:
-            os.system("bash -c " +projectPath+ "/sh/mac/frida64.sh")
+            shfile="%s/sh/mac/%s.sh"%(projectPath,name)
+            cmd="bash -c "+shfile
+        #由于有些手机用adb shell su -c不行。必须是adb shell su 0。所以这里根据选择替换下脚本的内容
+        with open(shfile,"r+",encoding="utf-8") as shFile:
+            shdata=shFile.read()
+            if self.actionSu0.isChecked():
+                shdata=shdata.replace("adb shell su -c","adb shell su 0")
+            else:
+                shdata = shdata.replace("adb shell su 0", "adb shell su -c")
+            shFile.seek(0)
+            shFile.truncate()
+            shFile.write(shdata)
+        os.system(cmd)
+
+    def Frida32Start(self):
+        self.ShStart("frida32")
+
+    def Frida64Start(self):
+        self.ShStart("frida64")
+
+    def changeCmdType(self):
+        if self.actionSu0.isChecked():
+            CmdUtil.cmdhead=self.actionSu0.text()
+        else:
+            CmdUtil.cmdhead=self.actionSuC.text()
+
+    def changeSuC(self,checked):
+        self.actionSu0.setChecked(checked==False)
+        self.changeCmdType()
+
+    def changeSu0(self,checked):
+        self.actionSuC.setChecked(checked==False)
+        self.changeCmdType()
 
     def ClearHookJson(self):
         path = "./hooks/"

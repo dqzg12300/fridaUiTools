@@ -730,9 +730,17 @@
     <addaction name="actionPullDumpDexRes"/>
     <addaction name="actionPullFartRes"/>
    </widget>
+   <widget class="QMenu" name="menucmd">
+    <property name="title">
+     <string>cmd切换</string>
+    </property>
+    <addaction name="actionSuC"/>
+    <addaction name="actionSu0"/>
+   </widget>
    <addaction name="menufile"/>
    <addaction name="menuedit"/>
    <addaction name="menu"/>
+   <addaction name="menucmd"/>
    <addaction name="menuhelp"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
@@ -834,6 +842,28 @@
   <action name="actionFrida64Start">
    <property name="text">
     <string>启动frida-server for 64</string>
+   </property>
+  </action>
+  <action name="actionSuC">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>adb shell su -c</string>
+   </property>
+  </action>
+  <action name="actionSu0">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>adb shell su 0</string>
    </property>
   </action>
  </widget>
