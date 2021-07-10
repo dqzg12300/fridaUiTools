@@ -49,13 +49,19 @@ fridaUiTools是一个界面化整理脚本的工具。新人的练手作品。�
 
 ## 应用部分界面
 
-![image-20210624204653469](./img/image-20210624204653469.png)
+![image-20210710125622863](D:\git_src\fridaUiTools\img\image-20210624204848522.png)
 
-![image-20210624192540334](./img/image-20210624192540334.png)
+![image-20210710130420705](D:\git_src\fridaUiTools\img\image-20210710130116100.png)
 
-![image-20210624204724716](./img/image-20210624204724716.png)
+![image-20210710130555333](D:\git_src\fridaUiTools\img\image-20210710130509193.png)
 
-![image-20210624204848522](./img/image-20210624204848522.png)
+![image-20210710130631452](D:\git_src\fridaUiTools\img\image-20210710130631452.png)
+
+![image-20210710130712969](D:\git_src\fridaUiTools\img\image-20210710130712969.png)
+
+![image-20210710130905757](D:\git_src\fridaUiTools\img\image-20210710130905757.png)
+
+
 
 ## 使用说明
 
@@ -75,9 +81,13 @@ fart如果第一次使用，需要在上传与下载菜单栏中点击上传fart
 >
 > fart的dump结果下载
 >
-> 优化细节
->
 > 增加patch功能
+>
+> 应用信息显示（adb shell dumpsys取出来的数据）
+>
+> hookEvent（app的所有控件的点击事件hook）
+>
+> cmd切换（有些设备是需要adb shell su 0来使用su权限的，有些是adb shell su -c。这里为了通用，可以自己切换）
 
 ## 感谢
 

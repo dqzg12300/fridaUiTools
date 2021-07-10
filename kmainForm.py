@@ -415,7 +415,10 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
     #这是附加结束时的状态栏显示包名
     def attachOver(self,name):
         tmppath="./tmp/spawnPackage.txt"
-        with open(tmppath, "r+") as packageFile:
+        mode="r+"
+        if os.path.exists(tmppath)==False:
+            mode="w+"
+        with open(tmppath, mode) as packageFile:
             packageData = packageFile.read()
             fsize = packageFile.tell()
             packageFile.seek(fsize)
@@ -744,7 +747,8 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         if self.zenTracerForm.chkMatch.isChecked():
             isMatch = "1"
         classNames= ",".join(self.zenTracerForm.traceClass)
-        matchHook = {"class":classNames, "method":"",
+        methodNames=",".join(self.zenTracerForm.traceMethods)
+        matchHook = {"class":classNames, "method":methodNames,
                      "bak": "ZenTracer的改造功能,匹配类和函数进行批量hook",
                      "traceClass":self.zenTracerForm.traceClass,"traceBClass":self.zenTracerForm.traceBClass,
                      "traceMethod":self.zenTracerForm.traceMethods,"traceBMethod":self.zenTracerForm.traceBMethods,
