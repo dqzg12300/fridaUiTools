@@ -415,8 +415,10 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
     #这是附加结束时的状态栏显示包名
     def attachOver(self,name):
         tmppath="./tmp/spawnPackage.txt"
-        with open(tmppath, "a+") as packageFile:
+        with open(tmppath, "r+") as packageFile:
             packageData = packageFile.read()
+            fsize = packageFile.tell()
+            packageFile.seek(fsize)
             if name not in packageData:
                 packageFile.write(name + "\n")
         self.labPackage.setText(name)
@@ -734,15 +736,19 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         typeStr="ZenTracer"
         stack=""
         hookInit=""
+        isMatch = ""
         if self.zenTracerForm.chkStack.isChecked():
             stack="1"
         if self.zenTracerForm.chkInit.isChecked():
             hookInit = "1"
+        if self.zenTracerForm.chkMatch.isChecked():
+            isMatch = "1"
         classNames= ",".join(self.zenTracerForm.traceClass)
         matchHook = {"class":classNames, "method":"",
                      "bak": "ZenTracer的改造功能,匹配类和函数进行批量hook",
                      "traceClass":self.zenTracerForm.traceClass,"traceBClass":self.zenTracerForm.traceBClass,
-                     "stack":stack,"hookInit":hookInit}
+                     "traceMethod":self.zenTracerForm.traceMethods,"traceBMethod":self.zenTracerForm.traceBMethods,
+                     "stack":stack,"hookInit":hookInit,"isMatch":isMatch}
         self.hooksData[typeStr]=matchHook
         self.updateTabHooks()
 
@@ -994,7 +1000,6 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
             self.methods = info[searchTyep]
             for method in info[searchTyep]:
                 self.listMethod.addItem(method)
-
 
     # ====================end======附加前使用的功能,基本都是在内存中查数据================================
     #关于我

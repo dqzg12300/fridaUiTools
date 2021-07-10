@@ -15,6 +15,8 @@ class zenTracerForm(QDialog,Ui_ZenTracerDialog):
         self.flushCmb()
         self.traceClass =[]
         self.traceBClass=[]
+        self.traceMethods=[]
+        self.traceBMethods=[]
         self.classes=None
         self.txtClass.textChanged.connect(self.changeClass)
         self.btnClassAdd.clicked.connect(self.classAdd)
@@ -29,9 +31,12 @@ class zenTracerForm(QDialog,Ui_ZenTracerDialog):
         self.btnClassBundle.clicked.connect(self.classBundleAdd)
         self.btnClassBase64.clicked.connect(self.classBase64Add)
 
+        self.btnMethodAdd.clicked.connect(self.methodAdd)
+        self.btnMethodBreakAdd.clicked.connect(self.methodBreakAdd)
+
         self.cmbPackage.currentTextChanged.connect(self.changePackage)
 
-        self.header = ["类名", "类型"]
+        self.header = ["名称", "类型"]
         self.tabTracer.setColumnCount(2)
         self.tabTracer.setHorizontalHeaderLabels(self.header)
         self.tabTracer.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -77,6 +82,8 @@ class zenTracerForm(QDialog,Ui_ZenTracerDialog):
                 self.listClasses1.addItem(item)
 
     def changeClassBreak(self,data):
+        if self.classes==None or len(self.classes)<=0:
+            return
         self.listClasses2.clear()
         if len(data) > 0:
             for item in self.classes:
@@ -106,6 +113,19 @@ class zenTracerForm(QDialog,Ui_ZenTracerDialog):
         self.traceBClass.append(className)
         self.updateTabTracer()
 
+    def methodAdd(self):
+        methodName = self.txtMethod.text()
+        if methodName in self.traceMethods:
+            return
+        self.traceMethods.append(methodName)
+        self.updateTabTracer()
+
+    def methodBreakAdd(self):
+        methodName = self.txtMethodBreak.text()
+        if methodName in self.traceBMethods:
+            return
+        self.traceBMethods.append(methodName)
+        self.updateTabTracer()
 
     def classFileAdd(self):
         className="java.io.File"
@@ -134,6 +154,7 @@ class zenTracerForm(QDialog,Ui_ZenTracerDialog):
             return
         self.traceClass.append(className)
         self.updateTabTracer()
+
 
     def hooksRemove(self):
         for item in self.tabTracer.selectedItems():
@@ -164,11 +185,19 @@ class zenTracerForm(QDialog,Ui_ZenTracerDialog):
         for item in self.traceClass:
             self.tabTracer.insertRow(line)
             self.tabTracer.setItem(line, 0, QTableWidgetItem(item))
-            self.tabTracer.setItem(line, 1, QTableWidgetItem("trace"))
+            self.tabTracer.setItem(line, 1, QTableWidgetItem("trace class"))
         for item in self.traceBClass:
             self.tabTracer.insertRow(line)
             self.tabTracer.setItem(line, 0, QTableWidgetItem(item))
-            self.tabTracer.setItem(line, 1, QTableWidgetItem("break"))
+            self.tabTracer.setItem(line, 1, QTableWidgetItem("break class"))
+        for item in self.traceMethods:
+            self.tabTracer.insertRow(line)
+            self.tabTracer.setItem(line, 0, QTableWidgetItem(item))
+            self.tabTracer.setItem(line, 1, QTableWidgetItem("trace method"))
+        for item in self.traceBMethods:
+            self.tabTracer.insertRow(line)
+            self.tabTracer.setItem(line, 0, QTableWidgetItem(item))
+            self.tabTracer.setItem(line, 1, QTableWidgetItem("break method"))
 
     def rightMenuShow(self):
         rightMenu = QMenu(self.tabTracer)

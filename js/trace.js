@@ -58,12 +58,41 @@ function getStack(){
 
 function traceClass(clsname) {
     try {
+        var matchRegExMethod = {MATCHREGEXMETHOD};
+        var blackRegExMethod = {BLACKREGEXMETHOD};
         var target = Java.use(clsname);
         var methods = target.class.getDeclaredMethods();
         var stack="%stack%";
         var hookInit="%hookInit%";
         var methodNames=[]
+        //过滤一下要hook的函数，
         methods.forEach(function (method) {
+            if(matchRegExMethod.length>0){
+                var flag=false;
+                for(var i=0;i<matchRegExMethod.length;i++){
+                    var matchMethod=matchRegExMethod[i];
+                    if(method.getName().toUpperCase().indexOf(matchMethod.toUpperCase())!=-1){
+                        flag=true;
+                        break;
+                    }
+                }
+                if(!flag){
+                    return;
+                }
+            }
+            if(blackRegExMethod.length>0){
+                flag=true;
+                for(var i=0;i<blackRegExMethod.length;i++){
+                    var breakMethod=blackRegExMethod[i];
+                    if(method.getName().toUpperCase().indexOf(breakMethod.toUpperCase())!=-1){
+                        flag=false;
+                        break;
+                    }
+                }
+                if(!flag){
+                    return;
+                }
+            }
             methodNames.push(method.getName());
         });
         if(hookInit){
@@ -134,14 +163,22 @@ if (Java.available) {
         log('ZenTracer Start...');
         var matchRegEx = {MATCHREGEX};
         var blackRegEx = {BLACKREGEX};
+        var isMatch="%isMatch%";
         Java.enumerateLoadedClasses({
             onMatch: function (aClass) {
                 for (var index in matchRegEx) {
                     // console.log(matchRegEx[index]);
-                    if (match(matchRegEx[index], aClass)) {
-                    // if (aClass==matchRegEx[index]) {
+                    var res=false;
+                    if(isMatch){
+                        res=match(matchRegEx[index], aClass)
+                    }else{
+                        res=aClass==matchRegEx[index];
+                    }
+                    // if (match(matchRegEx[index], aClass)) {
+                    if (res) {
                         var is_black = false;
                         for (var i in blackRegEx) {
+                            console.log(blackRegEx[i]);
                             if (match(blackRegEx[i]["class"], aClass)) {
                                 is_black = true;
                                 log(aClass + "' black by '" + blackRegEx[i] + "'");

@@ -7,13 +7,116 @@
     <x>0</x>
     <y>0</y>
     <width>963</width>
-    <height>585</height>
+    <height>568</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>ZenTracer</string>
   </property>
   <layout class="QGridLayout" name="gridLayout_7">
+   <item row="1" column="1">
+    <widget class="QGroupBox" name="groupBox_2">
+     <property name="title">
+      <string>break</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_2">
+      <item row="1" column="0">
+       <widget class="QListWidget" name="listClasses2">
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>130</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <layout class="QHBoxLayout" name="horizontalLayout_3">
+        <item>
+         <widget class="QLabel" name="label_3">
+          <property name="text">
+           <string>类名：</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="txtClassBreak"/>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btnClassBreakAdd">
+          <property name="text">
+           <string>添加</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="2" column="0">
+       <layout class="QHBoxLayout" name="horizontalLayout_4">
+        <item>
+         <widget class="QLabel" name="label_4">
+          <property name="text">
+           <string>函数名：</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="txtMethodBreak"/>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btnMethodBreakAdd">
+          <property name="text">
+           <string>添加</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="3" column="0" colspan="2">
+    <widget class="QGroupBox" name="groupBox_6">
+     <property name="title">
+      <string>其他选项</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_3">
+      <item row="0" column="0">
+       <widget class="QCheckBox" name="chkStack">
+        <property name="text">
+         <string>打印堆栈</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QCheckBox" name="chkInit">
+        <property name="text">
+         <string>hook init</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="2">
+       <widget class="QCheckBox" name="chkMatch">
+        <property name="text">
+         <string>模糊匹配</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="2" column="0" colspan="2">
+    <widget class="QGroupBox" name="groupBox_3">
+     <property name="title">
+      <string>结果</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_5">
+      <item row="0" column="0">
+       <widget class="QTableWidget" name="tabTracer"/>
+      </item>
+     </layout>
+    </widget>
+   </item>
    <item row="0" column="0">
     <widget class="QGroupBox" name="groupBox_5">
      <property name="title">
@@ -146,75 +249,35 @@
        </layout>
       </item>
       <item row="1" column="0">
-       <widget class="QListWidget" name="listClasses1"/>
+       <widget class="QListWidget" name="listClasses1">
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>130</height>
+         </size>
+        </property>
+       </widget>
       </item>
-     </layout>
-    </widget>
-   </item>
-   <item row="1" column="1">
-    <widget class="QGroupBox" name="groupBox_2">
-     <property name="title">
-      <string>break</string>
-     </property>
-     <layout class="QGridLayout" name="gridLayout_2">
-      <item row="0" column="0">
-       <layout class="QHBoxLayout" name="horizontalLayout_3">
+      <item row="2" column="0">
+       <layout class="QHBoxLayout" name="horizontalLayout_2">
         <item>
-         <widget class="QLabel" name="label_3">
+         <widget class="QLabel" name="label_2">
           <property name="text">
-           <string>类名：</string>
+           <string>函数名：</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QLineEdit" name="txtClassBreak"/>
+         <widget class="QLineEdit" name="txtMethod"/>
         </item>
         <item>
-         <widget class="QPushButton" name="btnClassBreakAdd">
+         <widget class="QPushButton" name="btnMethodAdd">
           <property name="text">
            <string>添加</string>
           </property>
          </widget>
         </item>
        </layout>
-      </item>
-      <item row="1" column="0">
-       <widget class="QListWidget" name="listClasses2"/>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item row="2" column="0" colspan="2">
-    <widget class="QGroupBox" name="groupBox_3">
-     <property name="title">
-      <string>结果</string>
-     </property>
-     <layout class="QGridLayout" name="gridLayout_5">
-      <item row="0" column="0">
-       <widget class="QTableWidget" name="tabTracer"/>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item row="3" column="0" colspan="2">
-    <widget class="QGroupBox" name="groupBox_6">
-     <property name="title">
-      <string>其他选项</string>
-     </property>
-     <layout class="QGridLayout" name="gridLayout_3">
-      <item row="0" column="0">
-       <widget class="QCheckBox" name="chkStack">
-        <property name="text">
-         <string>打印堆栈</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QCheckBox" name="chkInit">
-        <property name="text">
-         <string>hook init</string>
-        </property>
-       </widget>
       </item>
      </layout>
     </widget>

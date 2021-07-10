@@ -85,9 +85,13 @@ class Runthread(QThread):
                 source += open('./js/trace.js', 'r', encoding="utf8").read()
                 match_s = str(self.hooksData[item]["traceClass"]).replace('u\'', '\'')
                 black_s = str(self.hooksData[item]["traceBClass"]).replace('u\'', '\'')
+                match_method=str(self.hooksData[item]["traceMethod"]).replace('u\'', '\'')
+                match_bmethod=str(self.hooksData[item]["traceBMethod"]).replace('u\'', '\'')
                 source=source.replace('{MATCHREGEX}', match_s).replace("{BLACKREGEX}", black_s)
+                source=source.replace('{MATCHREGEXMETHOD}',match_method).replace("{BLACKREGEXMETHOD}",match_bmethod)
                 source = source.replace('%stack%', self.hooksData[item]["stack"])
                 source = source.replace('%hookInit%', self.hooksData[item]["hookInit"])
+                source = source.replace('%isMatch%', self.hooksData[item]["isMatch"])
             elif item=="match_sub":
                 source +=open('./js/traceNative.js', 'r', encoding="utf8").read()
                 source = source.replace("%moduleName%", self.hooksData[item]["class"])
