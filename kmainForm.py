@@ -59,6 +59,9 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         #自定义脚本目录
         if os.path.exists("./custom")==False:
             os.makedirs("./custom")
+        #保存当前hook策略的目录
+        if os.path.exists("./hooks")==False:
+            os.makedirs("./hooks")
 
         projectPath = os.path.dirname(os.path.abspath(__file__))
         if platform.system()!="Windows":
@@ -345,10 +348,31 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
             if res == 0:
                 return
             pname = self.spawnAttachForm.packageName
-        cmd = "adb pull /data/local/tmp/fart/%s ./fartdump/%s/" % (pname, pname)
+        cmd = "rm /sdcard/fart -rf"
+        res=CmdUtil.adbshellCmd(cmd)
+        self.log(res)
+        if "error" in res:
+            QMessageBox().information(self, "提示", res)
+            return
+        cmd = "mkdir -p /sdcard/fart/%s "%pname
+        res = CmdUtil.adbshellCmd(cmd)
+        self.log(res)
+        if "error" in res:
+            QMessageBox().information(self, "提示", res)
+            return
+        cmd = "cp /data/data/%s/fart/ /sdcard/fart/%s/ -rf"%(pname,pname)
+        res = CmdUtil.adbshellCmd(cmd)
+        self.log(res)
+        if "error" in res:
+            QMessageBox().information(self, "提示", res)
+            return
+        cmd = "adb pull /sdcard/fart/%s/ ./fartdump/%s/" % (pname,pname)
         res = CmdUtil.execCmd(cmd)
         self.log(res)
-        QMessageBox().information(self, "提示", "下载完成")
+        if "error" in res:
+            QMessageBox().information(self, "提示", res)
+        else:
+            QMessageBox().information(self, "提示", "下载完成")
 
 
     def ShStart(self,name):

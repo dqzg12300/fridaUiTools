@@ -144,8 +144,9 @@ class Runthread(QThread):
                     source += open("./js/FRIDA-DEXDump.js", 'r', encoding="utf8").read()
                     self.DEXDump=True
                 elif tuokeType=="fart":
-                    savepath="/data/local/tmp/fart/"+self.attachName
-                    res=CmdUtil.fartInit(savepath)
+                    # savepath="/data/local/tmp/fart/"+self.attachName
+                    savepath="/data/data/"+self.attachName+"/fart/"
+                    res = CmdUtil.fartInit(savepath)
                     self.log(res)
                     source += open("./js/frida_fart_hook.js", 'r', encoding="utf8").read()
                     source=source.replace("%savepath%",savepath)
