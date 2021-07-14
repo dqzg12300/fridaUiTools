@@ -88,7 +88,14 @@ fart如果第一次使用，需要在上传与下载菜单栏中点击上传fart
 > hookEvent（app的所有控件的点击事件hook）
 >
 > cmd切换（有些设备是需要adb shell su 0来使用su权限的，有些是adb shell su -c。这里为了通用，可以自己切换）
-
+> 
+> 增加模拟器启动frida-server的支持
+>
+> 增加下载当前apk功能
+>
+> 增加fart的bin文件修复
+>
+> 增加stalker的整理（todo）
 ## 感谢
 
 * [jnitrace](https://github.com/chame1eon/jnitrace)

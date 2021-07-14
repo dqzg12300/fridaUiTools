@@ -14,11 +14,13 @@ from forms.Custom import customForm
 from forms.DumpAddress import dumpAddressForm
 from forms.DumpSo import dumpSoForm
 from forms.Fart import fartForm
+from forms.FartBin import fartBinForm
 from forms.JniTrace import jnitraceForm
 from forms.Natives import nativesForm
 from forms.Patch import patchForm
 from forms.SpawnAttach import spawnAttachForm
 from forms.Stalker import stalkerForm
+from forms.StalkerOp import stalkerMatchForm
 from forms.Tuoke import tuokeForm
 from forms.Wallbreaker import wallBreakerForm
 from forms.ZenTracer import zenTracerForm
@@ -92,6 +94,9 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         self.actionFrida64Start.triggered.connect(self.Frida64Start)
         self.actionSuC.triggered.connect(self.changeSuC)
         self.actionSu0.triggered.connect(self.changeSu0)
+        self.actionFridax86Start.triggered.connect(self.FridaX86Start)
+        self.actionFridax64Start.triggered.connect(self.FridaX64Start)
+        self.actionPullApk.triggered.connect(self.PullApk)
 
         self.btnDumpPtr.clicked.connect(self.dumpPtr)
         self.btnDumpSo.clicked.connect(self.dumpSo)
@@ -143,7 +148,8 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         self.txtSymbol.textChanged.connect(self.changeSymbol)
         
         self.btnFlush.clicked.connect(self.appInfoFlush)
-
+        self.btnFartOpBin.clicked.connect(self.fartOpBin)
+        self.btnOpStalkerLog.clicked.connect(self.stalkerOpLog)
 
         self.dumpForm = dumpAddressForm()
         self.jniform=jnitraceForm()
@@ -157,6 +163,8 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         self.wallBreakerForm=wallBreakerForm()
         self.customForm=customForm()
         self.callFunctionForm=callFunctionForm()
+        self.fartBinForm=fartBinForm()
+        self.stalkerMatchForm=stalkerMatchForm()
 
         self.modules=None
         self.classes=None
@@ -333,6 +341,10 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
                 return
             res = CmdUtil.execCmd("adb push ./exec/hluda-server-14.2.18-android-arm64 /data/local/tmp")
             self.log(res)
+            res = CmdUtil.execCmd("adb push ./exec/hluda-server-14.2.18-android-x86 /data/local/tmp")
+            self.log(res)
+            res = CmdUtil.execCmd("adb push ./exec/hluda-server-14.2.18-android-x86_64 /data/local/tmp")
+            self.log(res)
             res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/hluda*")
             self.log(res)
             QMessageBox().information(self, "提示", "上传完成")
@@ -374,6 +386,45 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         else:
             QMessageBox().information(self, "提示", "下载完成")
 
+    def PullApk(self):
+        cmdtp="grep"
+        if platform.system() == "Windows":
+            cmdtp="findstr"
+        cmd= "adb shell dumpsys window | %s mCurrentFocus"%cmdtp
+        res=CmdUtil.execCmd(cmd)
+        self.log(res)
+        if "error" in res:
+            QMessageBox().information(self, "提示", res)
+            return
+        line=re.split(r"[ /]",res)
+        if len(line)<5:
+            QMessageBox().information(self, "提示", "匹配失败,"+res)
+            return
+        packageName=line[4]
+        if "StatusBar" in packageName:
+            QMessageBox().information(self, "提示", "匹配失败,手机可能锁屏中,请解锁")
+            return
+        cmd= "adb shell dumpsys activity -p %s|%s baseDir"%(packageName,cmdtp)
+        res = CmdUtil.execCmd(cmd)
+        self.log(res)
+        if "baseDir" not in res:
+            QMessageBox().information(self, "提示", "匹配失败,可能未连接手机")
+            return
+        match = re.search(r"baseDir=(/data/app/%s.+)" % packageName, res)
+        if match == None:
+            QMessageBox().information(self, "提示", "匹配失败," + res)
+            return
+        baseDir=match.group(1)
+        if os.path.exists("./apks")==False:
+            os.makedirs("./apks")
+        cmd="adb pull %s ./apks/%s.apk"%(baseDir,packageName)
+        res = CmdUtil.execCmd(cmd)
+        self.log(res)
+        if "error" in res:
+            QMessageBox().information(self, "提示", res)
+            return
+        QMessageBox().information(self, "提示", packageName+".apk下载成功")
+
 
     def ShStart(self,name):
         projectPath = os.path.dirname(os.path.abspath(__file__))
@@ -404,6 +455,12 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
 
     def Frida64Start(self):
         self.ShStart("frida64")
+
+    def FridaX86Start(self):
+        self.ShStart("fridax86")
+
+    def FridaX64Start(self):
+        self.ShStart("fridax64")
 
     def changeCmdType(self):
         if self.actionSu0.isChecked():
@@ -1076,6 +1133,11 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
             return
         self.txtBaseDir.setText(m4.group(1))
 
+    def fartOpBin(self):
+        self.fartBinForm.show()
+
+    def stalkerOpLog(self):
+        self.stalkerMatchForm.show()
 
 if __name__=="__main__":
     app=QApplication(sys.argv)

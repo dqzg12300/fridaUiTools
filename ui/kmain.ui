@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>845</width>
-    <height>804</height>
+    <width>847</width>
+    <height>801</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -676,6 +676,58 @@
         </layout>
        </widget>
       </widget>
+      <widget class="QWidget" name="tab_7">
+       <attribute name="title">
+        <string>辅助功能</string>
+       </attribute>
+       <layout class="QGridLayout" name="gridLayout_19">
+        <item row="0" column="0">
+         <widget class="QGroupBox" name="groupBox_9">
+          <property name="title">
+           <string>功能</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_15">
+           <item row="0" column="0">
+            <widget class="QPushButton" name="btnFartOpBin">
+             <property name="maximumSize">
+              <size>
+               <width>150</width>
+               <height>60</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>fart处理bin数据</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QPushButton" name="btnOpStalkerLog">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>150</width>
+               <height>60</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>stalker输出整理</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QGroupBox" name="groupBox_10">
+          <property name="title">
+           <string>todo</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
      </widget>
     </item>
    </layout>
@@ -685,7 +737,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>845</width>
+     <width>847</width>
      <height>26</height>
     </rect>
    </property>
@@ -710,10 +762,18 @@
      <addaction name="actionAttachName"/>
      <addaction name="actionSpawn"/>
     </widget>
+    <widget class="QMenu" name="menu_frida_server">
+     <property name="title">
+      <string>启动frida-server</string>
+     </property>
+     <addaction name="actionFrida32Start"/>
+     <addaction name="actionFrida64Start"/>
+     <addaction name="actionFridax86Start"/>
+     <addaction name="actionFridax64Start"/>
+    </widget>
     <addaction name="menuAttach"/>
     <addaction name="actionStop"/>
-    <addaction name="actionFrida32Start"/>
-    <addaction name="actionFrida64Start"/>
+    <addaction name="menu_frida_server"/>
    </widget>
    <widget class="QMenu" name="menuhelp">
     <property name="title">
@@ -729,6 +789,7 @@
     <addaction name="actionPushFartSo"/>
     <addaction name="actionPullDumpDexRes"/>
     <addaction name="actionPullFartRes"/>
+    <addaction name="actionPullApk"/>
    </widget>
    <widget class="QMenu" name="menucmd">
     <property name="title">
@@ -836,12 +897,12 @@
   </action>
   <action name="actionFrida32Start">
    <property name="text">
-    <string>启动frida-server for 32</string>
+    <string>frida-server for arm</string>
    </property>
   </action>
   <action name="actionFrida64Start">
    <property name="text">
-    <string>启动frida-server for 64</string>
+    <string>frida-server for arm64</string>
    </property>
   </action>
   <action name="actionSuC">
@@ -864,6 +925,21 @@
    </property>
    <property name="text">
     <string>adb shell su 0</string>
+   </property>
+  </action>
+  <action name="actionFridax86Start">
+   <property name="text">
+    <string>frida-server for x86</string>
+   </property>
+  </action>
+  <action name="actionFridax64Start">
+   <property name="text">
+    <string>frida-server for x64</string>
+   </property>
+  </action>
+  <action name="actionPullApk">
+   <property name="text">
+    <string>下载当前应用apk</string>
    </property>
   </action>
  </widget>
