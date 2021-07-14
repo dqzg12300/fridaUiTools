@@ -16,8 +16,6 @@ class fartBinForm(QDialog,Ui_FartBinDialog):
         self.btnSelectBinPath.clicked.connect(self.selectBinPath)
         self.btnSelectDexPath.clicked.connect(self.selectDexPath)
         self.examplePath = os.getcwd()+"/example/"
-        self.txtDexPath.setText("D:/git_src/fridaUiTools/example/766268_14061.dex")
-        self.txtBinPath.setText("D:/git_src/fridaUiTools/example/766268_14061.bin")
 
     def selectBinPath(self):
         fileName_choose, filetype = QFileDialog.getOpenFileName(self,
