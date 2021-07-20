@@ -1,4 +1,6 @@
-from PyQt5.QtWidgets import QDialog, QMessageBox
+import os
+
+from PyQt5.QtWidgets import QDialog, QMessageBox, QFileDialog
 
 from ui.fart import Ui_FartDialog
 
@@ -10,41 +12,29 @@ class fartForm(QDialog,Ui_FartDialog):
         self.setWindowOpacity(0.93)
         self.btnSubmitFart.clicked.connect(self.submitFart)
         self.btnSubmitFartClass.clicked.connect(self.submitFartClass)
-        self.className=""
         self.clearUi()
-        self.listClass.itemClicked.connect(self.ClassItemClick)
-        self.txtClass.textChanged.connect(self.changeClass)
-        self.classes = None
+        self.btnSelectClasses.clicked.connect(self.selectClasses)
+        self.examplePath = os.getcwd() + "/example/"
 
-    def initData(self):
-        self.listClass.clear()
-        for item in self.classes:
-            self.listClass.addItem(item)
-
-    def ClassItemClick(self, item):
-        self.txtClass.setText(item.text())
-
-    def changeClass(self, data):
-        if self.classes==None or len(self.classes)<=0:
+    def selectClasses(self):
+        fileName_choose, filetype = QFileDialog.getOpenFileName(self,
+                                                                "选取文件",
+                                                                self.examplePath,
+                                                                "Text Files (*.txt);;All Files (*)")
+        if fileName_choose == "":
             return
-        self.listClass.clear()
-        if len(data) > 0:
-            for item in self.classes:
-                if data in item:
-                    self.listClass.addItem(item)
-        else:
-            for item in self.classes:
-                self.listClass.addItem(item)
+        self.txtClassesPath.setText(fileName_choose)
+        with open(self.txtClassesPath,"r") as classesFile:
+            data=classesFile.read()
+            self.txtClasses.setPlainText(data)
 
-    def clearUi(self):
-        self.txtClass.setText("")
 
     def submitFartClass(self):
-        className=self.txtClass.text()
-        if len(className)<=0:
+        classes=self.txtClasses.toPlainText()
+        if len(classes)<=0:
             QMessageBox().information(self, "提示", "未填写类名")
             return
-        self.className=className
+        self.classes=classes
         self.done(1)
 
     def submitFart(self):

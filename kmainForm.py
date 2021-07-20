@@ -324,7 +324,7 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
             if res==0:
                 return
             pname=self.spawnAttachForm.packageName
-        cmd="adb pull /data/data/%s/files/%s ./dumpdex/%s/"%(pname,pname,pname)
+        cmd="adb pull /data/data/%s/files/dump_dex_%s ./dumpdex/%s/"%(pname,pname,pname)
         res = CmdUtil.execCmd(cmd)
         self.log(res)
         if "error" in res:
@@ -660,19 +660,13 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
             self.log("Error:未勾选fart脱壳脚本")
             QMessageBox().information(self, "提示", "未勾选fart脱壳脚本")
             return
-        if self.classes==None or len(self.classes)<=0:
-            self.log("Error:未附加进程或操作太快,请稍等")
-            QMessageBox().information(self, "提示", "未附加进程或操作太快,请稍等")
-            return
-        self.fartForm.classes=self.classes
-        self.fartForm.initData()
+
         res=self.fartForm.exec()
         if res==0:
             return
 
-        t1 = threading.Thread(target=self.th.fart, args=(res,self.fartForm.className))
+        t1 = threading.Thread(target=self.th.fart, args=(res,self.fartForm.classes))
         t1.start()
-        # self.th.fart(res,self.fartForm.className)
 
     def dumpDex(self):
         if self.isattach() == False:

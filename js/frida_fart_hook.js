@@ -253,16 +253,19 @@ function dealwithClassLoader(classloaderobj) {
 
 }
 
-function dumpclass(classname) {
+function dumpclass(classes) {
     if (Java.available) {
         Java.perform(function () {
             Java.enumerateClassLoaders({
                 onMatch: function (loader) {
                     try {
-                        console.log("start loadclass->", className);
-                        var loadclass = loader.loadClass(className);
-                        console.log("after loadclass->", loadclass);
-
+                        var classNames=classes.split("\n");
+                        for (var i=0;i<classNames.length;i++){
+                            var className=classNames[i];
+                            console.log("start loadclass->", className);
+                            var loadclass = loader.loadClass(className);
+                            console.log("after loadclass->", loadclass);
+                        }
                     } catch (e) {
                         //console.log("error", e);
                     }
@@ -272,7 +275,7 @@ function dumpclass(classname) {
                     //console.log("find  Classloader instance over");
                 }
             });
-            dumpall();
+            dumpall(classes);
         });
     }
 }
@@ -306,8 +309,8 @@ rpc.exports = {
     fart:function(){
         fart();
     },
-    fartclass:function(name){
-        dumpclass(name);
+    fartclass:function(classes){
+        dumpclass(classes);
     }
 }
 

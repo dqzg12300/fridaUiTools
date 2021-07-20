@@ -264,13 +264,13 @@ class Runthread(QThread):
         self.default_script.post({'type': 'input', 'payload': postdata})
         self.log("post searchInfo")
 
-    def fart(self,fartType,className):
+    def fart(self,fartType,classes):
         # postdata["func"] = "fart"
         # self.default_script.post({'type': 'input', 'payload': postdata})
         # self.log("post fart")
         api=self.default_script.exports
         if fartType==1:
-            api.fartclass(className)
+            api.fartclass(classes)
         elif fartType==2:
             api.fart()
 
