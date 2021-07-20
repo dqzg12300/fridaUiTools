@@ -10,6 +10,7 @@
   "sslpining":{"class":"","method":"","bak":"hook证书锁定.参考自git项目DroidSSLUnpinning"},
   "dumpdex":{"class":"","method":"","bak":"脱壳dex.参考自git项目frida_dump"},
   "dumpdexclass":{"class":"","method":"","bak":"加载全部类后再脱壳dex.参考自git项目frida_dump"},
+  "cookieDump": {"class":"","method":"","bak":"通过DexFile的mCookie的属性解析进行脱壳"},
   "FRIDA-DEXDump":{"class":"","method":"","bak":"搜索内存中的dex特征dump.参考自git项目FRIDA-DEXDump"},
   "fart":{"class":"","method":"","bak":"主动调用式的脱壳参考自git项目fart"},
   "hookEvent": {"class":"","method":"","bak":"hook所有控件的点击事件"}

@@ -70,7 +70,7 @@
          <string>FRIDA-DEXDump</string>
         </property>
         <property name="checked">
-         <bool>true</bool>
+         <bool>false</bool>
         </property>
        </widget>
       </item>
@@ -78,6 +78,16 @@
        <widget class="QRadioButton" name="rdoFart">
         <property name="text">
          <string>fart</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QRadioButton" name="rdoCookieDump">
+        <property name="text">
+         <string>mCookieDump</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
         </property>
        </widget>
       </item>

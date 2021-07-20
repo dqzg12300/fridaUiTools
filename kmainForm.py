@@ -324,7 +324,7 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
             if res==0:
                 return
             pname=self.spawnAttachForm.packageName
-        cmd="adb pull /data/data/%s/files ./dumpdex/%s/"%(pname,pname)
+        cmd="adb pull /data/data/%s/files/%s ./dumpdex/%s/"%(pname,pname,pname)
         res = CmdUtil.execCmd(cmd)
         self.log(res)
         if "error" in res:

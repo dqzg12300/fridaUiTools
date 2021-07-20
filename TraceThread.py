@@ -143,6 +143,8 @@ class Runthread(QThread):
                 elif tuokeType=="FRIDA-DEXDump":
                     source += open("./js/FRIDA-DEXDump.js", 'r', encoding="utf8").read()
                     self.DEXDump=True
+                elif tuokeType=="cookieDump":
+                    source += open("./js/cookieDump.js", 'r', encoding="utf8").read()
                 elif tuokeType=="fart":
                     # savepath="/data/local/tmp/fart/"+self.attachName
                     savepath="/data/data/"+self.attachName+"/fart/"

@@ -19,4 +19,6 @@ class tuokeForm(QDialog,Ui_TuokeDialog):
             self.tuokeType="dumpdex"
         elif self.rdoDumpDexClass.isChecked():
             self.tuokeType="dumpdexclass"
+        elif self.rdoCookieDump.isChecked():
+            self.tuokeType="cookieDump"
         self.accept()
