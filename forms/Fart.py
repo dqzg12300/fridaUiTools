@@ -12,7 +12,6 @@ class fartForm(QDialog,Ui_FartDialog):
         self.setWindowOpacity(0.93)
         self.btnSubmitFart.clicked.connect(self.submitFart)
         self.btnSubmitFartClass.clicked.connect(self.submitFartClass)
-        self.clearUi()
         self.btnSelectClasses.clicked.connect(self.selectClasses)
         self.examplePath = os.getcwd() + "/example/"
 
