@@ -269,10 +269,14 @@ class Runthread(QThread):
         # self.default_script.post({'type': 'input', 'payload': postdata})
         # self.log("post fart")
         api=self.default_script.exports
-        if fartType==1:
+        if fartType==1:                 #使用frida的fart处理部分类
             api.fartclass(classes)
-        elif fartType==2:
+        elif fartType==2:               #使用frida的fart
             api.fart()
+        elif fartType==3:               #使用rom的fart处理部分类
+            api.romfartclass(classes)
+        elif fartType==4:               #使用rom的fart完整处理
+            api.romfart()
 
     def dumpdex(self):
         api = self.default_script.exports

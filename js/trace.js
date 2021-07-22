@@ -77,6 +77,7 @@ function traceClass(clsname) {
                     }
                 }
                 if(!flag){
+                    // console.log("matchRegExMethod skip ",method.getName());
                     return;
                 }
             }
@@ -90,9 +91,11 @@ function traceClass(clsname) {
                     }
                 }
                 if(!flag){
+                    // console.log("blackRegExMethod skip ",method.getName());
                     return;
                 }
             }
+            // console.log(method.getName());
             methodNames.push(method.getName());
         });
         if(hookInit){

@@ -10,10 +10,12 @@ class fartForm(QDialog,Ui_FartDialog):
         super(fartForm, self).__init__(parent)
         self.setupUi(self)
         self.setWindowOpacity(0.93)
-        self.btnSubmitFart.clicked.connect(self.submitFart)
-        self.btnSubmitFartClass.clicked.connect(self.submitFartClass)
+        self.btnSubmitFridaFart.clicked.connect(self.submitFridaFart)
+        self.btnSubmitFridaFartClass.clicked.connect(self.submitFridaFartClass)
         self.btnSelectClasses.clicked.connect(self.selectClasses)
         self.examplePath = os.getcwd() + "/example/"
+        self.btnSubmitFart.clicked.connect(self.submitFart)
+        self.btnSubmitFartClass.clicked.connect(self.submitFartClass)
 
     def selectClasses(self):
         fileName_choose, filetype = QFileDialog.getOpenFileName(self,
@@ -27,8 +29,7 @@ class fartForm(QDialog,Ui_FartDialog):
             data=classesFile.read()
             self.txtClasses.setPlainText(data)
 
-
-    def submitFartClass(self):
+    def submitFridaFartClass(self):
         classes=self.txtClasses.toPlainText()
         if len(classes)<=0:
             QMessageBox().information(self, "提示", "未填写类名")
@@ -36,5 +37,18 @@ class fartForm(QDialog,Ui_FartDialog):
         self.classes=classes
         self.done(1)
 
-    def submitFart(self):
+    def submitFridaFart(self):
+        self.classes = ""
         self.done(2)
+
+    def submitFartClass(self):
+        classes=self.txtClasses.toPlainText()
+        if len(classes)<=0:
+            QMessageBox().information(self, "提示", "未填写类名")
+            return
+        self.classes=classes
+        self.done(3)
+
+    def submitFart(self):
+        self.classes = ""
+        self.done(4)

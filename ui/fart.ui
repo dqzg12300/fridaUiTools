@@ -6,79 +6,181 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>353</width>
-    <height>446</height>
+    <width>959</width>
+    <height>452</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>fart</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout_3">
-   <item row="0" column="0">
+  <layout class="QGridLayout" name="gridLayout_6">
+   <item row="0" column="0" rowspan="2">
+    <widget class="QGroupBox" name="groupBox_3">
+     <property name="title">
+      <string>类列表</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_5">
+      <item row="0" column="0">
+       <widget class="QPlainTextEdit" name="txtClasses"/>
+      </item>
+      <item row="1" column="0">
+       <widget class="QFrame" name="frame">
+        <property name="frameShape">
+         <enum>QFrame::StyledPanel</enum>
+        </property>
+        <property name="frameShadow">
+         <enum>QFrame::Raised</enum>
+        </property>
+        <layout class="QGridLayout" name="gridLayout_3">
+         <item row="0" column="0">
+          <widget class="QPushButton" name="btnSelectClasses">
+           <property name="minimumSize">
+            <size>
+             <width>120</width>
+             <height>40</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>120</width>
+             <height>40</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>选择文件</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="0" column="1">
     <widget class="QGroupBox" name="groupBox_2">
      <property name="title">
-      <string>完整主动调用</string>
+      <string>frida FART</string>
      </property>
-     <layout class="QGridLayout" name="gridLayout">
+     <layout class="QGridLayout" name="gridLayout_2">
       <item row="0" column="0">
-       <widget class="QPushButton" name="btnSubmitFart">
+       <widget class="QPushButton" name="btnSubmitFridaFartClass">
+        <property name="minimumSize">
+         <size>
+          <width>120</width>
+          <height>40</height>
+         </size>
+        </property>
         <property name="maximumSize">
          <size>
           <width>120</width>
-          <height>16777215</height>
+          <height>40</height>
          </size>
         </property>
         <property name="text">
-         <string>调用所用函数</string>
+         <string>fart处理类列表</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QPushButton" name="btnSubmitFridaFart">
+        <property name="minimumSize">
+         <size>
+          <width>120</width>
+          <height>40</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>120</width>
+          <height>40</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>fart完整调用</string>
         </property>
        </widget>
       </item>
      </layout>
     </widget>
    </item>
-   <item row="1" column="0">
-    <widget class="QGroupBox" name="groupBox">
+   <item row="1" column="1">
+    <widget class="QGroupBox" name="groupBox_4">
      <property name="title">
-      <string>指定类主动调用</string>
+      <string>rom FART</string>
      </property>
-     <layout class="QGridLayout" name="gridLayout_2">
+     <layout class="QGridLayout" name="gridLayout_4">
       <item row="0" column="0">
-       <widget class="QLabel" name="label_3">
-        <property name="text">
-         <string>类列表：</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1" colspan="2">
-       <widget class="QPlainTextEdit" name="txtClasses"/>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label">
-        <property name="text">
-         <string>文件：</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1" colspan="2">
-       <widget class="QLineEdit" name="txtClassesPath"/>
-      </item>
-      <item row="2" column="1">
-       <widget class="QPushButton" name="btnSelectClasses">
-        <property name="text">
-         <string>选择文件</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="2">
        <widget class="QPushButton" name="btnSubmitFartClass">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>120</width>
+          <height>40</height>
+         </size>
+        </property>
         <property name="maximumSize">
          <size>
           <width>120</width>
-          <height>16777215</height>
+          <height>40</height>
          </size>
         </property>
         <property name="text">
-         <string>调用指定类的函数</string>
+         <string>fart处理类列表</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QPushButton" name="btnSubmitFart">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>120</width>
+          <height>40</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>120</width>
+          <height>40</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>fart完整调用</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="2" column="0" colspan="2">
+    <widget class="QGroupBox" name="groupBox">
+     <property name="title">
+      <string>提示</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout">
+      <item row="0" column="0">
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string>1、frida FART是完全使用frida实现的简易fart。rom FART需要使用特定的rom，否则无法访问到FART的api</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_2">
+        <property name="text">
+         <string>2、fart处理类列表会只处理指定类的所有函数主动调用</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_5">
+        <property name="text">
+         <string>3、fart完整调用会遍历所有ClassLoader查询所有DexFile的所有类，主动调用所有函数，所以非常慢</string>
         </property>
        </widget>
       </item>

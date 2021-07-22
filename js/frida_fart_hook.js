@@ -311,6 +311,13 @@ rpc.exports = {
     },
     fartclass:function(classes){
         dumpclass(classes);
+    },
+    romfart:function(){
+        //调用fart的api
+
+    },
+    romfartclass:function(classes){
+        //调用fart的api
     }
 }
 

@@ -160,7 +160,7 @@ class zenTracerForm(QDialog,Ui_ZenTracerDialog):
         for item in self.tabTracer.selectedItems():
             name=self.tabTracer.item(item.row(),0).text()
             ntype=self.tabTracer.item(item.row(),1).text()
-            if ntype=="trace":
+            if "trace" in ntype:
                 self.traceClass.remove(name)
             else:
                 self.traceBClass.remove(name)

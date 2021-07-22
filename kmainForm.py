@@ -168,6 +168,8 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
 
         self.modules=None
         self.classes=None
+        self.symbols=None
+        self.methods=None
 
         self.chkNetwork.tag = "r0capture"
         self.chkJni.tag = "jnitrace"
@@ -664,7 +666,6 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         res=self.fartForm.exec()
         if res==0:
             return
-
         t1 = threading.Thread(target=self.th.fart, args=(res,self.fartForm.classes))
         t1.start()
 
