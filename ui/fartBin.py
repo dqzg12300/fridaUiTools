@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'fartBin.ui'
 #
-# Created by: PyQt5 UI code generator 5.11.3
+# Created by: PyQt5 UI code generator 5.10.1
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -37,9 +37,17 @@ class Ui_FartBinDialog(object):
         self.btnSelectBinPath = QtWidgets.QPushButton(self.groupBox)
         self.btnSelectBinPath.setObjectName("btnSelectBinPath")
         self.gridLayout.addWidget(self.btnSelectBinPath, 1, 2, 1, 1)
+        self.horizontalLayout = QtWidgets.QHBoxLayout()
+        self.horizontalLayout.setObjectName("horizontalLayout")
+        self.btnSubmitJar = QtWidgets.QPushButton(self.groupBox)
+        self.btnSubmitJar.setMaximumSize(QtCore.QSize(120, 16777215))
+        self.btnSubmitJar.setObjectName("btnSubmitJar")
+        self.horizontalLayout.addWidget(self.btnSubmitJar)
         self.btnSubmit = QtWidgets.QPushButton(self.groupBox)
+        self.btnSubmit.setMaximumSize(QtCore.QSize(120, 16777215))
         self.btnSubmit.setObjectName("btnSubmit")
-        self.gridLayout.addWidget(self.btnSubmit, 2, 2, 1, 1)
+        self.horizontalLayout.addWidget(self.btnSubmit)
+        self.gridLayout.addLayout(self.horizontalLayout, 2, 1, 1, 1)
         self.gridLayout_2.addWidget(self.groupBox, 0, 0, 1, 1)
         self.groupBox_2 = QtWidgets.QGroupBox(Dialog)
         self.groupBox_2.setObjectName("groupBox_2")
@@ -61,6 +69,7 @@ class Ui_FartBinDialog(object):
         self.btnSelectDexPath.setText(_translate("Dialog", "选择"))
         self.label_2.setText(_translate("Dialog", "bin文件："))
         self.btnSelectBinPath.setText(_translate("Dialog", "选择"))
+        self.btnSubmitJar.setText(_translate("Dialog", "使用jar生成dex"))
         self.btnSubmit.setText(_translate("Dialog", "开始处理"))
         self.groupBox_2.setTitle(_translate("Dialog", "结果"))
 

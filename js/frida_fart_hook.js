@@ -288,7 +288,7 @@ function fart() {
             Java.enumerateClassLoaders({
                 onMatch: function (loader) {
                     try {
-                        console.log("startdealwithclassloader:", loader, '\n');
+                        klog("start dealwithclassloader:", loader, '\n');
                         dealwithClassLoader(loader);
                     } catch (e) {
                         console.log("error", e);
@@ -305,6 +305,46 @@ function fart() {
     }
 }
 
+function classInvoke(classname){
+    Java.perform(function(){
+        Java.enumerateClassLoadersSync().forEach(function(loader){
+            try{
+                klog(classname+" start load");
+                var dclass=loader.loadClass(classname);
+                klog("classloader:"+loader+",class:"+dclass);
+                var activityThread=Java.use("android.app.ActivityThread");
+                if(!activityThread.loadClassAndInvoke){
+                    klog("ActivityThread中未找到loadClassAndInvoke函数，可能是未使用FART的rom")
+                    return ;
+                }
+                var dexFileClass=Java.use("dalvik.system.DexFile");
+                var dumpMethodCode= dexFileClass.dumpMethodCode;
+                activityThread.loadClassAndInvoke(loader,classname,dumpMethodCode);
+            }catch{
+
+            }
+
+        })
+    })
+}
+
+function romFartAllClassLoader(){
+    Java.perform(function(){
+       Java.enumerateClassLoadersSync().forEach(function(loader){
+           klog("fart to loader:"+loader);
+           if(loader.toString().indexOf("BootClassLoader")==-1){
+               var activityThread=Java.use("android.app.ActivityThread");
+               if(!activityThread.fartWithClassLoader){
+                   klog("ActivityThread中未找到fartWithClassLoader函数，可能是未使用FART的rom");
+               }else{
+                   klog("fart start loader:"+loader);
+                   activityThread.fartWithClassLoader(loader);
+               }
+           }
+       })
+    });
+}
+
 rpc.exports = {
     fart:function(){
         fart();
@@ -314,10 +354,14 @@ rpc.exports = {
     },
     romfart:function(){
         //调用fart的api
-
+        romFartAllClassLoader();
     },
     romfartclass:function(classes){
         //调用fart的api
+        var cls=classes.split("\n");
+        for(var i=0;i<cls.length;i++){
+            classInvoke(cls[i]);
+        }
     }
 }
 

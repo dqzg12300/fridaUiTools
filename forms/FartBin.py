@@ -3,7 +3,7 @@ import os
 from PyQt5.QtWidgets import QDialog, QFileDialog, QMessageBox
 
 from ui.fartBin import Ui_FartBinDialog
-from utils import FartUtil
+from utils import FartUtil, CmdUtil
 from utils.FartUtil import FartThread
 
 
@@ -15,6 +15,7 @@ class fartBinForm(QDialog,Ui_FartBinDialog):
         self.btnSubmit.clicked.connect(self.submit)
         self.btnSelectBinPath.clicked.connect(self.selectBinPath)
         self.btnSelectDexPath.clicked.connect(self.selectDexPath)
+        self.btnSubmitJar.clicked.connect(self.submitJar)
         self.examplePath = os.getcwd()+"/example/"
 
     def selectBinPath(self):
@@ -49,3 +50,18 @@ class fartBinForm(QDialog,Ui_FartBinDialog):
         self.th= FartThread(self.txtDexPath.text(),self.txtBinPath.text())
         self.th.loggerSignel.connect(self.appendLog)
         self.th.start()
+
+    def submitJar(self):
+        if len(self.txtDexPath.text()) <= 0 or os.path.exists(self.txtDexPath.text()) == False:
+            QMessageBox().information(self, "提示", "dex路径为空或文件不存在")
+            return
+        if len(self.txtBinPath.text())<=0 or os.path.exists(self.txtBinPath.text())==False:
+            QMessageBox().information(self, "提示", "bin路径为空或文件不存在")
+            return
+        filepath,fileext= os.path.splitext(self.txtDexPath.text())
+        cmd="java -jar ./exec/dexfixer.jar %s %s %s"%(self.txtDexPath.text(),self.txtBinPath.text(),filepath+"_repair"+fileext)
+        res=CmdUtil.exec(cmd)
+        if "error" in res:
+            QMessageBox().information(self, "提示", "修复文件异常,"+res)
+            return
+        QMessageBox().information(self, "提示", res)

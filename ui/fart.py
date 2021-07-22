@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'fart.ui'
 #
-# Created by: PyQt5 UI code generator 5.11.3
+# Created by: PyQt5 UI code generator 5.10.1
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -54,13 +54,13 @@ class Ui_FartDialog(object):
         self.gridLayout_4 = QtWidgets.QGridLayout(self.groupBox_4)
         self.gridLayout_4.setObjectName("gridLayout_4")
         self.btnSubmitFartClass = QtWidgets.QPushButton(self.groupBox_4)
-        self.btnSubmitFartClass.setEnabled(False)
+        self.btnSubmitFartClass.setEnabled(True)
         self.btnSubmitFartClass.setMinimumSize(QtCore.QSize(120, 40))
         self.btnSubmitFartClass.setMaximumSize(QtCore.QSize(120, 40))
         self.btnSubmitFartClass.setObjectName("btnSubmitFartClass")
         self.gridLayout_4.addWidget(self.btnSubmitFartClass, 0, 0, 1, 1)
         self.btnSubmitFart = QtWidgets.QPushButton(self.groupBox_4)
-        self.btnSubmitFart.setEnabled(False)
+        self.btnSubmitFart.setEnabled(True)
         self.btnSubmitFart.setMinimumSize(QtCore.QSize(120, 40))
         self.btnSubmitFart.setMaximumSize(QtCore.QSize(120, 40))
         self.btnSubmitFart.setObjectName("btnSubmitFart")

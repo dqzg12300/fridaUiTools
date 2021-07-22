@@ -113,7 +113,7 @@
       <item row="0" column="0">
        <widget class="QPushButton" name="btnSubmitFartClass">
         <property name="enabled">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <property name="minimumSize">
          <size>
@@ -135,7 +135,7 @@
       <item row="0" column="1">
        <widget class="QPushButton" name="btnSubmitFart">
         <property name="enabled">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <property name="minimumSize">
          <size>
