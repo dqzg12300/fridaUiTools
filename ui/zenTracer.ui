@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>963</width>
-    <height>568</height>
+    <height>678</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -88,6 +88,13 @@
         </property>
        </widget>
       </item>
+      <item row="0" column="2">
+       <widget class="QCheckBox" name="chkMatch">
+        <property name="text">
+         <string>模糊匹配类</string>
+        </property>
+       </widget>
+      </item>
       <item row="0" column="1">
        <widget class="QCheckBox" name="chkInit">
         <property name="text">
@@ -95,10 +102,10 @@
         </property>
        </widget>
       </item>
-      <item row="0" column="2">
-       <widget class="QCheckBox" name="chkMatch">
+      <item row="0" column="3">
+       <widget class="QCheckBox" name="chkMatchMethod">
         <property name="text">
-         <string>模糊匹配</string>
+         <string>模糊匹配函数</string>
         </property>
        </widget>
       </item>
@@ -175,7 +182,7 @@
          </size>
         </property>
         <property name="text">
-         <string>JavaString</string>
+         <string>String</string>
         </property>
        </widget>
       </item>
@@ -188,11 +195,11 @@
          </size>
         </property>
         <property name="text">
-         <string>JavaFile</string>
+         <string>File</string>
         </property>
        </widget>
       </item>
-      <item row="0" column="2">
+      <item row="0" column="3">
        <widget class="QPushButton" name="btnClassBundle">
         <property name="maximumSize">
          <size>
@@ -201,11 +208,11 @@
          </size>
         </property>
         <property name="text">
-         <string>JavaBundle</string>
+         <string>Bundle</string>
         </property>
        </widget>
       </item>
-      <item row="0" column="3">
+      <item row="0" column="4">
        <widget class="QPushButton" name="btnClassBase64">
         <property name="maximumSize">
          <size>
@@ -214,7 +221,20 @@
          </size>
         </property>
         <property name="text">
-         <string>JavaBase64</string>
+         <string>Base64</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="2">
+       <widget class="QPushButton" name="btnClassStringBuilderAdd">
+        <property name="maximumSize">
+         <size>
+          <width>120</width>
+          <height>16777215</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>StringBuilder</string>
         </property>
        </widget>
       </item>
@@ -278,6 +298,36 @@
          </widget>
         </item>
        </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="4" column="0" colspan="2">
+    <widget class="QGroupBox" name="groupBox_7">
+     <property name="title">
+      <string>提示</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_8">
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_7">
+        <property name="text">
+         <string>提示2、默认不hook构造函数，hook init则添加构造函数处理</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_6">
+        <property name="text">
+         <string>提示1、添加函数必须设置对应的所属类，如果类未设置hook函数，则hook全部，如果设置了，则匹配出对应函数hook</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_8">
+        <property name="text">
+         <string>提示3、默认非模糊匹配，必须完全一致的名称才hook，模糊匹配则无需填完整类名和函数名</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>

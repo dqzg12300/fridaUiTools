@@ -65,34 +65,82 @@ function traceClass(clsname) {
         var stack="%stack%";
         var hookInit="%hookInit%";
         var methodNames=[]
+        var isMatch="%isMatchMethod%";
         //过滤一下要hook的函数，
         methods.forEach(function (method) {
             if(matchRegExMethod.length>0){
                 var flag=false;
+                var hasmatch=false;
                 for(var i=0;i<matchRegExMethod.length;i++){
                     var matchMethod=matchRegExMethod[i];
-                    if(method.getName().toUpperCase().indexOf(matchMethod.toUpperCase())!=-1){
-                        flag=true;
-                        break;
+                    //如果函数中带小数点，说明这个函数匹配是针对某个类的。
+                    if(matchMethod.indexOf("->")!=-1){
+                        var matchsplit=matchMethod.split("->");
+                        var matchClass= matchsplit[0]
+                        var res=false;
+                        //上面取出类名，查下这个函数是否应该在该类中过滤。
+                        if(isMatch){
+                            res=match(matchClass, clsname)
+                        }else{
+                            res=matchClass==clsname;
+                        }
+                        if(!res){
+                            continue;
+                        }
+                        hasmatch=true
+                    }
+                    if(isMatch) {
+                        if (method.getName().toUpperCase().indexOf(matchsplit[1].toUpperCase()) != -1) {
+                            flag = true;
+                            break;
+                        }
+                    }else{
+                        if (method.getName().toUpperCase()== matchsplit[1].toUpperCase()) {
+                            flag = true;
+                            break;
+                        }
                     }
                 }
-                if(!flag){
-                    // console.log("matchRegExMethod skip ",method.getName());
-                    return;
+                //如果该类有设置函数过滤，才启动flag判断
+                if(hasmatch){
+                    if(!flag){
+                        // console.log("matchRegExMethod skip ",method.getName());
+                        return;
+                    }
                 }
+
             }
             if(blackRegExMethod.length>0){
                 flag=true;
+                var hasmatch=false;
                 for(var i=0;i<blackRegExMethod.length;i++){
                     var breakMethod=blackRegExMethod[i];
-                    if(method.getName().toUpperCase().indexOf(breakMethod.toUpperCase())!=-1){
-                        flag=false;
+                    if(breakMethod.indexOf("->")!=-1){
+                        var matchsplit=breakMethod.split("->");
+                        var matchClass= matchsplit[0]
+                        var res=false;
+                        //上面取出类名，查下这个函数是否应该在该类中过滤。
+                        if(isMatch){
+                            res=match(matchClass, clsname)
+                        }else{
+                            res=matchClass==clsname;
+                        }
+                        if(!res){
+                            continue;
+                        }
+                        hasmatch=true
+                    }
+                    if (method.getName().toUpperCase().indexOf(matchsplit[1].toUpperCase()) != -1) {
+                        flag = false;
                         break;
                     }
                 }
-                if(!flag){
-                    // console.log("blackRegExMethod skip ",method.getName());
-                    return;
+
+                if(hasmatch) {
+                    if(!flag){
+                        // console.log("blackRegExMethod skip ",method.getName());
+                        return;
+                    }
                 }
             }
             // console.log(method.getName());

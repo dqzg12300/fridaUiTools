@@ -2,7 +2,7 @@ import os
 
 from PyQt5.QtCore import QPoint, Qt
 from PyQt5.QtGui import QCursor
-from PyQt5.QtWidgets import QDialog, QTableWidgetItem, QMenu, QAction, QHeaderView
+from PyQt5.QtWidgets import QDialog, QTableWidgetItem, QMenu, QAction, QHeaderView, QMessageBox
 
 from ui.zenTracer import Ui_ZenTracerDialog
 
@@ -30,6 +30,7 @@ class zenTracerForm(QDialog,Ui_ZenTracerDialog):
         self.btnClassStringAdd.clicked.connect(self.classStringAdd)
         self.btnClassBundle.clicked.connect(self.classBundleAdd)
         self.btnClassBase64.clicked.connect(self.classBase64Add)
+        self.btnClassStringBuilderAdd.clicked.connect(self.classStringBuildAdd)
 
         self.btnMethodAdd.clicked.connect(self.methodAdd)
         self.btnMethodBreakAdd.clicked.connect(self.methodBreakAdd)
@@ -114,16 +115,30 @@ class zenTracerForm(QDialog,Ui_ZenTracerDialog):
         self.updateTabTracer()
 
     def methodAdd(self):
+        if len(self.txtClass.text())<=0:
+            QMessageBox().information(self, "提示", "未指定函数所属类")
+            return
         methodName = self.txtMethod.text()
         if methodName in self.traceMethods:
             return
+        if len(self.txtClass.text())>0:
+            methodName=self.txtClass.text()+"->"+methodName
+        if self.txtClass.text() not in self.traceClass:
+            self.traceClass.append(self.txtClass.text())
         self.traceMethods.append(methodName)
         self.updateTabTracer()
 
     def methodBreakAdd(self):
+        if len(self.txtClassBreak.text())<=0:
+            QMessageBox().information(self, "提示", "未指定拉黑函数所属类")
+            return
         methodName = self.txtMethodBreak.text()
         if methodName in self.traceBMethods:
             return
+        if len(self.txtClassBreak.text())>0:
+            methodName=self.txtClassBreak.text()+"->"+methodName
+        # if self.txtClassBreak.text() not in self.traceBClass:
+        #     self.traceBClass.append(self.txtClassBreak.text())
         self.traceBMethods.append(methodName)
         self.updateTabTracer()
 
@@ -155,15 +170,25 @@ class zenTracerForm(QDialog,Ui_ZenTracerDialog):
         self.traceClass.append(className)
         self.updateTabTracer()
 
+    def classStringBuildAdd(self):
+        className = "java.lang.StringBuilder"
+        if className in self.traceClass:
+            return
+        self.traceClass.append(className)
+        self.updateTabTracer()
 
     def hooksRemove(self):
         for item in self.tabTracer.selectedItems():
             name=self.tabTracer.item(item.row(),0).text()
             ntype=self.tabTracer.item(item.row(),1).text()
-            if "trace" in ntype:
+            if ntype=="trace class":
                 self.traceClass.remove(name)
-            else:
+            elif ntype=="trace method":
+                self.traceMethods.remove(name)
+            elif ntype=="break class":
                 self.traceBClass.remove(name)
+            elif ntype=="break method":
+                self.traceBMethods.remove(name)
             self.tabTracer.removeRow(item.row())
 
     def clearHooks(self):

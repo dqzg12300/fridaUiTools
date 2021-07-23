@@ -92,6 +92,7 @@ class Runthread(QThread):
                 source = source.replace('%stack%', self.hooksData[item]["stack"])
                 source = source.replace('%hookInit%', self.hooksData[item]["hookInit"])
                 source = source.replace('%isMatch%', self.hooksData[item]["isMatch"])
+                source = source.replace('%isMatchMethod%', self.hooksData[item]["isMatchMethod"])
             elif item=="match_sub":
                 source +=open('./js/traceNative.js', 'r', encoding="utf8").read()
                 source = source.replace("%moduleName%", self.hooksData[item]["class"])

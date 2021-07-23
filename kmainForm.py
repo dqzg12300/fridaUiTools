@@ -816,19 +816,22 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
         stack=""
         hookInit=""
         isMatch = ""
+        isMatchMethod=""
         if self.zenTracerForm.chkStack.isChecked():
             stack="1"
         if self.zenTracerForm.chkInit.isChecked():
             hookInit = "1"
         if self.zenTracerForm.chkMatch.isChecked():
             isMatch = "1"
+        if self.zenTracerForm.chkMatchMethod.isChecked():
+            isMatchMethod="1"
         classNames= ",".join(self.zenTracerForm.traceClass)
         methodNames=",".join(self.zenTracerForm.traceMethods)
         matchHook = {"class":classNames, "method":methodNames,
                      "bak": "ZenTracer的改造功能,匹配类和函数进行批量hook",
                      "traceClass":self.zenTracerForm.traceClass,"traceBClass":self.zenTracerForm.traceBClass,
                      "traceMethod":self.zenTracerForm.traceMethods,"traceBMethod":self.zenTracerForm.traceBMethods,
-                     "stack":stack,"hookInit":hookInit,"isMatch":isMatch}
+                     "stack":stack,"hookInit":hookInit,"isMatch":isMatch,"isMatchMethod":isMatchMethod}
         self.hooksData[typeStr]=matchHook
         self.updateTabHooks()
 
