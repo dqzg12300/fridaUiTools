@@ -1,4 +1,6 @@
+import json
 import os
+import re
 
 from PyQt5.QtWidgets import QDialog, QFileDialog, QMessageBox
 
@@ -13,7 +15,7 @@ class stalkerMatchForm(QDialog,Ui_StalkerMatchDialog):
         self.btnSubmit.clicked.connect(self.submit)
         self.btnSelectLogPath.clicked.connect(self.selectLogPath)
         self.btnSelectSavePath.clicked.connect(self.selectSavePath)
-        self.cwd = os.getcwd()
+        self.cwd = os.getcwd()+"/example/"
 
     def selectLogPath(self):
         fileName_choose, filetype = QFileDialog.getOpenFileName(self,
@@ -34,6 +36,9 @@ class stalkerMatchForm(QDialog,Ui_StalkerMatchDialog):
             return
         self.txtSavePath.setText(fileName_choose)
 
+    def appendResult(self,data):
+        self.txtResult.appendPlainText(data)
+
     def submit(self):
         if len(self.txtLogPath.text())<=0 or os.path.exists(self.txtLogPath.text())==False:
             QMessageBox().information(self, "提示", "log路径为空或文件不存在")
@@ -44,3 +49,45 @@ class stalkerMatchForm(QDialog,Ui_StalkerMatchDialog):
         logfile=open(self.txtLogPath.text(),"r",encoding="utf-8")
         logdata=logfile.read()
         logfile.close()
+
+        #
+        lines= re.findall(r"DEBUG: (tid:.+?address:.+)",logdata)
+        contexts=[]
+        insts=[]
+        for line in lines:
+            if "context:" in line:
+                contexts.append(line)
+            else:
+                insts.append(line)
+        for line in insts:
+            # print(line)
+            ops= re.findall(r"=\{(.+?)\}",line)
+            m1=re.search(r"address:(.+?) ",line)
+            if m1==None:
+                continue
+            address=m1.group(0)
+            curcontext=""
+            for context in contexts:
+                if address in context:
+                    curcontext=context
+                    contexts.remove(context)
+                    break
+            m2 = re.search("context:(.+)", curcontext)
+            if m2==None:
+                continue
+            condata=json.loads(m2.group(1))
+            #如果是arm64的情况。会有x0寄存器，然后把w相关的寄存器值手动加进去
+            if "x0" in condata:
+                for i in range(28):
+                    extReg="w%d"%i
+                    xdata="x%d"%i
+                    wdata=int(condata[xdata],16)&0xffffffff
+                    condata[extReg]="%x"%wdata
+            newline =line
+            for op in ops:
+                if op=="wzr":
+                    opdata="0"
+                else:
+                    opdata=condata[op]
+                newline=str.replace(newline,"{%s}"%op,opdata)
+            self.appendResult(newline)

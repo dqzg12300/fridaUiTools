@@ -226,9 +226,23 @@ class Runthread(QThread):
             return
         optype=p["type"]
         if optype=="inst":
+            # print(p)
             inst=json.loads(p["val"])
             address=int(p["address"],16)
-            self.outlog("tid:"+str(p["tid"])+" address:"+str(hex(address))+"\t"+inst["mnemonic"]+" "+inst["opStr"])
+            oplist=[]
+            for opdata in inst["operands"]:
+                if opdata["type"]=="reg":
+                    if opdata["value"] not in oplist:
+                        oplist.append(opdata["value"])
+                elif opdata["type"]=="mem":
+                    memdata=opdata["value"]
+                    if memdata["base"] not in oplist:
+                        oplist.append(memdata["base"])
+            enddata = ""
+            for item in oplist:
+                enddata+="%s={%s} "%(item,item)
+            outdata="tid:%s address:%s %s %s\t\t//%s"%(str(p["tid"]),str(hex(address)),inst["mnemonic"],inst["opStr"],enddata)
+            self.outlog(outdata)
         elif optype=="ctx":
             context=json.loads(p["val"])
             address=int(p["address"],16)
