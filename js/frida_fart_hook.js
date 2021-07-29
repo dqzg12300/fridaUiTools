@@ -305,41 +305,30 @@ function fart() {
     }
 }
 
-function classInvoke(classname){
+function romClassesInvoke(classes){
     Java.perform(function(){
-        Java.enumerateClassLoadersSync().forEach(function(loader){
-            try{
-                klog(classname+" start load");
-                var dclass=loader.loadClass(classname);
-                klog("classloader:"+loader+",class:"+dclass);
-                var activityThread=Java.use("android.app.ActivityThread");
-                if(!activityThread.loadClassAndInvoke){
-                    klog("ActivityThread中未找到loadClassAndInvoke函数，可能是未使用FART的rom")
-                    return ;
-                }
-                var dexFileClass=Java.use("dalvik.system.DexFile");
-                var dumpMethodCode= dexFileClass.dumpMethodCode;
-                activityThread.loadClassAndInvoke(loader,classname,dumpMethodCode);
-            }catch{
-
-            }
-
-        })
+        klog("romClassesInvoke start load");
+        var fartExt=Java.use("cn.mik.Fartext");
+        if(!fartExt.fartWithClassList){
+            klog("fartExt中未找到fartWithClassList函数，可能是未使用Fartext的rom")
+            return ;
+        }
+        fartExt.fartWithClassList(classes);
     })
 }
 
 function romFartAllClassLoader(){
     Java.perform(function(){
+       var fartExt=Java.use("cn.mik.Fartext");
+       if(!fartExt.fartWithClassLoader){
+           klog("fartExt中未找到fartWithClassLoader函数，可能是未使用Fartext的rom");
+           return;
+       }
        Java.enumerateClassLoadersSync().forEach(function(loader){
-           klog("fart to loader:"+loader);
+           klog("romFartAllClassLoader to loader:"+loader);
            if(loader.toString().indexOf("BootClassLoader")==-1){
-               var activityThread=Java.use("android.app.ActivityThread");
-               if(!activityThread.fartWithClassLoader){
-                   klog("ActivityThread中未找到fartWithClassLoader函数，可能是未使用FART的rom");
-               }else{
-                   klog("fart start loader:"+loader);
-                   activityThread.fartWithClassLoader(loader);
-               }
+               klog("fart start loader:"+loader);
+               fartExt.fartWithClassLoader(loader);
            }
        })
     });
@@ -353,15 +342,12 @@ rpc.exports = {
         dumpclass(classes);
     },
     romfart:function(){
-        //调用fart的api
+        //调用fartext的api
         romFartAllClassLoader();
     },
     romfartclass:function(classes){
-        //调用fart的api
-        var cls=classes.split("\n");
-        for(var i=0;i<cls.length;i++){
-            classInvoke(cls[i]);
-        }
+        //调用fartext的api
+        romClassesInvoke(classes)
     }
 }
 
