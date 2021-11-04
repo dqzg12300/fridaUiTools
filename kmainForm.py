@@ -349,7 +349,10 @@ class kmainForm(QMainWindow,Ui_KmainWindow):
             self.log(res)
             res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/hluda*")
             self.log(res)
-            QMessageBox().information(self, "提示", "上传完成")
+            if "invalid" in res:
+                QMessageBox().information(self, "提示", "上传完成，但是设置权限失败。可能是su权限错误，请先cmd切换")
+            else:
+                QMessageBox().information(self, "提示", "上传完成")
         except Exception as ex:
             QMessageBox().information(self, "提示", "上传异常."+str(ex))
     def PullFartRes(self):

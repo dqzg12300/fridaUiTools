@@ -55,17 +55,17 @@ function OnClickListener() {
         };
 
         //如果frida以attach的模式进行attch的话
-        Java.choose("android.view.View$ListenerInfo", {
-            onMatch: function (instance) {
-                instance = instance.mOnClickListener.value;
-                if (instance) {
-                    klog("mOnClickListener name is :" + getObjClassName(instance));
-                    watch(instance, 'onClick');
-                }
-            },
-            onComplete: function () {
-            }
-        })
+        // Java.choose("android.view.View$ListenerInfo", {
+        //     onMatch: function (instance) {
+        //         instance = instance.mOnClickListener.value;
+        //         if (instance) {
+        //             klog("mOnClickListener name is :" + getObjClassName(instance));
+        //             watch(instance, 'onClick');
+        //         }
+        //     },
+        //     onComplete: function () {
+        //     }
+        // })
     })
 }
 setImmediate(OnClickListener);

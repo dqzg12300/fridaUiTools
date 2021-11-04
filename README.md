@@ -98,6 +98,12 @@ fart如果第一次使用，需要在上传与下载菜单栏中点击上传fart
 > 增加fart的bin文件修复
 >
 > 增加stalker的整理，将stalker输出的日志整理成更方便阅读的格式
+
+## 简单使用例子
+这个例子是用hookEvent来hook所有点击事件。要使用spawn的方式来附加。
+一个新的设备初次使用需要先上传frida-server。然后选择对应的frida-server启动。然后就可以选择要hook的功能开始附加玩耍了。
+![](./fridaUiToolsDemo.gif)
+
 ## 感谢
 
 * [jnitrace](https://github.com/chame1eon/jnitrace)
