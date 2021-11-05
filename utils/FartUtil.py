@@ -1820,7 +1820,7 @@ def parse_encoded_value4441(lex_object,content,is_root=False):
 		appentOutRes( str,False)
 		offset += (value_arg+1)
 	elif value_type == 0:
-		appentOutRes( "%02x"(int(content[offset]),False))
+		appentOutRes( "%02x"%(int(content[offset]),False))
 		offset += 1
 
 	elif value_type == 0x1e :

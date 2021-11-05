@@ -304,8 +304,8 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
 
         res = CmdUtil.execCmd("adb push ./lib/fart.so /data/local/tmp/fart/fart.so")
         self.log(res)
-        if "not found" in res:
-            QMessageBox().information(self, "提示", "上传失败,可能未连接设备")
+        if "file pushed" not in res:
+            QMessageBox().information(self, "提示", "上传失败,可能未连接设备."+res)
             return
 
         res = CmdUtil.execCmd("adb push ./lib/fart64.so /data/local/tmp/fart/fart64.so")
@@ -352,8 +352,8 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
                 return
             res = CmdUtil.execCmd("adb push ./exec/hluda-server-15.1.1-android-arm64 /data/local/tmp")
             self.log(res)
-            if "not found" in res:
-                QMessageBox().information(self, "提示", "上传失败,可能未连接设备")
+            if "file pushed" not in res:
+                QMessageBox().information(self, "提示", "上传失败,可能未连接设备." + res)
                 return
             res = CmdUtil.execCmd("adb push ./exec/hluda-server-15.1.1-android-x86 /data/local/tmp")
             self.log(res)
