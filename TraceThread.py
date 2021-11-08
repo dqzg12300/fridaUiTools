@@ -28,7 +28,9 @@ class Runthread(QThread):
     searchAppInfoSignel=pyqtSignal(str)
     #附加成功的信号
     attachOverSignel = pyqtSignal(str)
-    def __init__(self,hooksData,attachName,isSpawn):
+
+
+    def __init__(self,hooksData,attachName,isSpawn,connType):
         super(Runthread, self).__init__()
         self.hooksData = hooksData
         self.attachName=attachName
@@ -39,6 +41,9 @@ class Runthread(QThread):
         self.DEXDump=False
         self.enable_deep_search=False
         self.customCallFuns=[]
+        self.connType=connType
+        self.address=""
+        self.port=""
 
     def quit(self):
         if self.scripts:
@@ -326,17 +331,25 @@ class Runthread(QThread):
         self._attach(child.pid, "default")
 
     def run(self):
-        self.device = frida.get_usb_device()
-        # self.device.on("child-added", self._on_child_added)
+        if self.connType=="usb":
+            self.device = frida.get_usb_device()
+            # self.device.on("child-added", self._on_child_added)
+
+        elif self.connType=="wifi":
+            str_host = "%s:%s"%(self.address,self.port)
+            manager = frida.get_device_manager()
+            self.device = manager.add_remote_device(str_host)
+
         application = self.device.get_frontmost_application()
         if application == None:
             self.log("附加异常,application is None")
+            self.attachOverSignel.emit("ERROR.无法获取到进程列表")
             return
-        target = 'Gadget' if application.identifier == 're.frida.Gadget' else application.identifier
-        if len(self.attachName)<=0:
+        target = 'Gadget' if application.identifier == 're.frida.Gadget' else application.name
+        if len(self.attachName) <= 0:
             for process in self.device.enumerate_processes():
                 if target == process.name:
-                    self.attachName=process.name
+                    self.attachName = process.name
                     break
 
         self._attach(self.attachName)

@@ -23,9 +23,10 @@ from forms.Stalker import stalkerForm
 from forms.StalkerOp import stalkerMatchForm
 from forms.Tuoke import tuokeForm
 from forms.Wallbreaker import wallBreakerForm
+from forms.Wifi import wifiForm
 from forms.ZenTracer import zenTracerForm
 from ui.kmain import Ui_KmainWindow
-from utils import LogUtil, CmdUtil
+from utils import LogUtil, CmdUtil, FileUtil
 import json, os, threading, frida
 import platform
 
@@ -38,7 +39,7 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
         self.setupUi(self)
         self.initUi()
         self.hooksData = {}
-        self.th = TraceThread.Runthread(self.hooksData, "", False)
+        self.th = TraceThread.Runthread(self.hooksData, "", False,self.connType)
         self.updateCmbHooks()
         self.outlogger = LogUtil.Logger('all.txt', level='debug')
         with open("./config/type.json", "r", encoding="utf8") as typeFile:
@@ -88,6 +89,7 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
         self.actionClearHookJson.triggered.connect(self.ClearHookJson)
         self.actionPullDumpDexRes.triggered.connect(self.PullDumpDex)
         self.actionPushFridaServer.triggered.connect(self.PushFridaServer)
+        self.actionPushFridaServerX86.triggered.connect(self.PushFridaServerX86)
         self.actionPullFartRes.triggered.connect(self.PullFartRes)
         self.actionFrida32Start.triggered.connect(self.Frida32Start)
         self.actionFrida64Start.triggered.connect(self.Frida64Start)
@@ -96,7 +98,8 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
         self.actionFridax86Start.triggered.connect(self.FridaX86Start)
         self.actionFridax64Start.triggered.connect(self.FridaX64Start)
         self.actionPullApk.triggered.connect(self.PullApk)
-
+        self.actionWifi.triggered.connect(self.WifiConn)
+        self.actionUsb.triggered.connect(self.UsbConn)
         self.btnDumpPtr.clicked.connect(self.dumpPtr)
         self.btnDumpSo.clicked.connect(self.dumpSo)
         self.btnFart.clicked.connect(self.dumpFart)
@@ -164,6 +167,7 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
         self.callFunctionForm = callFunctionForm()
         self.fartBinForm = fartBinForm()
         self.stalkerMatchForm = stalkerMatchForm()
+        self.wifiForm=wifiForm()
 
         self.modules = None
         self.classes = None
@@ -178,6 +182,9 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
         self.chkArtMethod.tag = "ArtMethod"
         self.chkLibArt.tag = "libArt"
         self.chkHookEvent.tag = "hookEvent"
+        self.connType="usb"
+        self.address=""
+        self.port=""
 
     def clearSymbol(self):
         self.listSymbol.clear()
@@ -345,21 +352,39 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
 
     def PushFridaServer(self):
         try:
-            res = CmdUtil.execCmd("adb push ./exec/hluda-server-15.1.1-android-arm /data/local/tmp")
+            res = CmdUtil.execCmd("adb push ./exec/frida-server-15.1.9-android-arm /data/local/tmp")
             self.log(res)
             if "error" in res:
                 QMessageBox().information(self, "提示", "上传失败." + res)
                 return
-            res = CmdUtil.execCmd("adb push ./exec/hluda-server-15.1.1-android-arm64 /data/local/tmp")
+            res = CmdUtil.execCmd("adb push ./exec/frida-server-15.1.9-android-arm64 /data/local/tmp")
             self.log(res)
             if "file pushed" not in res:
                 QMessageBox().information(self, "提示", "上传失败,可能未连接设备." + res)
                 return
-            res = CmdUtil.execCmd("adb push ./exec/hluda-server-15.1.1-android-x86 /data/local/tmp")
+
+            res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/frida*")
             self.log(res)
-            res = CmdUtil.execCmd("adb push ./exec/hluda-server-15.1.1-android-x86_64 /data/local/tmp")
+            if "invalid" in res:
+                QMessageBox().information(self, "提示", "上传完成，但是设置权限失败。可能是su权限错误，请先cmd切换")
+            else:
+                QMessageBox().information(self, "提示", "上传完成")
+        except Exception as ex:
+            QMessageBox().information(self, "提示", "上传异常." + str(ex))
+
+    def PushFridaServerX86(self):
+        try:
+            res = CmdUtil.execCmd("adb push ./exec/frida-server-15.1.9-android-x86 /data/local/tmp")
             self.log(res)
-            res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/hluda*")
+            if "error" in res:
+                QMessageBox().information(self, "提示", "上传失败." + res)
+                return
+            res = CmdUtil.execCmd("adb push ./exec/frida-server-15.1.9-android-x86_64 /data/local/tmp")
+            self.log(res)
+            if "file pushed" not in res:
+                QMessageBox().information(self, "提示", "上传失败,可能未连接设备." + res)
+                return
+            res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/frida*")
             self.log(res)
             if "invalid" in res:
                 QMessageBox().information(self, "提示", "上传完成，但是设置权限失败。可能是su权限错误，请先cmd切换")
@@ -446,41 +471,52 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
             return
         QMessageBox().information(self, "提示", packageName + ".apk下载成功")
 
+
+    def ReplaceSh(self,rfile,wfile,name):
+        data = FileUtil.readFile(rfile)
+        if self.connType == "wifi":
+            data = data.replace("%fridaName%", name + " -l 0.0.0.0:" + self.port)
+        elif self.connType == "usb":
+            data = data.replace("%fridaName%", name)
+        if self.actionSu0.isChecked():
+            data = data.replace("%sumod%", "su 0")
+        else:
+            data = data.replace("%sumod%", "su -c")
+        FileUtil.writeFile(wfile,data)
+
     def ShStart(self, name):
         projectPath = os.path.dirname(os.path.abspath(__file__))
         if platform.system() == "Windows":
-            shfile = "%s\sh\win\%s.bat" % (projectPath, name)
-            cmd = r"start " + shfile
-
+            shfile = "%s\\sh\\tmp\\frida_win.tmp"% (projectPath)
+            savefile="%s\\sh\\tmp\\frida_win.bat"% (projectPath)
+            self.ReplaceSh(shfile,savefile,name)
+            CmdUtil.execCmd("chmod 0777 " + projectPath + "\\sh\\tmp\\*")
+            cmd = r"start " + savefile
         elif platform.system() == 'Linux':
-            shfile = "%s/sh/linux/%s.sh" % (projectPath, name)
-            cmd = "gnome-terminal -e 'bash -c \"%s; exec bash\"'" % shfile
+            shfile = "%s/sh/tmp/frida_linux.tmp"% (projectPath)
+            savefile = "%s/sh/tmp/frida_linux.sh" % (projectPath)
+            self.ReplaceSh(shfile, savefile, name)
+            CmdUtil.execCmd("chmod 0777 " + projectPath + "/sh/tmp/*")
+            cmd = "gnome-terminal -e 'bash -c \"%s; exec bash\"'" % savefile
         else:
-            shfile = "%s/sh/mac/%s.sh" % (projectPath, name)
-            cmd = "bash -c " + shfile
-        # 由于有些手机用adb shell su -c不行。必须是adb shell su 0。所以这里根据选择替换下脚本的内容
-        with open(shfile, "r+", encoding="utf-8") as shFile:
-            shdata = shFile.read()
-            if self.actionSu0.isChecked():
-                shdata = shdata.replace("adb shell su -c", "adb shell su 0")
-            else:
-                shdata = shdata.replace("adb shell su 0", "adb shell su -c")
-            shFile.seek(0)
-            shFile.truncate()
-            shFile.write(shdata)
+            shfile = "%s/sh/tmp/frida_mac.tmp"% (projectPath)
+            savefile = "%s/sh/tmp/frida_mac.sh" % (projectPath)
+            self.ReplaceSh(shfile, savefile, name)
+            CmdUtil.execCmd("chmod 0777 " + projectPath + "/sh/tmp/*")
+            cmd = "bash -c " + savefile
         os.system(cmd)
 
     def Frida32Start(self):
-        self.ShStart("frida32")
+        self.ShStart("frida-server-15.1.9-android-arm")
 
     def Frida64Start(self):
-        self.ShStart("frida64")
+        self.ShStart("frida-server-15.1.9-android-arm64")
 
     def FridaX86Start(self):
-        self.ShStart("fridax86")
+        self.ShStart("frida-server-15.1.9-android-x86")
 
     def FridaX64Start(self):
-        self.ShStart("fridax64")
+        self.ShStart("frida-server-15.1.9-android-x86_64")
 
     def changeCmdType(self):
         if self.actionSu0.isChecked():
@@ -515,6 +551,9 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
 
     # 这是附加结束时的状态栏显示包名
     def attachOver(self, name):
+        if "ERROR" in name:
+            QMessageBox().information(self, "提示", "附加失败."+name)
+            return
         tmppath = "./tmp/spawnPackage.txt"
         mode = "r+"
         if os.path.exists(tmppath) == False:
@@ -527,15 +566,31 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
                 packageFile.write(name + "\n")
         self.labPackage.setText(name)
 
+    def getFridaDevice(self):
+        if self.connType=="usb":
+            return frida.get_usb_device()
+        elif self.connType=="wifi":
+            str_host = "%s:%s" % (self.address, self.port)
+            manager = frida.get_device_manager()
+            device = manager.add_remote_device(str_host)
+            return device
+
     # 启动附加
     def actionAttachStart(self):
         self.log("actionAttach")
         try:
+            if self.connType=="wifi":
+                if len(self.address)<8 or len(self.port)<0:
+                    QMessageBox().information(self, "提示", "当前为wifi连接,但是未设置地址或端口")
+                    return
+
             # 查下进程。能查到说明frida_server开启了
-            device = frida.get_usb_device()
+            device = self.getFridaDevice()
             device.enumerate_processes()
             self.changeAttachStatus(True)
-            self.th = TraceThread.Runthread(self.hooksData, "", False)
+            self.th = TraceThread.Runthread(self.hooksData, "", False,self.connType)
+            self.th.address=self.address
+            self.th.port=self.port
             self.th.taskOverSignel.connect(self.taskOver)
             self.th.loggerSignel.connect(self.log)
             self.th.outloggerSignel.connect(self.outlog)
@@ -558,11 +613,16 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
         if res == 0:
             return
         try:
+            if self.connType=="wifi" and (len(self.address)<8 or len(self.port)):
+                QMessageBox().information(self, "提示", "当前为wifi连接,但是未设置地址或端口")
+                return
             # 查下进程。能查到说明frida_server开启了
-            device = frida.get_usb_device()
+            device = self.getFridaDevice
             device.enumerate_processes()
             self.changeAttachStatus(True)
-            self.th = TraceThread.Runthread(self.hooksData, self.spawnAttachForm.packageName, True)
+            self.th = TraceThread.Runthread(self.hooksData, self.spawnAttachForm.packageName, True,self.connType)
+            self.th.address=self.address
+            self.th.port=self.port
             self.th.taskOverSignel.connect(self.taskOver)
             self.th.loggerSignel.connect(self.log)
             self.th.outloggerSignel.connect(self.outlog)
@@ -593,7 +653,10 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
     def actionAttachNameStart(self):
         self.log("actionAttachName")
         try:
-            device = frida.get_usb_device()
+            if self.connType=="wifi" and (len(self.address)<8 or len(self.port)):
+                QMessageBox().information(self, "提示", "当前为wifi连接,但是未设置地址或端口")
+                return
+            device = self.getFridaDevice()
             process = device.enumerate_processes()
             selectPackageForm = SelectPackage.selectPackageForm()
             selectPackageForm.setPackages(process)
@@ -601,7 +664,9 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
             if res == 0:
                 return
             self.changeAttachStatus(True)
-            self.th = TraceThread.Runthread(self.hooksData, selectPackageForm.packageName, False)
+            self.th = TraceThread.Runthread(self.hooksData, selectPackageForm.packageName, False,self.connType)
+            self.th.address=self.address
+            self.th.port=self.port
             self.th.taskOverSignel.connect(self.taskOver)
             self.th.loggerSignel.connect(self.log)
             self.th.outloggerSignel.connect(self.outlog)
@@ -612,6 +677,21 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
         except Exception as ex:
             self.log("附加异常.err:" + str(ex))
             QMessageBox().information(self, "提示", "附加进程失败." + str(ex))
+
+    def WifiConn(self):
+        res=self.wifiForm.exec()
+        if res==0:
+            self.actionWifi.setChecked(False)
+            return
+        self.connType="wifi"
+        self.address=self.wifiForm.address
+        self.port=self.wifiForm.port
+        self.actionWifi.setChecked(True)
+        self.actionUsb.setChecked(False)
+    def UsbConn(self):
+        self.connType="usb"
+        self.actionUsb.setChecked(True)
+        self.actionWifi.setChecked(False)
 
     # 是否附加进程了
     def isattach(self):

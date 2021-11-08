@@ -1,0 +1,12 @@
+
+#!/bin/zsh
+
+osascript <<END
+
+tell application "Terminal"
+
+    do script "adb shell %sumod% 'pkill -9 frida-server '; adb forward tcp:27042 tcp:27042 ;adb forward tcp:27043 tcp:27043 ; adb shell %sumod% '/data/local/tmp/%fridaName%'"
+
+end tell
+
+END

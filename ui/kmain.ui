@@ -738,7 +738,7 @@
      <x>0</x>
      <y>0</y>
      <width>847</width>
-     <height>23</height>
+     <height>28</height>
     </rect>
    </property>
    <widget class="QMenu" name="menufile">
@@ -786,6 +786,7 @@
      <string>上传与下载</string>
     </property>
     <addaction name="actionPushFridaServer"/>
+    <addaction name="actionPushFridaServerX86"/>
     <addaction name="actionPushFartSo"/>
     <addaction name="actionPullDumpDexRes"/>
     <addaction name="actionPullFartRes"/>
@@ -798,10 +799,18 @@
     <addaction name="actionSuC"/>
     <addaction name="actionSu0"/>
    </widget>
+   <widget class="QMenu" name="menu_2">
+    <property name="title">
+     <string>连接方式</string>
+    </property>
+    <addaction name="actionUsb"/>
+    <addaction name="actionWifi"/>
+   </widget>
    <addaction name="menufile"/>
    <addaction name="menuedit"/>
    <addaction name="menu"/>
    <addaction name="menucmd"/>
+   <addaction name="menu_2"/>
    <addaction name="menuhelp"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
@@ -887,7 +896,7 @@
   </action>
   <action name="actionPushFridaServer">
    <property name="text">
-    <string>上传frida-server</string>
+    <string>上传frida-server(arm,arm64)</string>
    </property>
   </action>
   <action name="actionPullFartRes">
@@ -940,6 +949,30 @@
   <action name="actionPullApk">
    <property name="text">
     <string>下载当前应用apk</string>
+   </property>
+  </action>
+  <action name="actionPushFridaServerX86">
+   <property name="text">
+    <string>上传frida-server(x86,x64)</string>
+   </property>
+  </action>
+  <action name="actionUsb">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>usb连接</string>
+   </property>
+  </action>
+  <action name="actionWifi">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>wifi连接</string>
    </property>
   </action>
  </widget>
