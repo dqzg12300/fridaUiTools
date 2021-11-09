@@ -55,15 +55,6 @@ fridaUiTools是一个界面化整理脚本的工具。新人的练手作品。�
 
 ![image-20210710130555333](./img/image-20210710130509193.png)
 
-![image-20210710130631452](./img/image-20210710130631452.png)
-
-![image-20210710130712969](./img/image-20210710130712969.png)
-
-![image-20210710130905757](./img/image-20210710130905757.png)
-
-![image-20210723161040549](./img/image-20210723161040549.png)
-
-
 
 ## 使用说明
 
@@ -75,34 +66,14 @@ fart如果第一次使用，需要在上传与下载菜单栏中点击上传fart
 
 ## 新增功能
 
-> frida-server14.2的自动上传到手机
->
-> frida-server的启动
->
-> 自定义脚本功能
->
-> fart的dump结果下载
->
-> 增加patch功能
->
-> 应用信息显示（adb shell dumpsys取出来的数据）
->
-> hookEvent（app的所有控件的点击事件hook）
->
-> cmd切换（有些设备是需要adb shell su 0来使用su权限的，有些是adb shell su -c。这里为了通用，可以自己切换）
-> 
-> 增加模拟器启动frida-server的支持
->
-> 增加下载当前apk功能
->
-> 增加fart的bin文件修复
->
-> 增加stalker的整理，将stalker输出的日志整理成更方便阅读的格式
+> 新增切换wifi连接。如果是通过我的功能快速启动frida-server，切换连接后需要重新启动frida-server
 
 ## 简单使用例子
 这个例子是用hookEvent来hook所有点击事件。要使用spawn的方式来附加。
 一个新的设备初次使用需要先上传frida-server。然后选择对应的frida-server启动。然后就可以选择要hook的功能开始附加玩耍了。
 ![](./fridaUiToolsDemo.gif)
+
+
 
 ## 感谢
 

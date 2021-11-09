@@ -543,7 +543,7 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
                 pass
         self.updateCmbHooks()
 
-    # 进程结束时的状态切换，和打印
+    # 进程结束时的状态切换，和打印e
     def taskOver(self):
         self.log("附加进程结束")
         self.changeAttachStatus(False)
