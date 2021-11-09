@@ -491,7 +491,6 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
             shfile = "%s\\sh\\tmp\\frida_win.tmp"% (projectPath)
             savefile="%s\\sh\\tmp\\frida_win.bat"% (projectPath)
             self.ReplaceSh(shfile,savefile,name)
-            CmdUtil.execCmd("chmod 0777 " + projectPath + "\\sh\\tmp\\*")
             cmd = r"start " + savefile
         elif platform.system() == 'Linux':
             shfile = "%s/sh/tmp/frida_linux.tmp"% (projectPath)
