@@ -472,6 +472,7 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
         QMessageBox().information(self, "提示", packageName + ".apk下载成功")
 
 
+
     def ReplaceSh(self,rfile,wfile,name):
         data = FileUtil.readFile(rfile)
         if self.connType == "wifi":
@@ -485,7 +486,7 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
         FileUtil.writeFile(wfile,data)
 
     def ShStart(self, name):
-        projectPath = os.path.dirname(os.path.abspath(__file__))
+        projectPath = os.path.abspath("./")
         if platform.system() == "Windows":
             shfile = "%s\\sh\\tmp\\frida_win.tmp"% (projectPath)
             savefile="%s\\sh\\tmp\\frida_win.bat"% (projectPath)
