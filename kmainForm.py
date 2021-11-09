@@ -553,6 +553,7 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
     def attachOver(self, name):
         if "ERROR" in name:
             QMessageBox().information(self, "提示", "附加失败."+name)
+            self.changeAttachStatus(False)
             return
         tmppath = "./tmp/spawnPackage.txt"
         mode = "r+"
@@ -617,7 +618,7 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
                 QMessageBox().information(self, "提示", "当前为wifi连接,但是未设置地址或端口")
                 return
             # 查下进程。能查到说明frida_server开启了
-            device = self.getFridaDevice
+            device = self.getFridaDevice()
             device.enumerate_processes()
             self.changeAttachStatus(True)
             self.th = TraceThread.Runthread(self.hooksData, self.spawnAttachForm.packageName, True,self.connType)
