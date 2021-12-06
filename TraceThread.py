@@ -345,11 +345,16 @@ class Runthread(QThread):
             self.log("附加异常,application is None")
             self.attachOverSignel.emit("ERROR.无法获取到进程列表")
             return
+
         target = 'Gadget' if application.identifier == 're.frida.Gadget' else application.name
+        packageName=application.identifier
         if len(self.attachName) <= 0:
             for process in self.device.enumerate_processes():
                 if target == process.name:
                     self.attachName = process.name
+                    break
+                if packageName== process.name:
+                    self.attachName = packageName
                     break
 
         self._attach(self.attachName)

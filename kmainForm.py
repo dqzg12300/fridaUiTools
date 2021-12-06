@@ -244,7 +244,6 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
                         self.hooksData["patch"].pop(idx)
             else:
                 self.hooksData.pop(self.tabHooks.item(item.row(), 0).text())
-
         self.updateTabHooks()
         self.refreshChecks()
 
