@@ -31,6 +31,12 @@ fridaUiTools是一个界面化整理脚本的工具。新人的练手作品。�
 
 附加成功时将一些信息带出来给界面展示。目前仅将module列表和class列表展示出来。可以查询函数以及符号
 
+### 常见问题说明
+
+[连接常见问题](https://www.bilibili.com/video/BV16b4y1x7g5/)
+
+[wifi连接演示](https://www.bilibili.com/video/BV1Aq4y147gu/)
+
 ## 日志说明
 
 ### 1、操作日志
