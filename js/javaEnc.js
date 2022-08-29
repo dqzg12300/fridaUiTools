@@ -314,13 +314,13 @@ Java.perform(function () {
 
     var md = Java.use('java.security.MessageDigest');
     md.getInstance.overload('java.lang.String', 'java.lang.String').implementation = function (a, b) {
-        //showStacks();
+        showStacks();
         klog("======================================");
         klog("算法名：" + a);
         return this.getInstance(a, b);
     }
     md.getInstance.overload('java.lang.String').implementation = function (a) {
-        //showStacks();
+        showStacks();
         klog("======================================");
         klog("算法名：" + a);
         return this.getInstance(a);

@@ -175,15 +175,7 @@ function traceAddr(addr) {
     send(msg);
     let exports = targetModule.enumerateExports();
     let symbols = targetModule.enumerateSymbols();
-    // send({
-    //     type: "module",
-    //     targetModule
-    // })
-    // send({
-    //     type: "sym",
 
-
-    // })
     Interceptor.attach(addr, {
         onEnter: function(args) {
             this.tid = Process.getCurrentThreadId()
@@ -200,11 +192,6 @@ function traceAddr(addr) {
             })
         }
     })
-}
-
-
-function traceSymbol(symbol) {
-
 }
 
 /**

@@ -548,6 +548,7 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
         self.changeAttachStatus(False)
         QMessageBox().information(self, "提示", "成功停止附加进程")
 
+
     # 这是附加结束时的状态栏显示包名
     def attachOver(self, name):
         if "ERROR" in name:
@@ -597,6 +598,7 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
             self.th.loadAppInfoSignel.connect(self.loadAppInfo)
             self.th.attachOverSignel.connect(self.attachOver)
             self.th.searchAppInfoSignel.connect(self.searchAppInfoRes)
+            self.th.attachType="attachCurrent"
             self.th.start()
             if len(self.hooksData) <= 0:
                 # QMessageBox().information(self, "提示", "未设置hook选项")
@@ -629,6 +631,7 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
             self.th.loadAppInfoSignel.connect(self.loadAppInfo)
             self.th.attachOverSignel.connect(self.attachOver)
             self.th.searchAppInfoSignel.connect(self.searchAppInfoRes)
+            self.th.attachType="spawn"
             self.th.start()
             if len(self.hooksData) <= 0:
                 # QMessageBox().information(self, "提示", "未设置hook选项")
@@ -673,6 +676,7 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
             self.th.loadAppInfoSignel.connect(self.loadAppInfo)
             self.th.attachOverSignel.connect(self.attachOver)
             self.th.searchAppInfoSignel.connect(self.searchAppInfoRes)
+            self.th.attachType = "attach"
             self.th.start()
         except Exception as ex:
             self.log("附加异常.err:" + str(ex))

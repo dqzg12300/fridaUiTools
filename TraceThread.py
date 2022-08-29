@@ -44,6 +44,7 @@ class Runthread(QThread):
         self.connType=connType
         self.address=""
         self.port=""
+        self.attachType=""
 
     def quit(self):
         if self.scripts:
@@ -76,6 +77,7 @@ class Runthread(QThread):
             source=""
         except Exception as ex:
             self.log("附加异常:"+str(ex))
+            self.attachOverSignel.emit("ERROR."+str(ex))
             return
 
         for item in self.hooksData:
@@ -340,22 +342,23 @@ class Runthread(QThread):
             manager = frida.get_device_manager()
             self.device = manager.add_remote_device(str_host)
 
-        application = self.device.get_frontmost_application()
-        if application == None:
-            self.log("附加异常,application is None")
-            self.attachOverSignel.emit("ERROR.无法获取到进程列表")
-            return
+        if self.attachType=="attachCurrent":
+            application = self.device.get_frontmost_application()
+            if application == None:
+                self.log("附加异常,application is None")
+                self.attachOverSignel.emit("ERROR.无法获取到进程列表")
+                return
 
-        target = 'Gadget' if application.identifier == 're.frida.Gadget' else application.name
-        packageName=application.identifier
-        if len(self.attachName) <= 0:
-            for process in self.device.enumerate_processes():
-                if target == process.name:
-                    self.attachName = process.name
-                    break
-                if packageName== process.name:
-                    self.attachName = packageName
-                    break
+            target = 'Gadget' if application.identifier == 're.frida.Gadget' else application.name
+            packageName=application.identifier
+            if len(self.attachName) <= 0:
+                for process in self.device.enumerate_processes():
+                    if target == process.name:
+                        self.attachName = process.name
+                        break
+                    if packageName== process.name:
+                        self.attachName = packageName
+                        break
 
         self._attach(self.attachName)
         print("thread over")
