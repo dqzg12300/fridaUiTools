@@ -380,7 +380,7 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
                 return
             res = CmdUtil.execCmd("adb push ./exec/frida-server-15.1.9-android-x86_64 /data/local/tmp")
             self.log(res)
-            if "file pushed" not in res:
+            if "file pushed" and "bytes in" not in res:
                 QMessageBox().information(self, "提示", "上传失败,可能未连接设备." + res)
                 return
             res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/frida*")
