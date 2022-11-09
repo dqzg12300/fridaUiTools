@@ -11,5 +11,5 @@ function klogData(data,key,value){
     message[key]=value;
     send(message);
 }
-
+klog("test2222");
 klogData("","init","%customFileName% init hook success");
