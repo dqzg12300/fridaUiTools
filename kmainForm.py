@@ -25,7 +25,7 @@ from forms.Tuoke import tuokeForm
 from forms.Wallbreaker import wallBreakerForm
 from forms.Wifi import wifiForm
 from forms.ZenTracer import zenTracerForm
-from ui.kmain import Ui_KmainWindow
+from ui.kmain import Ui_MainWindow
 from utils import LogUtil, CmdUtil, FileUtil
 import json, os, threading, frida
 import platform
@@ -33,7 +33,7 @@ import platform
 import TraceThread
 
 
-class kmainForm(QMainWindow, Ui_KmainWindow):
+class kmainForm(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(kmainForm, self).__init__(parent)
         self.setupUi(self)
@@ -100,6 +100,9 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
         self.actionPullApk.triggered.connect(self.PullApk)
         self.actionWifi.triggered.connect(self.WifiConn)
         self.actionUsb.triggered.connect(self.UsbConn)
+        self.ActionVer14.triggered.connect(self.ChangeVer14)
+        self.ActionVer15.triggered.connect(self.ChangeVer15)
+
         self.btnDumpPtr.clicked.connect(self.dumpPtr)
         self.btnDumpSo.clicked.connect(self.dumpSo)
         self.btnFart.clicked.connect(self.dumpFart)
@@ -185,6 +188,7 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
         self.connType="usb"
         self.address=""
         self.port=""
+        self.curFridaVer = "15.1.9"
 
     def clearSymbol(self):
         self.listSymbol.clear()
@@ -351,12 +355,12 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
 
     def PushFridaServer(self):
         try:
-            res = CmdUtil.execCmd("adb push ./exec/frida-server-15.1.9-android-arm /data/local/tmp")
+            res = CmdUtil.execCmd(f"adb push ./exec/frida-server-{self.curFridaVer}-android-arm /data/local/tmp")
             self.log(res)
             if "error" in res:
                 QMessageBox().information(self, "提示", "上传失败." + res)
                 return
-            res = CmdUtil.execCmd("adb push ./exec/frida-server-15.1.9-android-arm64 /data/local/tmp")
+            res = CmdUtil.execCmd(f"adb push ./exec/frida-server-{self.curFridaVer}-android-arm64 /data/local/tmp")
             self.log(res)
             if "file pushed" not in res:
                 QMessageBox().information(self, "提示", "上传失败,可能未连接设备." + res)
@@ -373,12 +377,12 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
 
     def PushFridaServerX86(self):
         try:
-            res = CmdUtil.execCmd("adb push ./exec/frida-server-15.1.9-android-x86 /data/local/tmp")
+            res = CmdUtil.execCmd(f"adb push ./exec/frida-server-{self.curFridaVer}-android-x86 /data/local/tmp")
             self.log(res)
             if "error" in res:
                 QMessageBox().information(self, "提示", "上传失败." + res)
                 return
-            res = CmdUtil.execCmd("adb push ./exec/frida-server-15.1.9-android-x86_64 /data/local/tmp")
+            res = CmdUtil.execCmd(f"adb push ./exec/frida-server-{self.curFridaVer}-android-x86_64 /data/local/tmp")
             self.log(res)
             if "file pushed" not in res:
                 QMessageBox().information(self, "提示", "上传失败,可能未连接设备." + res)
@@ -504,18 +508,32 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
             CmdUtil.execCmd("chmod 0777 " + projectPath + "/sh/tmp/*")
             cmd = "bash -c " + savefile
         os.system(cmd)
+        checkCmd=CmdUtil.cmdhead+" \"ps -e|grep frida\""
+        res= CmdUtil.execCmd(checkCmd)
+        if "frida-server" in res:
+            QMessageBox().information(self, "提示", "移动端成功启动frida"+self.curFridaVer)
+        else:
+            QMessageBox().information(self, "提示", f"移动端启动frida{self.curFridaVer}失败")
+
+    def ChangeVer14(self, checked):
+        self.ActionVer15.setChecked(checked == False)
+        self.curFridaVer="14.2.18"
+
+    def ChangeVer15(self, checked):
+        self.ActionVer14.setChecked(checked == False)
+        self.curFridaVer = "15.1.9"
 
     def Frida32Start(self):
-        self.ShStart("frida-server-15.1.9-android-arm")
+        self.ShStart(f"frida-server-{self.curFridaVer}-android-arm")
 
     def Frida64Start(self):
-        self.ShStart("frida-server-15.1.9-android-arm64")
+        self.ShStart(f"frida-server-{self.curFridaVer}-android-arm64")
 
     def FridaX86Start(self):
-        self.ShStart("frida-server-15.1.9-android-x86")
+        self.ShStart(f"frida-server-{self.curFridaVer}-android-x86")
 
     def FridaX64Start(self):
-        self.ShStart("frida-server-15.1.9-android-x86_64")
+        self.ShStart(f"frida-server-{self.curFridaVer}-android-x86_64")
 
     def changeCmdType(self):
         if self.actionSu0.isChecked():
@@ -1241,11 +1259,15 @@ class kmainForm(QMainWindow, Ui_KmainWindow):
     def stalkerOpLog(self):
         self.stalkerMatchForm.show()
 
+    def closeEvent(self, event):
+        CmdUtil.execCmd(CmdUtil.cmdhead + "\"pkill -9 frida\"")
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     kmain = kmainForm()
     kmain.show()
     sys.exit(app.exec_())
+
 
 

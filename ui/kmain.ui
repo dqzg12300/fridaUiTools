@@ -738,7 +738,7 @@
      <x>0</x>
      <y>0</y>
      <width>847</width>
-     <height>28</height>
+     <height>37</height>
     </rect>
    </property>
    <widget class="QMenu" name="menufile">
@@ -806,11 +806,19 @@
     <addaction name="actionUsb"/>
     <addaction name="actionWifi"/>
    </widget>
+   <widget class="QMenu" name="menufrida">
+    <property name="title">
+     <string>frida切换</string>
+    </property>
+    <addaction name="ActionVer14"/>
+    <addaction name="ActionVer15"/>
+   </widget>
    <addaction name="menufile"/>
    <addaction name="menuedit"/>
    <addaction name="menu"/>
    <addaction name="menucmd"/>
    <addaction name="menu_2"/>
+   <addaction name="menufrida"/>
    <addaction name="menuhelp"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
@@ -973,6 +981,25 @@
    </property>
    <property name="text">
     <string>wifi连接</string>
+   </property>
+  </action>
+  <action name="ActionVer14">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>14.2.18</string>
+   </property>
+  </action>
+  <action name="ActionVer15">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>15.1.9</string>
    </property>
   </action>
  </widget>

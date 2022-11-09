@@ -374,7 +374,7 @@ Java.perform(function () {
         return result;
     }
     cipher.init.overload('int', 'java.security.Key').implementation = function (a, b) {
-        //showStacks();
+        showStacks();
         var result = this.init(a, b);
         klog("======================================");
         if (N_ENCRYPT_MODE == a)
@@ -392,7 +392,7 @@ Java.perform(function () {
         return result;
     }
     cipher.init.overload('int', 'java.security.cert.Certificate').implementation = function (a, b) {
-        //showStacks();
+        showStacks();
         var result = this.init(a, b);
         klog("======================================");
 
@@ -408,7 +408,7 @@ Java.perform(function () {
         return result;
     }
     cipher.init.overload('int', 'java.security.Key', 'java.security.spec.AlgorithmParameterSpec').implementation = function (a, b, c) {
-        //showStacks();
+        showStacks();
         var result = this.init(a, b, c);
         klog("======================================");
 
@@ -428,7 +428,7 @@ Java.perform(function () {
         return result;
     }
     cipher.init.overload('int', 'java.security.cert.Certificate', 'java.security.SecureRandom').implementation = function (a, b, c) {
-        //showStacks();
+        showStacks();
         var result = this.init(a, b, c);
         if (N_ENCRYPT_MODE == a)
         {
@@ -441,7 +441,7 @@ Java.perform(function () {
         return result;
     }
     cipher.init.overload('int', 'java.security.Key', 'java.security.SecureRandom').implementation = function (a, b, c) {
-        //showStacks();
+        showStacks();
         var result = this.init(a, b, c);
         if (N_ENCRYPT_MODE == a)
         {
@@ -458,7 +458,7 @@ Java.perform(function () {
         return result;
     }
     cipher.init.overload('int', 'java.security.Key', 'java.security.AlgorithmParameters').implementation = function (a, b, c) {
-        //showStacks();
+        showStacks();
         var result = this.init(a, b, c);
         if (N_ENCRYPT_MODE == a)
         {
@@ -492,7 +492,7 @@ Java.perform(function () {
         return result;
     }
     cipher.init.overload('int', 'java.security.Key', 'java.security.spec.AlgorithmParameterSpec', 'java.security.SecureRandom').implementation = function (a, b, c, d) {
-        //showStacks();
+        showStacks();
         var result = this.init(a, b, c, d);
         if (N_ENCRYPT_MODE == a)
         {
@@ -503,7 +503,7 @@ Java.perform(function () {
             klog("init  | 解密模式");
         }
 
-         var bytes_key = b.getEncoded();
+        var bytes_key = b.getEncoded();
         klog("init key:" + "|str密钥:" + bytesToString(bytes_key));
         klog("init key:" + "|Hex密钥:" + bytesToHex(bytes_key));
         return result;
