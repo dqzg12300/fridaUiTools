@@ -1,6 +1,6 @@
 {
   "r0capture":{"class":"","method":"","bak":"hook网络相关.参考自git项目r0capture"},
-  "jnitrace":{"class":"","method":"","bak":"hook网络相关.参考自git项目jnitrace"},
+  "jnitrace":{"class":"","method":"","bak":"hook网络相关.参考自git项目jnitrace,需要指定so和native函数"},
   "javaFile":{"class":"","method":"","bak":"hook java的File类的所有函数"},
   "javaEnc":{"class":"","method":"","bak":"hook java的算法加解密相关的所有函数"},
   "javaString":{"class":"","method":"","bak":"hook java的String的所有函数"},
@@ -13,5 +13,7 @@
   "cookieDump": {"class":"","method":"","bak":"通过DexFile的mCookie的属性解析进行脱壳"},
   "FRIDA-DEXDump":{"class":"","method":"","bak":"搜索内存中的dex特征dump.参考自git项目FRIDA-DEXDump"},
   "fart":{"class":"","method":"","bak":"主动调用式的脱壳参考自git项目fart"},
-  "hookEvent": {"class":"","method":"","bak":"hook所有控件的点击事件"}
+  "hookEvent": {"class":"","method":"","bak":"hook所有控件的点击事件"},
+  "anti_debug": {"class":"","method":"","bak":"简单的一键反调试.参考项目来自于FridaContainer"},
+  "FCAnd_jnitrace": {"class":"","method":"","bak":"简化的jnitrace,不需要指定module和函数了.参考项目来自于FridaContainer"}
 }

@@ -1,4 +1,87 @@
 //默认使用,后面再搞点默认hook功能
+
+
+
+function registGson() {
+    // const dexbase64 = gjson_dex;
+    // DMLog.i('registGson', 'entry: ' + dexbase64.length);
+    //
+    // var application = Java.use("android.app.Application");
+    // const bytes = new Buffer(dexbase64, 'base64');
+    // const dexpath = application.$f.cacheDir + '/gson.jar';
+    // const f = new File(dexpath, 'wb+');
+    // f.write(bytes.buffer as ArrayBuffer);
+    // f.flush()
+    // f.close()
+    try {
+        let dexpath = '/data/local/tmp/r0gson.dex';
+        Java.openClassFile(dexpath).load();
+    }
+    catch (e) {
+        var message={};
+        message["jsname"]="default";
+        message["data"]='exception,请上传gson' + e.toString();
+        send(message);
+    }
+}
+
+function parseObject(data) {
+    try {
+        const declaredFields = data.class.getDeclaredFields();
+        let res = {};
+        for (let i = 0; i < declaredFields.length; i++) {
+            const field = declaredFields[i];
+            field.setAccessible(true);
+            const type = field.getType();
+            let fdata = field.get(data);
+            if (null != fdata) {
+                if (type.getName() != "[B") {
+                    fdata = fdata.toString();
+                }
+                else {
+                    fdata = Java.array('byte', fdata);
+                    fdata = JSON.stringify(fdata);
+                }
+            }
+            // @ts-ignore
+            res[field.getName()] = fdata;
+        }
+        return JSON.stringify(res);
+    }
+    catch (e) {
+        return "parseObject except: " + e.toString();
+    }
+}
+
+function toJSONString(obj) {
+    if (null == obj) {
+        return "obj is null";
+    }
+    let resstr = "";
+    let GsonBuilder = null;
+    try {
+        GsonBuilder = Java.use('com.r0ysue.gson.Gson');
+    }
+    catch (e) {
+        registGson();
+        GsonBuilder = Java.use('com.r0ysue.gson.Gson');
+    }
+    if (null != GsonBuilder) {
+        try {
+            const gson = GsonBuilder.$new();
+            resstr = gson.toJson(obj);
+        }
+        catch (e) {
+            var message={};
+            message["jsname"]="default";
+            message["data"]='gson.toJson exceipt: ' + e.toString();
+            send(message);
+            resstr = parseObject(obj);
+        }
+    }
+    return resstr;
+}
+
 (function(){
 
 function klog(data){
@@ -56,6 +139,8 @@ function showMethods(postdata){
         klog("find count:"+cnt);
     });
 }
+
+
 //查找so的符号
 function showExport(postdata){
     var inputModule=postdata["moduleName"];
@@ -223,6 +308,8 @@ function loadAppInfo(){
         klogData("加载appinfo","appinfo",JSON.stringify(appinfo))
     })
 }
+
+
 
 function main(){
     klogData("","init","default.js init hook success")

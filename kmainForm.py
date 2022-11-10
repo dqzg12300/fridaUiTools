@@ -100,8 +100,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.actionPullApk.triggered.connect(self.PullApk)
         self.actionWifi.triggered.connect(self.WifiConn)
         self.actionUsb.triggered.connect(self.UsbConn)
-        self.ActionVer14.triggered.connect(self.ChangeVer14)
-        self.ActionVer15.triggered.connect(self.ChangeVer15)
+        self.actionVer14.triggered.connect(self.ChangeVer14)
+        self.actionVer15.triggered.connect(self.ChangeVer15)
 
         self.btnDumpPtr.clicked.connect(self.dumpPtr)
         self.btnDumpSo.clicked.connect(self.dumpSo)
@@ -118,6 +118,9 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.chkArtMethod.toggled.connect(self.hookArtMethod)
         self.chkLibArt.toggled.connect(self.hookLibArm)
         self.chkSslPining.toggled.connect(self.hookSslPining)
+
+        self.chkAntiDebug.toggled.connect(self.hookAntiDebug)
+        self.chkNewJnitrace.toggled.connect(self.hookNewJnitrace)
 
         self.btnMatchMethod.clicked.connect(self.matchMethod)
 
@@ -317,6 +320,12 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         if "file pushed" not in res:
             QMessageBox().information(self, "提示", "上传失败,可能未连接设备."+res)
             return
+
+        res = CmdUtil.execCmd("adb push ./exec/r0gson.dex /data/local/tmp/r0gson.dex")
+        self.log(res)
+        res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/gson.jar")
+        self.log(res)
+
 
         res = CmdUtil.execCmd("adb push ./lib/fart64.so /data/local/tmp/fart/fart64.so")
         self.log(res)
@@ -849,13 +858,12 @@ class kmainForm(QMainWindow, Ui_MainWindow):
                 self.hooksData.pop(typeStr)
                 self.updateTabHooks()
 
-    def hookNetwork(self, checked):
-        typeStr = "r0capture"
+    def chk_hook_insert(self,checked,typeStr,msg):
         self.hook_add(checked, typeStr)
         if checked:
-            self.log("hook网络相关")
+            self.log("hook "+msg)
         else:
-            self.log("取消hook网络相关")
+            self.log("取消hook "+msg)
 
     def hookJNI(self, checked):
         typeStr = "jnitrace"
@@ -877,53 +885,32 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.hooksData[typeStr] = jniHook
         self.updateTabHooks()
 
+    def hookNetwork(self, checked):
+        self.chk_hook_insert(checked,"r0capture","网络相关")
+
     def hookJavaEnc(self, checked):
-        typeStr = "javaEnc"
-        self.hook_add(checked, typeStr)
-        if checked:
-            self.log("hook java的算法加解密所有函数")
-        else:
-            self.log("取消hook java的算法加解密所有函数")
+        self.chk_hook_insert(checked, "javaEnc", "java的算法加解密所有函数")
 
     def hookEvent(self, checked):
-        typeStr = "hookEvent"
-        self.hook_add(checked, typeStr)
-        if checked:
-            self.log("hook所有控件的点击事件")
-        else:
-            self.log("取消hook所有控件的点击事件")
+        self.chk_hook_insert(checked, "hookEvent", "控件的点击事件")
 
     def hookRegisterNative(self, checked):
-        typeStr = "RegisterNative"
-        self.hook_add(checked, typeStr)
-        if checked:
-            self.log("hook RegisterNative")
-        else:
-            self.log("取消hook RegisterNative")
+        self.chk_hook_insert(checked, "RegisterNative", "RegisterNative")
 
     def hookArtMethod(self, checked):
-        typeStr = "ArtMethod"
-        self.hook_add(checked, typeStr)
-        if checked:
-            self.log("hook ArtMethod")
-        else:
-            self.log("取消hook ArtMethod")
+        self.chk_hook_insert(checked, "ArtMethod", "ArtMethod")
 
     def hookLibArm(self, checked):
-        typeStr = "libArm"
-        self.hook_add(checked, typeStr)
-        if checked:
-            self.log("hook libArm")
-        else:
-            self.log("取消hook libArm")
+        self.chk_hook_insert(checked, "libArm", "libArm")
 
     def hookSslPining(self, checked):
-        typeStr = "sslpining"
-        self.hook_add(checked, typeStr)
-        if checked:
-            self.log("hook证书锁定")
-        else:
-            self.log("取消hook证书锁定")
+        self.chk_hook_insert(checked, "sslpining", "证书锁定")
+
+    def hookAntiDebug(self,checked):
+        self.chk_hook_insert(checked, "anti_debug", "简单一键反调试")
+
+    def hookNewJnitrace(self,checked):
+        self.chk_hook_insert(checked, "FCAnd_jnitrace", "新的jnitrace")
 
     def matchMethod(self):
         self.zenTracerForm.flushCmb()

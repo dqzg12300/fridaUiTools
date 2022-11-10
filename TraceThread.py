@@ -79,7 +79,7 @@ class Runthread(QThread):
             self.log("附加异常:"+str(ex))
             self.attachOverSignel.emit("ERROR."+str(ex))
             return
-
+        source += open("./js/default.js", 'r', encoding="utf8").read()
         for item in self.hooksData:
             if item=="r0capture":
                 source+=open('./js/r0capture.js', 'r',encoding="utf8").read()
@@ -175,9 +175,13 @@ class Runthread(QThread):
                     source = source.replace("{PATCHLIST}", json.dumps(patchList))
                     source = source.replace("%spawn%", "1" if self.isSpawn else "")
                     source = source.replace("%moduleName%",moduleName)
+            elif item=="anti_debug":
+                source += open("./js/anti_debug.js", 'r', encoding="utf8").read()
+            elif item=="FCAnd_jnitrace":
+                source += open("./js/FCAnd_jnitrace.js", 'r', encoding="utf8").read()
 
 
-        source += open("./js/default.js", 'r', encoding="utf8").read()
+
         source = source.replace("%spawn%", "1" if self.isSpawn else "")
         source += open("./js/Wallbreaker.js", 'r', encoding="utf8").read()
 
@@ -257,6 +261,14 @@ class Runthread(QThread):
         else:
             self.outlog(json.dumps(p))
 
+    def fcand_jnitrace_message(self,p):
+        data=p["data"]
+        try:
+            dataJson=eval(data)
+            msg=json.dumps(dataJson,indent=2)
+            self.outlog(msg)
+        except:
+            self.outlog(data)
 
     def other_message(self,p):
         self.outlog(p["data"])
@@ -323,6 +335,8 @@ class Runthread(QThread):
             self.r0capture_message(message["payload"],data)
         elif message["payload"]["jsname"]=="sktrace":
             self.sktrace_message(message["payload"])
+        elif message["payload"]["jsname"] == "FCAnd_Jnitrace":
+            self.fcand_jnitrace_message(message["payload"])
         else:
             self.other_message(message["payload"])
 

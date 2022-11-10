@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>847</width>
-    <height>801</height>
+    <height>841</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -188,9 +188,23 @@
                </property>
               </widget>
              </item>
+             <item row="2" column="0">
+              <widget class="QCheckBox" name="chkAntiDebug">
+               <property name="text">
+                <string>anti_debug</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QCheckBox" name="chkNewJnitrace">
+               <property name="text">
+                <string>FCAnd_jnitrace</string>
+               </property>
+              </widget>
+             </item>
             </layout>
            </item>
-           <item row="1" column="0">
+           <item row="2" column="0">
             <layout class="QHBoxLayout" name="horizontalLayout">
              <item>
               <widget class="QPushButton" name="btnMatchMethod">
@@ -810,8 +824,8 @@
     <property name="title">
      <string>frida切换</string>
     </property>
-    <addaction name="ActionVer14"/>
-    <addaction name="ActionVer15"/>
+    <addaction name="actionVer14"/>
+    <addaction name="actionVer15"/>
    </widget>
    <addaction name="menufile"/>
    <addaction name="menuedit"/>
@@ -889,7 +903,7 @@
   </action>
   <action name="actionPushFartSo">
    <property name="text">
-    <string>上传fart.so到设备</string>
+    <string>上传fart.so,gson.jar到设备</string>
    </property>
   </action>
   <action name="actionClearHookJson">
@@ -983,7 +997,7 @@
     <string>wifi连接</string>
    </property>
   </action>
-  <action name="ActionVer14">
+  <action name="actionVer14">
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -991,7 +1005,7 @@
     <string>14.2.18</string>
    </property>
   </action>
-  <action name="ActionVer15">
+  <action name="actionVer15">
    <property name="checkable">
     <bool>true</bool>
    </property>
