@@ -1247,7 +1247,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.stalkerMatchForm.show()
 
     def closeEvent(self, event):
-        CmdUtil.execCmd(CmdUtil.cmdhead + "\"pkill -9 frida\"")
+        if platform.system() != "Windows" and platform.system() != "Linux":
+            CmdUtil.execCmd(CmdUtil.cmdhead + "\"pkill -9 frida\"")
 
 
 if __name__ == "__main__":
