@@ -752,7 +752,7 @@
      <x>0</x>
      <y>0</y>
      <width>847</width>
-     <height>37</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menufile">
@@ -763,6 +763,7 @@
     <addaction name="actionClearLogs"/>
     <addaction name="actionClearOutlog"/>
     <addaction name="actionClearHookJson"/>
+    <addaction name="actionConsoleLog"/>
    </widget>
    <widget class="QMenu" name="menuedit">
     <property name="title">
@@ -788,6 +789,7 @@
     <addaction name="menuAttach"/>
     <addaction name="actionStop"/>
     <addaction name="menu_frida_server"/>
+    <addaction name="actionChangePort"/>
    </widget>
    <widget class="QMenu" name="menuhelp">
     <property name="title">
@@ -1014,6 +1016,16 @@
    </property>
    <property name="text">
     <string>15.1.9</string>
+   </property>
+  </action>
+  <action name="actionChangePort">
+   <property name="text">
+    <string>修改默认端口</string>
+   </property>
+  </action>
+  <action name="actionConsoleLog">
+   <property name="text">
+    <string>关闭输出日志</string>
    </property>
   </action>
  </widget>
