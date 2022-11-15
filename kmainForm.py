@@ -53,6 +53,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         # 日志目录
         if os.path.exists("./logs") == False:
             os.makedirs("./logs")
+        if os.path.exists("./pcap") == False:
+            os.makedirs("./pcap")
         # 缓存数据目录 modules  classes
         if os.path.exists("./tmp") == False:
             os.makedirs("./tmp")

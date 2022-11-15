@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
+import random
 import re
 import socket
 import struct
+import time
 from copy import copy
 
 from PyQt5.QtCore import *
@@ -65,7 +67,8 @@ class Runthread(QThread):
         self.outloggerSignel.emit(msg)
 
     def _attach(self,pname):
-        if not self.device: return
+        if not self.device:
+            return
         self.log("attach '{}'".format(pname))
         try:
             if self.isSpawn:
@@ -83,7 +86,19 @@ class Runthread(QThread):
         source += open("./js/default.js", 'r', encoding="utf8").read()
         for item in self.hooksData:
             if item=="r0capture":
+                curtime=time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(time.time()))
                 source+=open('./js/r0capture.js', 'r',encoding="utf8").read()
+                self.ssl_sessions={}
+                self.pcap_file = open(f"./pcap/r0capture_{curtime}.pcap", "wb", 0)
+                for writes in (
+                        ("=I", 0xa1b2c3d4),  # Magic number
+                        ("=H", 2),  # Major version number
+                        ("=H", 4),  # Minor version number
+                        ("=i", time.timezone),  # GMT to local correction
+                        ("=I", 0),  # Accuracy of timestamps
+                        ("=I", 65535),  # Max length of captured packets
+                        ("=I", 228)):  # Data link type (LINKTYPE_IPV4)
+                    self.pcap_file.write(struct.pack(writes[0], writes[1]))
             elif item=="jnitrace":
                 source+=open('./js/jni_trace_new.js', 'r',encoding="utf8").read()
                 source=source.replace("%moduleName%",self.hooksData[item]["class"])
@@ -199,7 +214,65 @@ class Runthread(QThread):
             mds = []
             self.dump(pname, script.exports, mds=mds)
 
+    def log_pcap(self,pcap_file, ssl_session_id, function, src_addr, src_port,
+                 dst_addr, dst_port, data):
+        """Writes the captured data to a pcap file.
+        Args:
+          pcap_file: The opened pcap file.
+          ssl_session_id: The SSL session ID for the communication.
+          function: The function that was intercepted ("SSL_read" or "SSL_write").
+          src_addr: The source address of the logged packet.
+          src_port: The source port of the logged packet.
+          dst_addr: The destination address of the logged packet.
+          dst_port: The destination port of the logged packet.
+          data: The decrypted packet data.
+        """
+        t = time.time()
 
+        if ssl_session_id not in self.ssl_sessions:
+            self.ssl_sessions[ssl_session_id] = (random.randint(0, 0xFFFFFFFF),
+                                            random.randint(0, 0xFFFFFFFF))
+        client_sent, server_sent = self.ssl_sessions[ssl_session_id]
+
+        if function == "SSL_read":
+            seq, ack = (server_sent, client_sent)
+        else:
+            seq, ack = (client_sent, server_sent)
+
+        for writes in (
+                # PCAP record (packet) header
+                ("=I", int(t)),  # Timestamp seconds
+                ("=I", int((t * 1000000) % 1000000)),  # Timestamp microseconds
+                ("=I", 40 + len(data)),  # Number of octets saved
+                ("=i", 40 + len(data)),  # Actual length of packet
+                # IPv4 header
+                (">B", 0x45),  # Version and Header Length
+                (">B", 0),  # Type of Service
+                (">H", 40 + len(data)),  # Total Length
+                (">H", 0),  # Identification
+                (">H", 0x4000),  # Flags and Fragment Offset
+                (">B", 0xFF),  # Time to Live
+                (">B", 6),  # Protocol
+                (">H", 0),  # Header Checksum
+                (">I", src_addr),  # Source Address
+                (">I", dst_addr),  # Destination Address
+                # TCP header
+                (">H", src_port),  # Source Port
+                (">H", dst_port),  # Destination Port
+                (">I", seq),  # Sequence Number
+                (">I", ack),  # Acknowledgment Number
+                (">H", 0x5018),  # Header Length and Flags
+                (">H", 0xFFFF),  # Window Size
+                (">H", 0),  # Checksum
+                (">H", 0)):  # Urgent Pointer
+            pcap_file.write(struct.pack(writes[0], writes[1]))
+        pcap_file.write(data)
+
+        if function == "SSL_read":
+            server_sent += len(data)
+        else:
+            client_sent += len(data)
+        self.ssl_sessions[ssl_session_id] = (client_sent, server_sent)
 
     def r0capture_message(self,p,data):
         if data==None or len(data) == 1:
@@ -223,6 +296,9 @@ class Runthread(QThread):
         self.outlog(p["stack"])
         res= hexdump.hexdump(data,"return")
         self.outlog("\n"+res)
+
+        self.log_pcap(self.pcap_file, p["ssl_session_id"], p["function"], p["src_addr"],
+                 p["src_port"], p["dst_addr"], p["dst_port"], data)
 
     def default_message(self,p):
         if "appinfo" in p:
