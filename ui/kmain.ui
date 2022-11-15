@@ -752,7 +752,7 @@
      <x>0</x>
      <y>0</y>
      <width>847</width>
-     <height>22</height>
+     <height>37</height>
     </rect>
    </property>
    <widget class="QMenu" name="menufile">
@@ -814,6 +814,7 @@
     </property>
     <addaction name="actionSuC"/>
     <addaction name="actionSu0"/>
+    <addaction name="actionMks0"/>
    </widget>
    <widget class="QMenu" name="menu_2">
     <property name="title">
@@ -1024,8 +1025,19 @@
    </property>
   </action>
   <action name="actionConsoleLog">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
    <property name="text">
     <string>关闭输出日志</string>
+   </property>
+  </action>
+  <action name="actionMks0">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>adb shell mks 0</string>
    </property>
   </action>
  </widget>

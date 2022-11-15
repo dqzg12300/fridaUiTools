@@ -2,11 +2,13 @@
 import datetime
 import re
 import sys
+from time import sleep
+
 from PyQt5 import uic, QtWidgets
 from PyQt5.QtCore import Qt, QPoint
 from PyQt5.QtGui import QStandardItemModel, QStandardItem, QCursor
 from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog, QStatusBar, QLabel, QMessageBox, QHeaderView, \
-    QTableWidgetItem, QMenu, QAction
+    QTableWidgetItem, QMenu, QAction, QActionGroup
 
 from forms import SelectPackage
 from forms.CallFunction import callFunctionForm
@@ -18,6 +20,7 @@ from forms.FartBin import fartBinForm
 from forms.JniTrace import jnitraceForm
 from forms.Natives import nativesForm
 from forms.Patch import patchForm
+from forms.Port import portForm
 from forms.SpawnAttach import spawnAttachForm
 from forms.Stalker import stalkerForm
 from forms.StalkerOp import stalkerMatchForm
@@ -93,8 +96,9 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.actionPullFartRes.triggered.connect(self.PullFartRes)
         self.actionFrida32Start.triggered.connect(self.Frida32Start)
         self.actionFrida64Start.triggered.connect(self.Frida64Start)
-        self.actionSuC.triggered.connect(self.changeSuC)
-        self.actionSu0.triggered.connect(self.changeSu0)
+        self.actionSuC.triggered.connect(self.ChangeSuC)
+        self.actionSu0.triggered.connect(self.ChangeSu0)
+        self.actionMks0.triggered.connect(self.ChangeMks0)
         self.actionFridax86Start.triggered.connect(self.FridaX86Start)
         self.actionFridax64Start.triggered.connect(self.FridaX64Start)
         self.actionPullApk.triggered.connect(self.PullApk)
@@ -102,6 +106,12 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.actionUsb.triggered.connect(self.UsbConn)
         self.actionVer14.triggered.connect(self.ChangeVer14)
         self.actionVer15.triggered.connect(self.ChangeVer15)
+        self.actionChangePort.triggered.connect(self.ChangePort)
+
+        self.adbHeadGroup=QActionGroup(self)
+        self.adbHeadGroup.addAction(self.actionMks0)
+        self.adbHeadGroup.addAction(self.actionSuC)
+        self.adbHeadGroup.addAction(self.actionSu0)
 
         self.btnDumpPtr.clicked.connect(self.dumpPtr)
         self.btnDumpSo.clicked.connect(self.dumpSo)
@@ -174,6 +184,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.fartBinForm = fartBinForm()
         self.stalkerMatchForm = stalkerMatchForm()
         self.wifiForm=wifiForm()
+        self.portForm = portForm()
 
         self.modules = None
         self.classes = None
@@ -192,6 +203,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.address=""
         self.port=""
         self.curFridaVer = "15.1.9"
+        self.customPort=""
 
     def clearSymbol(self):
         self.listSymbol.clear()
@@ -268,8 +280,9 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
     # 打印输出日志
     def outlog(self, logstr):
-        datestr = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S   ')
-        self.txtoutLogs.appendPlainText(datestr + logstr)
+        if self.actionConsoleLog.isChecked()==False:
+            datestr = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S   ')
+            self.txtoutLogs.appendPlainText(datestr + logstr)
         self.outlogger.logger.debug(logstr)
         if "default.js init hook success" in logstr:
             QMessageBox().information(self, "提示", "附加进程成功")
@@ -489,12 +502,21 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         data = FileUtil.readFile(rfile)
         if self.connType == "wifi":
             data = data.replace("%fridaName%", name + " -l 0.0.0.0:" + self.port)
+            data.replace("%customPort%", "")
         elif self.connType == "usb":
-            data = data.replace("%fridaName%", name)
+            if self.customPort!=None and len(self.customPort)>0:
+                data = data.replace("%fridaName%", name + " -l 0.0.0.0:" + self.customPort)
+                data=data.replace("%customPort%",f"adb forward tcp:{self.customPort} tcp:{self.customPort}")
+            else:
+                data = data.replace("%fridaName%", name)
+                data = data.replace("%customPort%","")
         if self.actionSu0.isChecked():
             data = data.replace("%sumod%", "su 0")
-        else:
+        elif self.actionSuC.isChecked():
             data = data.replace("%sumod%", "su -c")
+        elif self.actionMks0.isChecked():
+            data = data.replace("%sumod%", "mks 0")
+
         FileUtil.writeFile(wfile,data)
 
     def ShStart(self, name):
@@ -517,10 +539,14 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             CmdUtil.execCmd("chmod 0777 " + projectPath + "/sh/tmp/*")
             cmd = "bash -c " + savefile
         os.system(cmd)
+        sleep(1)
         checkCmd=CmdUtil.cmdhead+" \"ps -e|grep frida\""
         res= CmdUtil.execCmd(checkCmd)
         if "frida-server" in res:
-            QMessageBox().information(self, "提示", "移动端成功启动frida"+self.curFridaVer)
+            portStr=""
+            if self.customPort!=None and len(self.customPort)>0:
+                portStr=" 端口:"+self.customPort
+            QMessageBox().information(self, "提示", "移动端成功启动frida"+self.curFridaVer+portStr)
         else:
             QMessageBox().information(self, "提示", f"移动端启动frida{self.curFridaVer}失败")
 
@@ -531,6 +557,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
     def ChangeVer15(self, checked):
         self.ActionVer14.setChecked(checked == False)
         self.curFridaVer = "15.1.9"
+
 
     def Frida32Start(self):
         self.ShStart(f"frida-server-{self.curFridaVer}-android-arm")
@@ -544,19 +571,23 @@ class kmainForm(QMainWindow, Ui_MainWindow):
     def FridaX64Start(self):
         self.ShStart(f"frida-server-{self.curFridaVer}-android-x86_64")
 
-    def changeCmdType(self):
-        if self.actionSu0.isChecked():
-            CmdUtil.cmdhead = self.actionSu0.text()
-        else:
-            CmdUtil.cmdhead = self.actionSuC.text()
+    def changeCmdType(self,data):
+        CmdUtil.cmdhead = data
 
-    def changeSuC(self, checked):
-        self.actionSu0.setChecked(checked == False)
-        self.changeCmdType()
+    def ChangeSuC(self, checked):
+        if checked==False:
+            return
+        self.changeCmdType(self.actionSuC.text())
 
-    def changeSu0(self, checked):
-        self.actionSuC.setChecked(checked == False)
-        self.changeCmdType()
+    def ChangeSu0(self, checked):
+        if checked==False:
+            return
+        self.changeCmdType(self.actionSu0.text())
+
+    def ChangeMks0(self,checked):
+        if checked==False:
+            return
+        self.changeCmdType(self.actionMks0.text())
 
     def ClearHookJson(self):
         path = "./hooks/"
@@ -596,7 +627,13 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
     def getFridaDevice(self):
         if self.connType=="usb":
-            return frida.get_usb_device()
+            if self.customPort != None and len(self.customPort) > 0:
+                str_host = "127.0.0.1:%s" % (self.customPort)
+                manager = frida.get_device_manager()
+                device = manager.add_remote_device(str_host)
+                return device
+            else:
+                return frida.get_usb_device()
         elif self.connType=="wifi":
             str_host = "%s:%s" % (self.address, self.port)
             manager = frida.get_device_manager()
@@ -619,6 +656,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.th = TraceThread.Runthread(self.hooksData, "", False,self.connType)
             self.th.address=self.address
             self.th.port=self.port
+            self.th.customPort=self.customPort
             self.th.taskOverSignel.connect(self.taskOver)
             self.th.loggerSignel.connect(self.log)
             self.th.outloggerSignel.connect(self.outlog)
@@ -708,6 +746,12 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         except Exception as ex:
             self.log("附加异常.err:" + str(ex))
             QMessageBox().information(self, "提示", "附加进程失败." + str(ex))
+
+    def ChangePort(self):
+        res=self.portForm.exec()
+        if res==0:
+            return
+        self.customPort = self.portForm.port
 
     def WifiConn(self):
         res=self.wifiForm.exec()

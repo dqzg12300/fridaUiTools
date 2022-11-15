@@ -45,6 +45,7 @@ class Runthread(QThread):
         self.address=""
         self.port=""
         self.attachType=""
+        self.customPort=None
 
     def quit(self):
         if self.scripts:
@@ -348,16 +349,25 @@ class Runthread(QThread):
 
     def run(self):
         if self.connType=="usb":
-            self.device = frida.get_usb_device()
             # self.device.on("child-added", self._on_child_added)
-
+            if self.customPort!=None and len(self.customPort)>0:
+                str_host = "%s:%s" % ("127.0.0.1", self.customPort)
+                manager = frida.get_device_manager()
+                self.device = manager.add_remote_device(str_host)
+            else:
+                self.device = frida.get_usb_device()
         elif self.connType=="wifi":
             str_host = "%s:%s"%(self.address,self.port)
             manager = frida.get_device_manager()
             self.device = manager.add_remote_device(str_host)
 
         if self.attachType=="attachCurrent":
-            application = self.device.get_frontmost_application()
+            try:
+                application = self.device.get_frontmost_application()
+            except Exception as err:
+                self.log("附加异常,application is None err:%s"%err)
+                self.attachOverSignel.emit("ERROR.无法获取到进程列表")
+                return
             if application == None:
                 self.log("附加异常,application is None")
                 self.attachOverSignel.emit("ERROR.无法获取到进程列表")
