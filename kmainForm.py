@@ -101,6 +101,11 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.actionSuC.triggered.connect(self.ChangeSuC)
         self.actionSu0.triggered.connect(self.ChangeSu0)
         self.actionMks0.triggered.connect(self.ChangeMks0)
+        self.adbHeadGroup = QActionGroup(self)
+        self.adbHeadGroup.addAction(self.actionMks0)
+        self.adbHeadGroup.addAction(self.actionSuC)
+        self.adbHeadGroup.addAction(self.actionSu0)
+
         self.actionFridax86Start.triggered.connect(self.FridaX86Start)
         self.actionFridax64Start.triggered.connect(self.FridaX64Start)
         self.actionPullApk.triggered.connect(self.PullApk)
@@ -109,11 +114,9 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.actionVer14.triggered.connect(self.ChangeVer14)
         self.actionVer15.triggered.connect(self.ChangeVer15)
         self.actionChangePort.triggered.connect(self.ChangePort)
-
-        self.adbHeadGroup=QActionGroup(self)
-        self.adbHeadGroup.addAction(self.actionMks0)
-        self.adbHeadGroup.addAction(self.actionSuC)
-        self.adbHeadGroup.addAction(self.actionSu0)
+        self.verGroup = QActionGroup(self)
+        self.verGroup.addAction(self.actionVer14)
+        self.verGroup.addAction(self.actionVer15)
 
         self.btnDumpPtr.clicked.connect(self.dumpPtr)
         self.btnDumpSo.clicked.connect(self.dumpSo)
@@ -206,6 +209,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.port=""
         self.curFridaVer = "15.1.9"
         self.customPort=""
+        # self.actionVer14.setChecked(True)
 
     def clearSymbol(self):
         self.listSymbol.clear()
@@ -553,11 +557,13 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             QMessageBox().information(self, "提示", f"移动端启动frida{self.curFridaVer}失败")
 
     def ChangeVer14(self, checked):
-        self.ActionVer15.setChecked(checked == False)
+        if checked==False:
+            return
         self.curFridaVer="14.2.18"
 
     def ChangeVer15(self, checked):
-        self.ActionVer14.setChecked(checked == False)
+        if checked==False:
+            return
         self.curFridaVer = "15.1.9"
 
 
