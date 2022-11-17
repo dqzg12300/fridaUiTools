@@ -207,9 +207,9 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.connType="usb"
         self.address=""
         self.port=""
-        self.curFridaVer = "15.1.9"
+        self.curFridaVer = "14.2.18"
         self.customPort=""
-        # self.actionVer14.setChecked(True)
+        self.actionVer14.setChecked(True)
 
     def clearSymbol(self):
         self.listSymbol.clear()
@@ -523,6 +523,10 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         elif self.actionMks0.isChecked():
             data = data.replace("%sumod%", "mks 0")
 
+        if platform.system()=="Darwin":
+            adbPath= CmdUtil.execCmdData("which adb")
+            data=data.replace("%adb%",adbPath.replace("\n",""))
+
         FileUtil.writeFile(wfile,data)
 
     def ShStart(self, name):
@@ -545,16 +549,6 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             CmdUtil.execCmd("chmod 0777 " + projectPath + "/sh/tmp/*")
             cmd = "bash -c " + savefile
         os.system(cmd)
-        sleep(1)
-        checkCmd=CmdUtil.cmdhead+" \"ps -e|grep frida\""
-        res= CmdUtil.execCmd(checkCmd)
-        if "frida-server" in res:
-            portStr=""
-            if self.customPort!=None and len(self.customPort)>0:
-                portStr=" 端口:"+self.customPort
-            QMessageBox().information(self, "提示", "移动端成功启动frida"+self.curFridaVer+portStr)
-        else:
-            QMessageBox().information(self, "提示", f"移动端启动frida{self.curFridaVer}失败")
 
     def ChangeVer14(self, checked):
         if checked==False:
@@ -1298,8 +1292,9 @@ class kmainForm(QMainWindow, Ui_MainWindow):
     def stalkerOpLog(self):
         self.stalkerMatchForm.show()
 
+    # 不关闭的话，mac下调试时退出会出现无法关闭进程
     def closeEvent(self, event):
-        if platform.system() != "Windows" and platform.system() != "Linux":
+        if platform.system() =='Darwin':
             CmdUtil.execCmd(CmdUtil.cmdhead + "\"pkill -9 frida\"")
 
 

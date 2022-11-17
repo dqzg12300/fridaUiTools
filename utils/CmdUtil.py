@@ -24,6 +24,10 @@ def execCmd(cmd):
         text ="cmd命令执行" + cmd
     return text
 
+def execCmdData(cmd):
+    text = exec(cmd)
+    return text
+
 def dumpdexInit(packageName):
     path = "/data/data/" + packageName + "/files/" + "/dump_dex_" + packageName
     res=""
