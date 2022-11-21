@@ -20,6 +20,7 @@ class jnitraceForm(QDialog,Ui_JniTraceDialog):
         self.txtModule.textChanged.connect(self.changeModule)
         self.cmbPackage.currentTextChanged.connect(self.changePackage)
         self.modules=None
+        self.checkData=True
 
     def initData(self):
         self.listModule.clear()
@@ -66,9 +67,10 @@ class jnitraceForm(QDialog,Ui_JniTraceDialog):
 
 
     def submit(self):
-        if len(self.txtModule.text())<=0 or len(self.txtMethod.text())<=0:
-            QMessageBox().information(self, "提示", "模块名或函数为空")
-            return
+        if self.checkData:
+            if len(self.txtModule.text())<=0 or len(self.txtMethod.text())<=0:
+                QMessageBox().information(self, "提示", "模块名或函数为空")
+                return
         self.moduleName = self.txtModule.text()
         self.methodName = self.txtMethod.text()
         self.accept()

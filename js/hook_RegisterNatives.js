@@ -61,6 +61,6 @@ function hook_RegisterNatives() {
     }
 }
 
-setImmediate(hook_RegisterNatives);
+hook_RegisterNatives()
 
 })();

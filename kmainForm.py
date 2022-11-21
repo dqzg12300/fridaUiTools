@@ -176,6 +176,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
         self.dumpForm = dumpAddressForm()
         self.jniform = jnitraceForm()
+        self.newJniform=jnitraceForm()
         self.zenTracerForm = zenTracerForm()
         self.nativesForm = nativesForm()
         self.spawnAttachForm = spawnAttachForm()
@@ -207,9 +208,9 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.connType="usb"
         self.address=""
         self.port=""
-        self.curFridaVer = "14.2.18"
         self.customPort=""
-        self.actionVer14.setChecked(True)
+        self.curFridaVer = "15.1.9"
+        # self.actionVer14.setChecked(True)
 
     def clearSymbol(self):
         self.listSymbol.clear()
@@ -473,6 +474,10 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         if "error" in res:
             QMessageBox().information(self, "提示", res)
             return
+        lines=res.split("\n")
+        for tmpline in lines:
+            if len(tmpline)>0:
+                line=tmpline
         line = re.split(r"[ /]", res)
         if len(line) < 5:
             QMessageBox().information(self, "提示", "匹配失败," + res)
@@ -487,7 +492,11 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         if "baseDir" not in res:
             QMessageBox().information(self, "提示", "匹配失败,可能未连接手机")
             return
-        match = re.search(r"baseDir=(/data/app/%s.+)" % packageName, res)
+        lines = res.split("\n")
+        for tmpline in lines:
+            if packageName in tmpline:
+                line = tmpline
+        match = re.search(r"baseDir=(/data/app/%s.+)" % packageName, line)
         if match == None:
             QMessageBox().information(self, "提示", "匹配失败," + res)
             return
@@ -956,7 +965,26 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.chk_hook_insert(checked, "anti_debug", "简单一键反调试")
 
     def hookNewJnitrace(self,checked):
-        self.chk_hook_insert(checked, "FCAnd_jnitrace", "新的jnitrace")
+        typeStr = "FCAnd_jnitrace"
+        if checked:
+            self.log("hook jni")
+        else:
+            self.log("取消hook jni")
+            if typeStr in self.hooksData:
+                self.hooksData.pop(typeStr)
+                self.updateTabHooks()
+            return
+        self.newJniform.checkData=False
+        self.newJniform.flushCmb()
+        res = self.newJniform.exec()
+        if res == 0:
+            self.chkJni.setChecked(False)
+            return
+        jniHook = {"class": self.newJniform.moduleName, "method": self.newJniform.methodName,
+                   "bak": "FCAnd_jnitrace有详细的打印细节"}
+        self.hooksData[typeStr] = jniHook
+        self.updateTabHooks()
+        # self.chk_hook_insert(checked, "FCAnd_jnitrace", "新的jnitrace")
 
     def matchMethod(self):
         self.zenTracerForm.flushCmb()

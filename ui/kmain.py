@@ -344,7 +344,7 @@ class Ui_MainWindow(object):
         self.btnFartOpBin.setObjectName("btnFartOpBin")
         self.gridLayout_15.addWidget(self.btnFartOpBin, 0, 0, 1, 1)
         self.btnOpStalkerLog = QtWidgets.QPushButton(self.groupBox_9)
-        self.btnOpStalkerLog.setEnabled(False)
+        self.btnOpStalkerLog.setEnabled(True)
         self.btnOpStalkerLog.setMaximumSize(QtCore.QSize(150, 60))
         self.btnOpStalkerLog.setObjectName("btnOpStalkerLog")
         self.gridLayout_15.addWidget(self.btnOpStalkerLog, 0, 1, 1, 1)

@@ -74,7 +74,7 @@ class Runthread(QThread):
             if self.isSpawn:
                 pid = self.device.spawn([pname])
                 session =self.device.attach(pid)
-                self.device.resume(pid)
+
             else:
                 session = self.device.attach(pname)
             # session.enable_child_gating()
@@ -103,7 +103,6 @@ class Runthread(QThread):
                 source+=open('./js/jni_trace_new.js', 'r',encoding="utf8").read()
                 source=source.replace("%moduleName%",self.hooksData[item]["class"])
                 source = source.replace("%methodName%", self.hooksData[item]["method"])
-                source = source.replace("%spawn%", "")
             elif item=="ZenTracer":
                 source += open('./js/trace.js', 'r', encoding="utf8").read()
                 match_s = str(self.hooksData[item]["traceClass"]).replace('u\'', '\'')
@@ -119,7 +118,6 @@ class Runthread(QThread):
             elif item=="match_sub":
                 source +=open('./js/traceNative.js', 'r', encoding="utf8").read()
                 source = source.replace("%moduleName%", self.hooksData[item]["class"])
-                source = source.replace("%spawn%", "")
                 methods=self.hooksData[item]["method"].split(",")
                 methods_s=str(methods).replace('u\'', '\'')
                 source = source.replace('{methodName}', methods_s)
@@ -138,7 +136,6 @@ class Runthread(QThread):
             elif item=="stakler":
                 source += open("./js/sktrace.js", 'r', encoding="utf8").read()
                 source = source.replace("%moduleName%", self.hooksData[item]["class"])
-                source = source.replace("%spawn%","1" if self.isSpawn else "")
                 source = source.replace("%symbol%", self.hooksData[item]["symbol"])
                 source = source.replace("%offset%", self.hooksData[item]["offset"])
             elif item=="custom":
@@ -158,12 +155,10 @@ class Runthread(QThread):
                     res = CmdUtil.dumpdexInit(self.attachName)
                     self.log(res)
                     source += open("./js/dump_dex.js", 'r', encoding="utf8").read()
-                    source = source.replace("%spawn%", "1" if self.isSpawn else "")
                 elif tuokeType=="dumpdexclass":
                     res=CmdUtil.dumpdexInit(self.attachName)
                     self.log(res)
                     source += open("./js/dump_dex_class.js", 'r', encoding="utf8").read()
-                    source = source.replace("%spawn%", "1" if self.isSpawn else "")
                 elif tuokeType=="FRIDA-DEXDump":
                     source += open("./js/FRIDA-DEXDump.js", 'r', encoding="utf8").read()
                     self.DEXDump=True
@@ -189,22 +184,24 @@ class Runthread(QThread):
                     source += open("./js/patchCode.js", 'r', encoding="utf8").read()
                     print(json.dumps(patchList))
                     source = source.replace("{PATCHLIST}", json.dumps(patchList))
-                    source = source.replace("%spawn%", "1" if self.isSpawn else "")
                     source = source.replace("%moduleName%",moduleName)
             elif item=="anti_debug":
                 source += open("./js/anti_debug.js", 'r', encoding="utf8").read()
             elif item=="FCAnd_jnitrace":
-                source += open("./js/FCAnd_jnitrace.js", 'r', encoding="utf8").read()
-
-
+                jsdata= open("./js/FCAnd_jnitrace.js", 'r', encoding="utf8").read()
+                jsdata=jsdata.replace("%moduleName%",self.hooksData[item]["class"])
+                jsdata =jsdata.replace("%methodName%", self.hooksData[item]["method"])
+                source +=jsdata
 
         source = source.replace("%spawn%", "1" if self.isSpawn else "")
         source += open("./js/Wallbreaker.js", 'r', encoding="utf8").read()
-
+        
         script = session.create_script(source)
         script.on("message", self.on_message)
         self.attachOverSignel.emit(pname)
         script.load()
+        if self.isSpawn:
+            self.device.resume(pid)
         self.default_script=script
         self.scripts.append(script)
         if self.DEXDump:
@@ -213,6 +210,7 @@ class Runthread(QThread):
                 self.outlog("[DEXDump]: deep search mode is enable, maybe wait long time.")
             mds = []
             self.dump(pname, script.exports, mds=mds)
+
 
     def log_pcap(self,pcap_file, ssl_session_id, function, src_addr, src_port,
                  dst_addr, dst_port, data):

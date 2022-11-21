@@ -2649,7 +2649,7 @@ function traceAllJNISimply() {
             hookJNI(func_name, {
                 onEnter(args) {
                     // 触发时将信息保存到对象中
-                    console.log("onEnter ",func_name);
+                    klog("onEnter "+func_name);
                     let md = new MethodData(this.context, func_name, jni_env_json_1[idx], args);
                     this.md = md;
                 },
@@ -2664,9 +2664,60 @@ function traceAllJNISimply() {
     });
 }
 
+function hook_jni(library_name, function_name){
+    // To get the list of exports
+    Module.enumerateExportsSync(library_name).forEach(function(symbol){
+        klog(symbol.name);
+        if(symbol.name.indexOf(function_name)!=-1){
+            klog("[...] Hooking : " + library_name + " -> " + function_name + " at " + symbol.address)
+            Interceptor.attach(symbol.address,{
+                onEnter: function(args){
+                    traceAllJNISimply();
+                },
+                onLeave: function(args){
+                    // Prevent from displaying junk from other functions
+                    Interceptor.detachAll()
+                    klog("[-] Detaching all interceptors")
+                }
+            })
+        }
+    })
+}
+
 Java.perform(function() {
     klogData("","init","FCAnd_Jnitrace.js init hook success")
-    traceAllJNISimply();
+    var library_name = "%moduleName%" // ex: libsqlite.so
+    var function_name = "%methodName%" // ex: JNI_OnLoad
+    if(library_name=="" || function_name==""){
+        klog("not set module or method,jni trace all");
+        traceAllJNISimply();
+        return;
+    }
+    klog("module:"+library_name+ "\tmethod:"+function_name);
+    var isSpawn="%spawn%";
+    if(isSpawn){
+        Interceptor.attach(Module.findExportByName(null, 'android_dlopen_ext'),{
+            onEnter: function(args){
+                // first arg is the path to the library loaded
+                var library_path = Memory.readCString(args[0])
+                this.library_loaded=0;
+                if( library_path.includes(library_name)){
+                    klog("[...] Loading library : " + library_path)
+                    this.library_loaded = 1
+                }
+            },
+            onLeave: function(args){
+                // if it's the library we want to hook, hooking it
+                if(this.library_loaded ==  1){
+                    klog("[+] Loaded")
+                    hook_jni(library_name, function_name)
+                    this.library_loaded = 0
+                }
+            }
+        })
+    }else{
+        hook_jni(library_name, function_name);
+    }
 });
 
 })();
