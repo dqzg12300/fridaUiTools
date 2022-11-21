@@ -2,4 +2,4 @@ PyQt5
 frida==15.1.9
 hexdump==3.3
 capstone==4.0.2
-keystone==19.0.0
+keystone==22.3.1
