@@ -28,6 +28,7 @@ class Runthread(QThread):
     #获取一些附加成功就可以取的通用信息。这里暂时还不知道初始化一些啥信息比较好。先打通流程
     loadAppInfoSignel=pyqtSignal(str)
     searchAppInfoSignel=pyqtSignal(str)
+    searchMemorySignel=pyqtSignal(str,str)
     #附加成功的信号
     attachOverSignel = pyqtSignal(str)
 
@@ -303,6 +304,14 @@ class Runthread(QThread):
             self.loadAppInfoSignel.emit(p["appinfo"])
         elif "appinfo_search" in p:
             self.searchAppInfoSignel.emit(p["appinfo_search"])
+        elif "scanInfoList" in p:
+            self.searchMemorySignel.emit("searchMem",p["scanInfoList"])
+        elif "scan_hexdump" in p:
+            self.searchMemorySignel.emit("hexdump",p["scan_hexdump"])
+        elif "scanlog" in p:
+            self.searchMemorySignel.emit("outlog", p["scanlog"])
+        elif "setBreak" in p:
+            self.searchMemorySignel.emit("setBreak", p["setBreak"])
         self.outlog(p["data"])
 
 
@@ -372,6 +381,26 @@ class Runthread(QThread):
         postdata["func"] = "searchInfo"
         self.default_script.post({'type': 'input', 'payload': postdata})
         self.log("post searchInfo")
+
+    def newScanProtect(self,postdata):
+        postdata["func"] = "newScanProtect"
+        self.default_script.post({'type': 'input', 'payload': postdata})
+        self.log("post newScanProtect")
+
+    def newScanByAddress(self,postdata):
+        postdata["func"] = "newScanByAddress"
+        self.default_script.post({'type': 'input', 'payload': postdata})
+        self.log("post newScanByAddress")
+
+    def getInfo(self,postdata):
+        postdata["func"] = "getInfo"
+        self.default_script.post({'type': 'input', 'payload': postdata})
+        self.log("post getInfo")
+
+    def setBreak(self,postdata):
+        postdata["func"] = "setBreak"
+        self.default_script.post({'type': 'input', 'payload': postdata})
+        self.log("post setBreak")
 
     def fart(self,fartType,classes):
         # postdata["func"] = "fart"

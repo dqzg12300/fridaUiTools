@@ -21,6 +21,7 @@ from forms.JniTrace import jnitraceForm
 from forms.Natives import nativesForm
 from forms.Patch import patchForm
 from forms.Port import portForm
+from forms.SearchMemory import searchMemoryForm
 from forms.SpawnAttach import spawnAttachForm
 from forms.Stalker import stalkerForm
 from forms.StalkerOp import stalkerMatchForm
@@ -173,6 +174,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.btnFlush.clicked.connect(self.appInfoFlush)
         self.btnFartOpBin.clicked.connect(self.fartOpBin)
         self.btnOpStalkerLog.clicked.connect(self.stalkerOpLog)
+        # self.btnOpFartLog.clicked.connect(self.fartOpLog)
+        self.btnMemSearch.clicked.connect(self.searchMem)
 
         self.dumpForm = dumpAddressForm()
         self.jniform = jnitraceForm()
@@ -191,6 +194,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.stalkerMatchForm = stalkerMatchForm()
         self.wifiForm=wifiForm()
         self.portForm = portForm()
+        self.searchMemForm= searchMemoryForm()
 
         self.modules = None
         self.classes = None
@@ -674,6 +678,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.th.loadAppInfoSignel.connect(self.loadAppInfo)
             self.th.attachOverSignel.connect(self.attachOver)
             self.th.searchAppInfoSignel.connect(self.searchAppInfoRes)
+            self.th.searchMemorySignel.connect(self.searchMemResp)
             self.th.attachType="attachCurrent"
             self.th.start()
             if len(self.hooksData) <= 0:
@@ -707,6 +712,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.th.loadAppInfoSignel.connect(self.loadAppInfo)
             self.th.attachOverSignel.connect(self.attachOver)
             self.th.searchAppInfoSignel.connect(self.searchAppInfoRes)
+            self.th.searchMemorySignel.connect(self.searchMemResp)
             self.th.attachType="spawn"
             self.th.start()
             if len(self.hooksData) <= 0:
@@ -752,6 +758,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.th.loadAppInfoSignel.connect(self.loadAppInfo)
             self.th.attachOverSignel.connect(self.attachOver)
             self.th.searchAppInfoSignel.connect(self.searchAppInfoRes)
+            self.th.searchMemorySignel.connect(self.searchMemResp)
             self.th.attachType = "attach"
             self.th.start()
         except Exception as ex:
@@ -899,6 +906,23 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.callFunctionForm.callMethods = self.th.customCallFuns
         self.callFunctionForm.initData()
         self.callFunctionForm.show()
+
+    def searchMemResp(self, typeName,data):
+        if typeName == "searchMem":
+            self.searchMemForm.appendHistory(data)
+        elif typeName == "hexdump":
+            self.searchMemForm.appendResult("\n"+data)
+        elif typeName=="setBreak":
+            self.searchMemForm.appendResult(data)
+        else:
+            self.searchMemForm.appendResult(data)
+    def searchMem(self):
+        if self.isattach() == False:
+            self.log("Error:还未附加进程")
+            QMessageBox().information(self, "提示", "未附加进程")
+            return
+        self.searchMemForm.th = self.th
+        self.searchMemForm.show()
 
     # ====================end======需要附加后才能使用的功能,基本都是在内存中查数据================================
 

@@ -37,19 +37,6 @@
            <string>功能(附加进程后使用)</string>
           </property>
           <layout class="QGridLayout" name="gridLayout_4">
-           <item row="2" column="0">
-            <widget class="QPushButton" name="btnDumpPtr">
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>40</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>dump指定地址</string>
-             </property>
-            </widget>
-           </item>
            <item row="2" column="1">
             <widget class="QPushButton" name="btnFart">
              <property name="minimumSize">
@@ -60,6 +47,19 @@
              </property>
              <property name="text">
               <string>Fart</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QPushButton" name="btnDumpPtr">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>dump指定地址</string>
              </property>
             </widget>
            </item>
@@ -112,6 +112,19 @@
              </property>
              <property name="text">
               <string>函数重放</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="3">
+            <widget class="QPushButton" name="btnMemSearch">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>内存搜索</string>
              </property>
             </widget>
            </item>
