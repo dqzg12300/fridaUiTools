@@ -138,7 +138,7 @@ class wallBreakerForm(QDialog,Ui_Wallbreaker):
             if "pretty_print" in kwargs and kwargs["pretty_print"]:
                 click.secho("\n/* special type dump - {} */".format(clazz), fg="bright_black")
             result += special_render[clazz](handle, **kwargs)
-            # break
+            # fbreak
         return result
 
     def class_dump(self, name, handle=None, pretty_print=False, short_name=True):

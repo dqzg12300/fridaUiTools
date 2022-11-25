@@ -679,6 +679,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.th.attachOverSignel.connect(self.attachOver)
             self.th.searchAppInfoSignel.connect(self.searchAppInfoRes)
             self.th.searchMemorySignel.connect(self.searchMemResp)
+            self.th.setBreakSignel.connect(self.setBreakResp)
             self.th.attachType="attachCurrent"
             self.th.start()
             if len(self.hooksData) <= 0:
@@ -907,13 +908,14 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.callFunctionForm.initData()
         self.callFunctionForm.show()
 
+    def setBreakResp(self,pdata):
+        self.searchMemForm.my_message_handler(pdata)
+
     def searchMemResp(self, typeName,data):
         if typeName == "searchMem":
             self.searchMemForm.appendHistory(data)
         elif typeName == "hexdump":
             self.searchMemForm.appendResult("\n"+data)
-        elif typeName=="setBreak":
-            self.searchMemForm.appendResult(data)
         else:
             self.searchMemForm.appendResult(data)
     def searchMem(self):
@@ -922,6 +924,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             QMessageBox().information(self, "提示", "未附加进程")
             return
         self.searchMemForm.th = self.th
+        self.searchMemForm.init()
         self.searchMemForm.show()
 
     # ====================end======需要附加后才能使用的功能,基本都是在内存中查数据================================

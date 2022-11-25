@@ -95,7 +95,18 @@ function klogData(data,key,value){
     var message={};
     message["jsname"]="default";
     message["data"]=data;
-    message[key]=value;
+    if(key==null){
+        message["outlog"]=value;
+    }else{
+        message[key]=value;
+    }
+    send(message);
+}
+function klogBreak(data){
+    var message={};
+    message["jsname"]="default";
+    message["data"]=data;
+    message["breakout"]=data;
     send(message);
 }
 
@@ -140,7 +151,6 @@ function showMethods(postdata){
         klog("find count:"+cnt);
     });
 }
-
 
 //查找so的符号
 function showExport(postdata){
@@ -733,9 +743,31 @@ function new_scan_by_addr_between(addr_start, addr_end, value1, value2, byte_len
     return m_count;
 }
 
+
+function next_scan_key(key){
+    // var m_count = 0;
+    var vdata=readValue(key, init_value, init_byte_length);
+    console.log(vdata);
+    if(vdata != value)
+    {
+        delete g_data[key]
+    }else{
+        g_data[key] = value
+    }
+    var scanInfoList=[];
+    var scanInfo = {};
+    scanInfo.key=key;
+    scanInfo.value=g_data[key];
+    scanInfo.bak=bak;
+    scanInfoList.push(scanInfo);
+    var data=JSON.stringify(scanInfoList);
+    klogData(data,"scanInfoList",data);
+    // console.log("address: " + '' + key + '' + "  value: "+ '' + g_data[key] + '');
+    return 1;
+}
+
 function next_scan_equal(value){
     var m_count = 0;
-
     for(key in g_data)
     {
         var vdata=readValue(key, init_value, init_byte_length);
@@ -747,24 +779,29 @@ function next_scan_equal(value){
             g_data[key] = value
         }
     }
-
+    var scanInfoList=[];
     m_count  = Object.keys(g_data).length
     if(m_count < 100)
     {
         for(var key in g_data)
         {
-            console.log("address: " + '' + key + '' + "  value: "+ '' + g_data[key] + '');
+            var scanInfo = {};
+            scanInfo.key=key;
+            scanInfo.value=g_data[key];
+            scanInfo.bak=bak;
+            scanInfoList.push(scanInfo);
+            // var data="address: " + '' + key + '' + "  value: "+ '' + g_data[key] + '';
         }
     }
+    var data=JSON.stringify(scanInfoList);
+    klogData(data,"scanInfoList",data);
     return m_count;
 }
 
 function next_scan_unchange(){
     var m_count = 0;
-
     for(key in g_data)
     {
-
         if(readValue(key, init_value, init_byte_length) != g_data[key])
         {
             delete g_data[key]
@@ -927,43 +964,6 @@ function next_scan_decrease() {
     return m_count;
 }
 
-//设置读写断点
-function set_read_write_break(addr, size, pattern) {
-    //设置异常
-    Process.setExceptionHandler(function(details){
-            //打印信息，e.g. 打印堆栈，打印发生异常的地址，打印引发异常的地址
-            /*
-                    type: string specifying one of:
-                            abort
-                            access-violation
-                            guard-page
-                            illegal-instruction
-                            stack-overflow
-                            arithmetic
-                            breakpoint
-                            single-step
-                            system
-                    address: address where the exception occurred, as a NativePointer
-                    memory: if present, is an object containing:
-                            operation: the kind of operation that triggered the exception, as a string specifying either read,  write, or execute
-                            address: address that was accessed when the exception occurred, as a NativePointer
-                    context: object with the keys pc and sp, which are NativePointer objects specifying EIP/RIP/PC and ESP/RSP/SP, respectively, for ia32/x64/arm. Other processor-specific keys are also available, e.g. eax, rax, r0, x0, etc. You may also update register values by assigning to these keys.
-                    nativeContext: address of the OS and architecture-specific CPU context struct, as a NativePointer. This is only exposed as a last resort for edge-cases where context isn’t providing enough details. We would however discourage using this and rather submit a pull-request to add the missing bits needed for your use-case.
-
-            */
-            // console.log(details.address)
-            var data=JSON.stringify(details);
-            klogData(data,"setBreak",data)
-            //处理异常
-            Memory.protect(addr, size, 'rwx')
-            return true;
-    })
-    //制造异常 <--> 设置读写断点
-    var data="setBreak "+addr+" "+size+" "+pattern;
-    klogData(data,"outlog",data);
-    Memory.protect(addr, size, pattern)
-}
-
 function recvMessage(){
     while(true){
         var op=recv('input',function(data){
@@ -997,6 +997,13 @@ function recvMessage(){
                 }
             }else if(func=="setBreak"){
                 set_read_write_break(ptr(payload["start"]),payload["size"],payload["protect"]);
+            }else if (func=="nextScan"){
+                if(payload["type"]=="scankey"){
+                    next_scan_key(payload["key"]);
+                }else if(payload["type"]=="value"){
+                    next_scan_equal(payload["scanvalue"]);
+                }
+
             }
 
         });
@@ -1022,5 +1029,285 @@ function main(){
     recvMessage();
 }
 setImmediate(main);
+
+
+const arch = Process.arch;
+const thumb_erase_maskcode = 0xfffffffffffe
+
+var breakpoint_desc = {
+    "breakpoint_ins" :'',
+    "writer" : null,
+    "thumb_writer":null,
+    "thumb_breakpoint_ins":'00be'
+    //长度 thumb恒为2 arm,arm64恒为4
+};
+
+(_=>{
+    switch (arch) {
+        case "arm64":
+            breakpoint_desc["breakpoint_ins"] = '000020d4'
+            breakpoint_desc["writer"] = Arm64Writer
+            // break_mem.writeByteArray(hex2buf(breakpoint_ins))
+            break
+        case "arm":
+            breakpoint_desc["breakpoint_ins"] = '700020e1'
+            breakpoint_desc["writer"] = ArmWriter
+            breakpoint_desc["thumb_writer"]=ThumbWriter
+            break
+        default:
+            klogData(arch,+' not support')
+    }
+})()
+
+function buf2hex(buffer) { // buffer is an ArrayBuffer
+    return Array.prototype.map.call(new Uint8Array(buffer), x => ('00' + x.toString(16)).slice(-2)).join('');
+}
+function hex2buf(hex){
+    return  new Uint8Array(hex.match(/[\da-f]{2}/gi).map(function (h) {return parseInt(h, 16)})).buffer
+}
+
+/**
+ * @param {NativePointer} pc_addr
+ * @returns 是否为thumb,true为thunb,false不是thumb
+ * fixme 因为pc拿到的地址恒为偶数，所以不得不用lr来判断
+ */
+function check_pc_thumb(pc_addr){
+    return (pc_addr % 2 == 1)
+}
+
+
+/**
+ * @param pc_addr 目标断点
+ * @returns {boolean} 返回真是断点，返回假不是断点
+ */
+function checkbreakpoint(pc_addr){
+    switch(arch){
+        case "arm64":
+            return buf2hex(rpc.exports.readdata(pc_addr,4)) === breakpoint_desc["breakpoint_ins"]
+        case "arm":
+            if(check_pc_thumb(pc_addr)){
+                return buf2hex(rpc.exports.readdata(pc_addr.and(thumb_erase_maskcode),2)) === breakpoint_desc["breakpoint_ins"]
+            }else{
+                return buf2hex(rpc.exports.readdata(pc_addr,4)) === breakpoint_desc["thumb_breakpoint_ins"]
+            }
+        default:
+            klogData(arch+' not support')
+    }
+}
+/**
+ * 通过不同的writer来写不同的断点
+ * 原理是先恢复内存保护然后设置软断点
+ * 自己的断点被访问后，恢复断点，设置内存保护
+ * cmd 1
+ *
+ * @param break_info 断点信息
+ * @param writer 不同的writer
+ * @returns {boolean} 返回真假 真表示处理 假表示异常未处理
+ */
+function resume_pagebreak_write_softbreakpoint(break_info,writer){
+
+    let pc_addr = ptr(break_info['current_pc']);
+    let lr_addr = ptr(break_info['current_lr']);
+
+    //如果是thumb指令集地址加1，arm和arm64指令集不需要加1
+    if(check_pc_thumb(lr_addr)){
+        pc_addr = pc_addr.add(1)
+
+    }
+    const break_page_info = break_info['break_page_info'];
+    //获取当前指令长度
+    const size = Instruction.parse(pc_addr).size;
+    //恢复原始的内存保护
+    rpc.exports.setpageprotect(break_page_info[0],break_page_info[1])
+    //把要写的断点移到下个条指令
+    pc_addr = pc_addr.add(size)
+    let ins_writer = new writer(pc_addr);
+    if(check_pc_thumb(lr_addr)){
+        ins_writer = new breakpoint_desc["thumb_writer"](pc_addr.and(thumb_erase_maskcode))
+    }
+
+    const store_size = Instruction.parse(pc_addr).size;
+
+    //保存断点消息
+    let send_dict = {};
+    send_dict['break_addr'] = pc_addr
+    send_dict['break_len'] = store_size
+    send_dict['ins_content'] = buf2hex(rpc.exports.readdata(pc_addr.and(thumb_erase_maskcode),store_size))
+    send_dict['__tag'] = 'set_soft_breakpoint'
+    klogBreak(send_dict)
+
+    //等待返回结果
+    let payload = null;
+    const op = recv('set_soft_breakpoint_ret', function (value) {
+        payload = value.payload
+    });
+    op.wait()
+    //写断点
+    if(!checkbreakpoint(pc_addr)){
+        Memory.patchCode(pc_addr, store_size, function (code) {
+            //不同arch的断点写法不一样
+            //todo 修复在libc中写代码段崩溃的问题
+            switch(arch){
+                case "arm64":
+                    ins_writer.putBytes(hex2buf(breakpoint_desc["breakpoint_ins"]))
+                    ins_writer.flush()
+                    break
+                case "arm":
+                    if(check_pc_thumb(pc_addr)){
+                        //thumb
+                        ins_writer.putBytes(hex2buf(breakpoint_desc["thumb_breakpoint_ins"]))
+                        ins_writer.flush()
+                    }else{
+                        ins_writer.putBytes(hex2buf(breakpoint_desc["breakpoint_ins"]))
+                        ins_writer.flush()
+                    }
+                    break
+                default:
+                    klogData(arch+' not support')
+            }
+        });
+    }
+
+
+    return true
+}
+
+/**
+ * 通过不同的writer来恢复不同的断点
+ * 重新设置页面保护
+ * 自己的断点被访问后，恢复断点，设置内存保护
+ * cmd 2
+ * @param soft_breakpoint_info 断点信息
+ * @param writer 不同的writer
+ * @returns {boolean} 真表示异常处理 假表示异常没被处理
+ */
+function resume_softbreakpoint_set_pagebreak(soft_breakpoint_info,writer){
+
+    let pc_addr = ptr(soft_breakpoint_info['break_addr']);
+    const size = soft_breakpoint_info['break_len'];
+    const content = hex2buf(soft_breakpoint_info['ins_content']); // arraybuffer
+    const break_page_info = soft_breakpoint_info['break_page_info'];
+    let ins_writer = null
+    switch(arch){
+        case "arm64":
+            ins_writer = new writer(pc_addr);
+            break
+        case "arm":
+            if(check_pc_thumb(pc_addr)){
+                ins_writer = new breakpoint_desc["thumb_writer"](pc_addr.and(thumb_erase_maskcode))
+            }
+            break
+        default:
+            klogData(arch+' not support')
+    }
+
+    //恢复原始字节码
+    Memory.patchCode(pc_addr, size, function (code) {
+        ins_writer.putBytes(content)
+        ins_writer.flush()
+    });
+
+    //设置内存保护
+    rpc.exports.setpageprotect(break_page_info[0],'---')
+    const send_dict = {};
+    send_dict['__tag'] = 'resume_soft_breakpoint'
+    send_dict['addr'] = pc_addr
+    klogBreak(send_dict)
+
+    let info_ret = null;
+    const op = recv('resume_soft_breakpoint_ret', function (value) {
+        info_ret = value.payload
+    });
+    op.wait()
+    return true
+}
+
+/**
+ *
+ * @param break_info 断点信息
+ * @param writer writer
+ * @param details 异常信息
+ * @returns {boolean}
+ */
+function  resume_pagebreak_write_softbreakpoint_and_show(break_info,writer,details){
+    //先调用cmd1的方法 然后把断点信息发送给py脚本
+    const ret = resume_pagebreak_write_softbreakpoint(break_info, writer);
+    const data_addr = ptr(break_info['break_addr']);
+    let lr_addr = ptr(break_info['current_lr']);
+    const data = buf2hex(rpc.exports.readdata(data_addr, break_info['break_len']));
+    let _pc = ptr(details['address']);
+    if(check_pc_thumb(lr_addr)){
+        _pc = _pc.add(1)
+    }
+    const ins = Instruction.parse(_pc);
+    const symbol = DebugSymbol.fromAddress(_pc);
+    details['data'] = data
+    details['symbol'] = symbol
+    details['ins'] = ins.toString()
+    details["operands"] = ins["operands"]
+    details['__tag'] = "show_details"
+    klogBreak(details)
+    return ret
+}
+
+//返回为true false 表示这个异常是否被处理
+function handle_cmd(info,details){
+
+    const cmd = info['cmd'];
+    switch (cmd){
+        case 1:
+            return resume_pagebreak_write_softbreakpoint(info,breakpoint_desc["writer"])
+        case 2:
+            return resume_softbreakpoint_set_pagebreak(info,breakpoint_desc["writer"])
+        case 3:
+            return resume_pagebreak_write_softbreakpoint_and_show(info,breakpoint_desc["writer"],details)
+        case 100:
+            return false
+    }
+}
+rpc.exports.getdevicearch=function(){
+    return Process.arch;
+}
+
+rpc.exports.getplatform=function(){
+    return Process.platform;
+}
+rpc.exports.getpointersize=function(){
+    return Process.pointerSize;
+}
+
+rpc.exports.getpagesize=function(){
+    return Process.pageSize;
+}
+rpc.exports.getmodule=function(name){
+    return Process.findModuleByName(name);
+}
+
+rpc.exports.setexceptionhandler=function(){
+    //设置异常处理handler
+   Process.setExceptionHandler(function(details){
+       let break_info = null;
+       details['__tag'] = "exception"
+       klogBreak(details)
+       const op = recv('exception_ret', function (value) {
+           break_info = value.payload
+       });
+       op.wait()
+        return  handle_cmd(break_info,details)
+   })
+}
+rpc.exports.getprotectranges=function(){
+    return Process.enumerateRanges("---")
+}
+rpc.exports.getexportbyname=function(so_name,symbol_name){
+    return Module.getExportByName(so_name,symbol_name)
+}
+
+rpc.exports.readdata=function(pointer,len){
+    return ptr(pointer).readByteArray(len)
+}
+rpc.exports.setpageprotect=function(addr,flag){
+    Memory.protect(ptr(addr),Process.pageSize,flag)
+}
 
 })();

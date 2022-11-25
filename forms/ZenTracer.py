@@ -185,9 +185,9 @@ class zenTracerForm(QDialog,Ui_ZenTracerDialog):
                 self.traceClass.remove(name)
             elif ntype=="trace method":
                 self.traceMethods.remove(name)
-            elif ntype=="break class":
+            elif ntype=="fbreak class":
                 self.traceBClass.remove(name)
-            elif ntype=="break method":
+            elif ntype=="fbreak method":
                 self.traceBMethods.remove(name)
             self.tabTracer.removeRow(item.row())
 
@@ -214,7 +214,7 @@ class zenTracerForm(QDialog,Ui_ZenTracerDialog):
         for item in self.traceBClass:
             self.tabTracer.insertRow(line)
             self.tabTracer.setItem(line, 0, QTableWidgetItem(item))
-            self.tabTracer.setItem(line, 1, QTableWidgetItem("break class"))
+            self.tabTracer.setItem(line, 1, QTableWidgetItem("fbreak class"))
         for item in self.traceMethods:
             self.tabTracer.insertRow(line)
             self.tabTracer.setItem(line, 0, QTableWidgetItem(item))
@@ -222,7 +222,7 @@ class zenTracerForm(QDialog,Ui_ZenTracerDialog):
         for item in self.traceBMethods:
             self.tabTracer.insertRow(line)
             self.tabTracer.setItem(line, 0, QTableWidgetItem(item))
-            self.tabTracer.setItem(line, 1, QTableWidgetItem("break method"))
+            self.tabTracer.setItem(line, 1, QTableWidgetItem("fbreak method"))
 
     def rightMenuShow(self):
         rightMenu = QMenu(self.tabTracer)

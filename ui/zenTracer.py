@@ -168,7 +168,7 @@ class Ui_ZenTracerDialog(object):
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
         Dialog.setWindowTitle(_translate("Dialog", "ZenTracer"))
-        self.groupBox_2.setTitle(_translate("Dialog", "break"))
+        self.groupBox_2.setTitle(_translate("Dialog", "fbreak"))
         self.label_3.setText(_translate("Dialog", "类名："))
         self.btnClassBreakAdd.setText(_translate("Dialog", "添加"))
         self.label_4.setText(_translate("Dialog", "函数名："))

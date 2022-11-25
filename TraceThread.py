@@ -29,6 +29,7 @@ class Runthread(QThread):
     loadAppInfoSignel=pyqtSignal(str)
     searchAppInfoSignel=pyqtSignal(str)
     searchMemorySignel=pyqtSignal(str,str)
+    setBreakSignel=pyqtSignal(dict)
     #附加成功的信号
     attachOverSignel = pyqtSignal(str)
 
@@ -299,6 +300,8 @@ class Runthread(QThread):
         self.log_pcap(self.pcap_file, p["ssl_session_id"], p["function"], p["src_addr"],
                  p["src_port"], p["dst_addr"], p["dst_port"], data)
 
+
+
     def default_message(self,p):
         if "appinfo" in p:
             self.loadAppInfoSignel.emit(p["appinfo"])
@@ -310,9 +313,10 @@ class Runthread(QThread):
             self.searchMemorySignel.emit("hexdump",p["scan_hexdump"])
         elif "scanlog" in p:
             self.searchMemorySignel.emit("outlog", p["scanlog"])
-        elif "setBreak" in p:
-            self.searchMemorySignel.emit("setBreak", p["setBreak"])
-        self.outlog(p["data"])
+        elif "breakout" in p:
+            self.setBreakSignel.emit(p["breakout"])
+
+        self.outlog(str(p["data"]))
 
 
     def sktrace_message(self,p):
@@ -401,6 +405,11 @@ class Runthread(QThread):
         postdata["func"] = "setBreak"
         self.default_script.post({'type': 'input', 'payload': postdata})
         self.log("post setBreak")
+
+    def nextScan(self,postdata):
+        postdata["func"] = "nextScan"
+        self.default_script.post({'type': 'input', 'payload': postdata})
+        self.log("post nextScan")
 
     def fart(self,fartType,classes):
         # postdata["func"] = "fart"

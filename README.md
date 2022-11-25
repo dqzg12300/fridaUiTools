@@ -7,23 +7,29 @@ fridaUiTools是一个界面化整理脚本的工具。新人的练手作品。�
 ## 修复
 spawn附加时提示错误，ERROR.无法获取到进程列表。好久不用这个工具，突然想起来，顺手修了下bug。
 
-## 更新 2022-11-09
-添加frida版本切换功能，默认使用frida15，可自行切换到14使用。没有怎么测试，发现问题可以提issue，我会解决的。
 
-## 更新 2022-11-10
-参考项目FridaContainer。
-添加功能anti_debug简单的一键反调试
-添加功能jnitrace，和原来版本的区别是不用指定so，不用指定函数，打印更加完整
-添加内置r0gson，在自定义模块中有例子调用打印java类,需要先在上传选项中点上传gson
+## 更新 2022-11-25
+新增功能搜索内存中的内容，附加后使用。参考来源[基于frida的android游戏内存扫描器_初稿](https://www.52pojie.cn/forum.php?mod=viewthread&tid=913009&highlight=)
+新增功能内存断点trace，附加后使用。参考来源[fridaMemoryAccessTrace](https://github.com/asmjmp0/fridaMemoryAccessTrace)
+实现比较简单，测试比较少。发现bug再修吧。
+
+## 更新 2022-11-21
+修复register_native_hook，修复了spawn启动会缺少一点数据的问题
+优化FCAnd_jnitrace可以选择指定模块和函数
 
 ## 更新 2022-11-15
 新增修改frida默认端口
 新增可关闭输出日志，在文件选项中关闭（有些脚本输出数据过多，可以关掉ui上面显示的日志，直接在log目录中查看文件即可）
 调整r0capture,默认将抓到的包保存在pcap目录下
 
-## 更新 2022-11-21
-修复register_native_hook，修复了spawn启动会缺少一点数据的问题
-优化FCAnd_jnitrace可以选择指定模块和函数
+## 更新 2022-11-10
+参考来源[FridaContainer](https://github.com/deathmemory/FridaContainer)。
+添加功能anti_debug简单的一键反调试
+添加功能jnitrace，和原来版本的区别是不用指定so，不用指定函数，打印更加完整
+添加内置r0gson，在自定义模块中有例子调用打印java类,需要先在上传选项中点上传gson
+
+## 更新 2022-11-09
+添加frida版本切换功能，默认使用frida15，可自行切换到14使用。没有怎么测试，发现问题可以提issue，我会解决的。
 
 ##  Hook脚本如下（附加进程前使用）
 
