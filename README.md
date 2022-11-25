@@ -11,6 +11,7 @@ spawn附加时提示错误，ERROR.无法获取到进程列表。好久不用这
 ## 更新 2022-11-25
 新增功能搜索内存中的内容，附加后使用。参考来源[基于frida的android游戏内存扫描器_初稿](https://www.52pojie.cn/forum.php?mod=viewthread&tid=913009&highlight=)
 新增功能内存断点trace，附加后使用。参考来源[fridaMemoryAccessTrace](https://github.com/asmjmp0/fridaMemoryAccessTrace)
+fridaMemoryAccessTrace的里面有例子，使用测试可以先安装他的apk。然后module填libnative-lib.so，symbol填test_value，length填4。
 实现比较简单，测试比较少。发现bug再修吧。
 
 ## 更新 2022-11-21
