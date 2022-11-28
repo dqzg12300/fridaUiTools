@@ -17,6 +17,12 @@ class rpcFunc:
     def get_module(self, name):
         return self.api.getmodule(name)
 
+    def hexdump(self,addr,size):
+        return self.api.hexdump(addr,size)
+
+    def cstring(self,addr):
+        return self.api.cstring(addr)
+
     def get_export_by_name(self, so_name, symbol_name):
         return self.api.getexportbyname(so_name, symbol_name)
 

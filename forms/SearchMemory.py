@@ -90,44 +90,47 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
                         return index
             return -1
     def my_message_handler(self,messgae_data):
-        if 'exception' == messgae_data['__tag']:
-            handle_exception.handle(messgae_data)
-        # 从js脚本那收到的设置软断点的信息，并把此保存到soft_breakpoint_runtime
-        elif 'set_soft_breakpoint' == messgae_data['__tag']:
-            addr = int(messgae_data['break_addr'], 16)
-            index = self.find_soft_breakpoint_from_list(addr)
-            # 多线程访问
-            if -1 != index:
-                data_info.rpc.api._script.post(self.wrapper_to_post('set_soft_breakpoint_ret', 0))
-                return
-            else:
-                save_soft_breakpoint = data_info.soft_breakpoint_struct.copy()
-                save_soft_breakpoint['break_addr'] = int(messgae_data['break_addr'], 16)
-                save_soft_breakpoint['break_len'] = messgae_data['break_len']
-                save_soft_breakpoint['ins_content'] = messgae_data['ins_content']
-            with data_info.soft_breakpoint_runtime_lock:
-                pass
-                # TODO
-                data_info.soft_breakpoint_runtime.append(save_soft_breakpoint)
-            data_info.rpc.api._script.post(self.wrapper_to_post('set_soft_breakpoint_ret', 0))
-        elif 'resume_soft_breakpoint' == messgae_data['__tag']:
-            addr = int(messgae_data['addr'], 16)
-
-            # 删除指定断点
-            index = self.find_soft_breakpoint_from_list(addr)
-            if -1 != index:
+        try:
+            if 'exception' == messgae_data['__tag']:
+                handle_exception.handle(messgae_data)
+            # 从js脚本那收到的设置软断点的信息，并把此保存到soft_breakpoint_runtime
+            elif 'set_soft_breakpoint' == messgae_data['__tag']:
+                addr = int(messgae_data['break_addr'], 16)
+                index = self.find_soft_breakpoint_from_list(addr)
+                # 多线程访问
+                if -1 != index:
+                    data_info.rpc.api._script.post(self.wrapper_to_post('set_soft_breakpoint_ret', 0))
+                    return
+                else:
+                    save_soft_breakpoint = data_info.soft_breakpoint_struct.copy()
+                    save_soft_breakpoint['break_addr'] = int(messgae_data['break_addr'], 16)
+                    save_soft_breakpoint['break_len'] = messgae_data['break_len']
+                    save_soft_breakpoint['ins_content'] = messgae_data['ins_content']
                 with data_info.soft_breakpoint_runtime_lock:
                     pass
-            else:
-                raise Exception('soft_breakpoint no found')
+                    # TODO
+                    data_info.soft_breakpoint_runtime.append(save_soft_breakpoint)
+                data_info.rpc.api._script.post(self.wrapper_to_post('set_soft_breakpoint_ret', 0))
+            elif 'resume_soft_breakpoint' == messgae_data['__tag']:
+                addr = int(messgae_data['addr'], 16)
 
-            send_dict = {}
-            send_dict['msg'] = 1
-            data_info.rpc.api._script.post(self.wrapper_to_post('resume_soft_breakpoint_ret', send_dict))
-        elif 'show_details' == messgae_data['__tag']:
-            # exception_info(messgae_data, data_info.proc_info['arch']).print_info()
-            info= exception_info(messgae_data, data_info.proc_info['arch']).get_info()
-            self.appendResult(info)
+                # 删除指定断点
+                index = self.find_soft_breakpoint_from_list(addr)
+                if -1 != index:
+                    with data_info.soft_breakpoint_runtime_lock:
+                        pass
+                else:
+                    raise Exception('soft_breakpoint no found')
+
+                send_dict = {}
+                send_dict['msg'] = 1
+                data_info.rpc.api._script.post(self.wrapper_to_post('resume_soft_breakpoint_ret', send_dict))
+            elif 'show_details' == messgae_data['__tag']:
+                # exception_info(messgae_data, data_info.proc_info['arch']).print_info()
+                info= exception_info(messgae_data, data_info.proc_info['arch']).get_info()
+                self.appendResult(info)
+        except :
+            pass
 
     def setBreak(self):
         module = self.txtModule.text()
@@ -146,7 +149,8 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
 
         data_info.break_point_info['break_len'] =size
         if len(module) > 0:
-            baseAddr= int(data_info.rpc.get_module(module), 16)
+            moduleBase=data_info.rpc.get_module(module)
+            baseAddr= int(moduleBase["base"], 16)
             self.appendResult("模块%s基址为：0x%x" % (module,baseAddr))
 
         if len(abaddress)>0:
@@ -195,7 +199,8 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
         if len(base) <= 0:
             QMessageBox.warning(self, "提示", "请输入起始地址")
             return
-        self.th.getInfo({"start": base, "type": "CString"})
+        res = data_info.rpc.cstring(int(base, 16))
+        self.appendResult(res)
 
     def hexDump(self):
         base = self.txtBase.text()
@@ -210,7 +215,8 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
             size = int(baseSize, 16)
         else:
             size=int(baseSize)
-        self.th.getInfo({"start": base, "size": size,"type":"hexdump"})
+        res= data_info.rpc.hexdump(int(base, 16), size)
+        self.appendResult(res)
 
     def appendHistory(self,data):
         historyData=eval(data)

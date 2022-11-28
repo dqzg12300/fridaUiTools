@@ -309,13 +309,10 @@ class Runthread(QThread):
             self.searchAppInfoSignel.emit(p["appinfo_search"])
         elif "scanInfoList" in p:
             self.searchMemorySignel.emit("searchMem",p["scanInfoList"])
-        elif "scan_hexdump" in p:
-            self.searchMemorySignel.emit("hexdump",p["scan_hexdump"])
         elif "scanlog" in p:
             self.searchMemorySignel.emit("outlog", p["scanlog"])
         elif "breakout" in p:
             self.setBreakSignel.emit(p["breakout"])
-
         self.outlog(str(p["data"]))
 
 

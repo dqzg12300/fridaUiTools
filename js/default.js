@@ -986,15 +986,6 @@ function recvMessage(){
                 new_scan_by_protect(payload["protect"],payload["bak"],payload["value"], payload["size"]);
             }else if(func=="newScanByAddress"){
                 new_scan_by_addr(payload["start"],payload["end"],payload["bak"], payload["value"], payload["size"]);
-            }else if(func=="getInfo"){
-                var mtype=payload["type"];
-                if(mtype=="hexdump"){
-                    var res=hexdump(ptr(payload["start"]),{length:payload["size"]});
-                    klogData(res,"scan_hexdump",res)
-                }else if(mtype=="CString"){
-                    var res=ptr(payload["start"]).readCString();
-                    klogData(res,"scanlog",res)
-                }
             }else if(func=="setBreak"){
                 set_read_write_break(ptr(payload["start"]),payload["size"],payload["protect"]);
             }else if (func=="nextScan"){
@@ -1299,6 +1290,13 @@ rpc.exports.setexceptionhandler=function(){
 rpc.exports.getprotectranges=function(){
     return Process.enumerateRanges("---")
 }
+rpc.exports.hexdump=function(addr,size){
+    return hexdump(ptr(addr),{length:size});
+}
+rpc.exports.cstring=function(addr){
+    return ptr(addr).readCString();
+}
+
 rpc.exports.getexportbyname=function(so_name,symbol_name){
     return Module.getExportByName(so_name,symbol_name)
 }
