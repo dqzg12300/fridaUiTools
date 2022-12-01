@@ -2664,36 +2664,55 @@ function traceAllJNISimply() {
     });
 }
 
-function hook_jni(library_name, function_name){
+function hook_jni(library_name, function_name,offset){
     // To get the list of exports
-    Module.enumerateExportsSync(library_name).forEach(function(symbol){
-        klog(symbol.name);
-        if(symbol.name.indexOf(function_name)!=-1){
-            klog("[...] Hooking : " + library_name + " -> " + function_name + " at " + symbol.address)
-            Interceptor.attach(symbol.address,{
-                onEnter: function(args){
-                    traceAllJNISimply();
-                },
-                onLeave: function(args){
-                    // Prevent from displaying junk from other functions
-                    Interceptor.detachAll()
-                    klog("[-] Detaching all interceptors")
-                }
-            })
-        }
-    })
+    if(function_name.length>0){
+        Module.enumerateExportsSync(library_name).forEach(function(symbol){
+            klog(symbol.name);
+            if(symbol.name.indexOf(function_name)!=-1){
+                klog("[...] Hooking : " + library_name + " -> " + function_name + " at " + symbol.address)
+                Interceptor.attach(symbol.address,{
+                    onEnter: function(args){
+                        traceAllJNISimply();
+                    },
+                    onLeave: function(args){
+                        // Prevent from displaying junk from other functions
+                        Interceptor.detachAll()
+                        klog("[-] Detaching all interceptors")
+                    }
+                })
+            }
+        })
+    }else{
+        var addr= Module.getBaseAddress(library_name).add(ptr(offset));
+        klog("[...] Hooking : " + library_name + " -> " + offset + " at " + addr)
+        Interceptor.attach(addr,{
+            onEnter: function(args){
+                traceAllJNISimply();
+            },
+            onLeave: function(args){
+                // Prevent from displaying junk from other functions
+                Interceptor.detachAll()
+                klog("[-] Detaching all interceptors")
+            }
+        })
+    }
+
 }
 
-Java.perform(function() {
-    klogData("","init","FCAnd_Jnitrace.js init hook success")
-    var library_name = "%moduleName%" // ex: libsqlite.so
-    var function_name = "%methodName%" // ex: JNI_OnLoad
-    if(library_name=="" || function_name==""){
+
+function hook_start(){
+
+    klogData("","init","FCAnd_Jnitrace.js init hook success");
+    var library_name = "%moduleName%"; // ex: libsqlite.so
+    var function_name = "%methodName%"; // ex: JNI_OnLoad
+    var offset = "%offset%"; // ex: JNI_OnLoad
+    if(library_name=="" || (function_name=="" && offset=="")){
         klog("not set module or method,jni trace all");
         traceAllJNISimply();
         return;
     }
-    klog("module:"+library_name+ "\tmethod:"+function_name);
+    klog("module:"+library_name+ "\tmethod:"+function_name+"\toffset"+offset);
     var isSpawn="%spawn%";
     if(isSpawn){
         Interceptor.attach(Module.findExportByName(null, 'android_dlopen_ext'),{
@@ -2710,14 +2729,15 @@ Java.perform(function() {
                 // if it's the library we want to hook, hooking it
                 if(this.library_loaded ==  1){
                     klog("[+] Loaded")
-                    hook_jni(library_name, function_name)
+                    hook_jni(library_name, function_name,offset)
                     this.library_loaded = 0
                 }
             }
         })
     }else{
-        hook_jni(library_name, function_name);
+        hook_jni(library_name, function_name,offset);
     }
-});
+}
+hook_start();
 
 })();

@@ -13,6 +13,7 @@ class jnitraceForm(QDialog,Ui_JniTraceDialog):
         self.btnSubmit.clicked.connect(self.submit)
         self.moduleName = ""
         self.methodName = ""
+        self.offset=""
         self.btnClear.clicked.connect(self.clearUi)
         self.clearUi()
         self.flushCmb()
@@ -68,9 +69,14 @@ class jnitraceForm(QDialog,Ui_JniTraceDialog):
 
     def submit(self):
         if self.checkData:
-            if len(self.txtModule.text())<=0 or len(self.txtMethod.text())<=0:
-                QMessageBox().information(self, "提示", "模块名或函数为空")
+            if(self.txtModule.text()==""):
+                QMessageBox.information(self, "提示", "module不能为空")
                 return
+            if self.txtMethod.text() == "" and self.txtOffset.text() == "":
+                QMessageBox().information(self, "提示", "symbol和offset需要选填一个")
+                return
+
         self.moduleName = self.txtModule.text()
         self.methodName = self.txtMethod.text()
+        self.offset= self.txtOffset.text()
         self.accept()

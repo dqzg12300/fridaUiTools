@@ -521,7 +521,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         data = FileUtil.readFile(rfile)
         if self.connType == "wifi":
             data = data.replace("%fridaName%", name + " -l 0.0.0.0:" + self.port)
-            data.replace("%customPort%", "")
+            data=data.replace("%customPort%",f"adb forward tcp:{self.customPort} tcp:{self.customPort}")
         elif self.connType == "usb":
             if self.customPort!=None and len(self.customPort)>0:
                 data = data.replace("%fridaName%", name + " -l 0.0.0.0:" + self.customPort)
@@ -963,6 +963,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.chkJni.setChecked(False)
             return
         jniHook = {"class": self.jniform.moduleName, "method": self.jniform.methodName,
+                   "offset":self.jniform.offset,
                    "bak": "jni trace(暂时未打印详细参数和返回值结果)"}
         self.hooksData[typeStr] = jniHook
         self.updateTabHooks()
@@ -1008,6 +1009,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.chkJni.setChecked(False)
             return
         jniHook = {"class": self.newJniform.moduleName, "method": self.newJniform.methodName,
+                   "offset":self.newJniform.offset,
                    "bak": "FCAnd_jnitrace有详细的打印细节"}
         self.hooksData[typeStr] = jniHook
         self.updateTabHooks()

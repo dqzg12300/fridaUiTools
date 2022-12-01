@@ -85,7 +85,7 @@ class Runthread(QThread):
             self.log("附加异常:"+str(ex))
             self.attachOverSignel.emit("ERROR."+str(ex))
             return
-        source += open("./js/default.js", 'r', encoding="utf8").read()
+
         for item in self.hooksData:
             if item=="r0capture":
                 curtime=time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(time.time()))
@@ -105,6 +105,7 @@ class Runthread(QThread):
                 source+=open('./js/jni_trace_new.js', 'r',encoding="utf8").read()
                 source=source.replace("%moduleName%",self.hooksData[item]["class"])
                 source = source.replace("%methodName%", self.hooksData[item]["method"])
+                source = source.replace("%offset%", self.hooksData[item]["offset"])
             elif item=="ZenTracer":
                 source += open('./js/trace.js', 'r', encoding="utf8").read()
                 match_s = str(self.hooksData[item]["traceClass"]).replace('u\'', '\'')
@@ -193,17 +194,17 @@ class Runthread(QThread):
                 jsdata= open("./js/FCAnd_jnitrace.js", 'r', encoding="utf8").read()
                 jsdata=jsdata.replace("%moduleName%",self.hooksData[item]["class"])
                 jsdata =jsdata.replace("%methodName%", self.hooksData[item]["method"])
+                jsdata = jsdata.replace("%offset%", self.hooksData[item]["offset"])
                 source +=jsdata
-
+        source += open("./js/default.js", 'r', encoding="utf8").read()
         source = source.replace("%spawn%", "1" if self.isSpawn else "")
         source += open("./js/Wallbreaker.js", 'r', encoding="utf8").read()
-        
         script = session.create_script(source)
         script.on("message", self.on_message)
-        self.attachOverSignel.emit(pname)
         script.load()
         if self.isSpawn:
             self.device.resume(pid)
+            self.log("resume pid:%s" % pid)
         self.default_script=script
         self.scripts.append(script)
         if self.DEXDump:
@@ -212,6 +213,8 @@ class Runthread(QThread):
                 self.outlog("[DEXDump]: deep search mode is enable, maybe wait long time.")
             mds = []
             self.dump(pname, script.exports, mds=mds)
+
+        self.attachOverSignel.emit(pname)
 
 
     def log_pcap(self,pcap_file, ssl_session_id, function, src_addr, src_port,

@@ -30,7 +30,7 @@ function fridaCheckPass() {
             ) {
                 // console.log("enter strstr replace str1:",this.str1," - " , "str2:", this.str2," thread_id:",Process.getCurrentThreadId());
                 this.hook = true;
-                pthread_exit_func(0);
+                //pthread_exit_func(0);
             }
 
         },

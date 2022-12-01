@@ -3,8 +3,9 @@
 (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 const jni = require("./utils/jni_struct.js")
 
-var library_name = "%moduleName%" // ex: libsqlite.so
-var function_name = "%methodName%" // ex: JNI_OnLoad
+var library_name = "%moduleName%"; // ex: libsqlite.so
+var function_name = "%methodName%"; // ex: JNI_OnLoad
+var offset = "%offset%";
 var library_loaded = 0
 
 function klog(data){
@@ -23,33 +24,46 @@ function klogData(data,key,value){
 
 // Function that will process the JNICall after calculating it from
 // the jnienv pointer in args[0]
-function hook_jni(library_name, function_name){
+function hook_jni(library_name, function_name,offset){
     // To get the list of exports
+    if(offset!=""){
+        var addr= Module.getBaseAddress(library_name).add(ptr(offset));
+        klog("[...] Hooking : " + library_name + " -> " + offset + " at " + addr)
+        Interceptor.attach(addr,{
+            onEnter: function(args){
+                var jnienv_addr = 0x0
+                Java.perform(function(){
+                    jnienv_addr = Java.vm.getEnv().handle.readPointer();
+                });
+                klog("[+] Hooked successfully, JNIEnv base adress :" + jnienv_addr)
+                jni.hook_all(jnienv_addr)
+                Interceptor.attach(jni.getJNIFunctionAdress(jnienv_addr,"FindClass"),{
+                    onEnter: function(args){
+                        klog("env->FindClass(\"" + Memory.readCString(args[1]) + "\")");
+                    }
+                })
+            },
+            onLeave: function(args){
+                // Prevent from displaying junk from other functions
+                Interceptor.detachAll()
+                klog("[-] Detaching all interceptors")
+            }
+        })
+        return;
+    }
+
     Module.enumerateExportsSync(library_name).forEach(function(symbol){
         // console.log(symbol.name);
         if(symbol.name == function_name){
             klog("[...] Hooking : " + library_name + " -> " + function_name + " at " + symbol.address)
             Interceptor.attach(symbol.address,{
                 onEnter: function(args){
-
                     var jnienv_addr = 0x0
                     Java.perform(function(){
                         jnienv_addr = Java.vm.getEnv().handle.readPointer();
                     });
-
-
-                    // console.log("[+] Hooked successfully, JNIEnv base adress :" + jnienv_addr)
                     klog("[+] Hooked successfully, JNIEnv base adress :" + jnienv_addr)
-                    /*
-                     Here you can choose which function to hook
-                     Either you hook all to have an overview of the function called
-                    */
-
                     jni.hook_all(jnienv_addr)
-
-                    /*
-                    Either you hook the one you want by precising what to do with it
-                    */
 
                     Interceptor.attach(jni.getJNIFunctionAdress(jnienv_addr,"FindClass"),{
                         onEnter: function(args){
@@ -67,7 +81,7 @@ function hook_jni(library_name, function_name){
     })
 }
 
-if(library_name == "" || function_name == ""){
+if(library_name == "" || (function_name == "" && offset=="")){
     klog("[-] You must provide a function name and a library name to hook")
 }else{
 
@@ -94,13 +108,13 @@ if(isSpawn){
             // if it's the library we want to hook, hooking it
             if(library_loaded ==  1){
                 klog("[+] Loaded")
-                hook_jni(library_name, function_name)
+                hook_jni(library_name, function_name,offset)
                 library_loaded = 0
             }
         }
     })
 }else{
-    hook_jni(library_name, function_name);
+    hook_jni(library_name, function_name,offset);
 }
 
 
@@ -358,7 +372,12 @@ function getJNIFunctionAdress(jnienv_addr,func_name){
     return Memory.readPointer(jnienv_addr.add(offset))
 }
 
-
+function klog(data){
+    var message={};
+    message["jsname"]="jni_trace_new";
+    message["data"]=data;
+    send(message);
+}
 // Hook all function to have an overview of the function called
 function hook_all(jnienv_addr){
     jni_struct_array.forEach(function(func_name){

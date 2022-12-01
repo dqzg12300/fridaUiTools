@@ -51,27 +51,23 @@
       <string>jni_trace</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_2">
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_3">
+      <item row="2" column="1">
+       <widget class="QLineEdit" name="txtMethod"/>
+      </item>
+      <item row="1" column="1">
+       <widget class="QListWidget" name="listModule"/>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_2">
         <property name="text">
-         <string>模块名：</string>
+         <string>symbol：</string>
         </property>
        </widget>
       </item>
       <item row="0" column="1">
        <widget class="QLineEdit" name="txtModule"/>
       </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="label_2">
-        <property name="text">
-         <string>函数名：</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="1">
-       <widget class="QLineEdit" name="txtMethod"/>
-      </item>
-      <item row="3" column="1">
+      <item row="4" column="1">
        <layout class="QHBoxLayout" name="horizontalLayout">
         <item>
          <widget class="QPushButton" name="btnSubmit">
@@ -101,8 +97,22 @@
         </item>
        </layout>
       </item>
-      <item row="1" column="1">
-       <widget class="QListWidget" name="listModule"/>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_3">
+        <property name="text">
+         <string>模块名：</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="label_4">
+        <property name="text">
+         <string>offset：</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QLineEdit" name="txtOffset"/>
       </item>
      </layout>
     </widget>
