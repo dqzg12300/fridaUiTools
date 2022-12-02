@@ -248,7 +248,7 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
         for line in historyData:
             self.tabHistory.insertRow(0)
             self.tabHistory.setItem(0, 0, QTableWidgetItem("%s"%idx))
-            self.tabHistory.setItem(0, 1, QTableWidgetItem(line["value"]))
+            self.tabHistory.setItem(0, 1, QTableWidgetItem(f"{line['value']}"))
             self.tabHistory.setItem(0, 2, QTableWidgetItem(line["key"]))
             self.tabHistory.setItem(0, 3, QTableWidgetItem(line["bak"]))
             idx+=1
