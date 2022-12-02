@@ -34,7 +34,7 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
         self.tabHistory.customContextMenuRequested[QPoint].connect(self.rightMenuShow)
 
         self.txtResult.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.tabHistory.customContextMenuRequested[QPoint].connect(self.logRightMenuShow)
+        self.txtResult.customContextMenuRequested[QPoint].connect(self.logRightMenuShow)
 
         self.th = None
     def init(self):
@@ -183,10 +183,34 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
     def clearResultLog(self):
         self.txtResult.clear()
 
+    def selectModule(self):
+        protect_modules = data_info.rpc.get_protect_ranges()
+        modules=data_info.rpc.get_modules()
+        for item in self.tabHistory.selectedItems():
+            # 因为patch是多个的。所以移除的时候要注意。不然会全部移掉的。
+            addr=int(self.tabHistory.item(item.row(), 2).text(),16)
+            for module in protect_modules:
+                moduleBase=int(module["base"],16)
+                moduleSize=int(module["size"])
+                if addr>moduleBase and addr<(moduleBase+moduleSize):
+                    self.appendResult(str(module))
+                    break
+            for module in modules:
+                moduleBase=int(module["base"],16)
+                moduleSize=int(module["size"])
+                if addr>moduleBase and addr<(moduleBase+moduleSize):
+                    self.appendResult(str(module))
+                    break
+                    
+            
+
     def rightMenuShow(self):
         rightMenu = QMenu(self.tabHistory)
         clearAction = QAction(u"清空", self, triggered=self.clearHistory)
         rightMenu.addAction(clearAction)
+        selectModuleAction = QAction(u"查询所属module", self, triggered=self.selectModule)
+        rightMenu.addAction(selectModuleAction)
+
         rightMenu.exec_(QCursor.pos())
 
     def clearHistory(self):
@@ -239,17 +263,28 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
         if len(input) == 0:
             QMessageBox.warning(self, "提示", "请输入搜索内容")
             return
+
         base=self.txtBase.text()
         baseSize=self.txtSize.text()
         value=input
         size=0
         if self.rdoInt.isChecked():
+            try:
+                if "0x" in input:
+                    value=int(input,16)
+                else:
+                    value=int(input)
+            except:
+                QMessageBox.warning(self, "提示", "请输入正确的整数")
+                return
             size = 1
-            if input > 0xff:
-                size = 2
-            elif input > 0xffff:
+            if value<=0xff:
+                size=1
+            elif value<=0xffff:
+                size=2
+            elif value <= 0xffffffff:
                 size = 4
-            elif input > 0xffffffff:
+            elif value <= 0xffffffffffffffff:
                 size = 8
         elif self.rdoStr.isChecked():
             size=""
@@ -261,7 +296,7 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
             postdata = {"protect":protect, "value": value, "size": size,"bak":self.txtBak.text()}
             self.th.newScanProtect(postdata)
         else:
-            if len(size) <= 0:
+            if len(baseSize) <= 0:
                 QMessageBox.warning(self, "提示", "请输入范围大小")
                 return
             postdata={"start":base,"end":base+baseSize,"value":value,"size":size,"bak":self.txtBak.text()}

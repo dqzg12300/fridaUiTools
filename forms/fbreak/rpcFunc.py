@@ -38,3 +38,6 @@ class rpcFunc:
     def read_data(self, addr, length, type):
         raw_data = self.api.readdata(addr, length)
         print(raw_data)
+
+    def get_modules(self):
+        return self.api.getModules()

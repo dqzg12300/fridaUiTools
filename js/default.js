@@ -342,10 +342,11 @@ function generate_pattern(input, byte_length) {
     var pattern = null;
     var addr = 0;
     var array_buffer = null;
+    klogData("search:"+input+"\t"+byte_length)
     switch(byte_length)
     {
         case 0:
-            return pattern;
+            return input;
         case 1: //byte
             if(input >= 0) //无符号
             {
@@ -1299,6 +1300,9 @@ rpc.exports.cstring=function(addr){
 
 rpc.exports.getexportbyname=function(so_name,symbol_name){
     return Module.getExportByName(so_name,symbol_name)
+}
+rpc.exports.getmodules=function (){
+    return Process.enumerateModules();
 }
 
 rpc.exports.readdata=function(pointer,len){
