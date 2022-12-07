@@ -214,7 +214,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.port=""
         self.customPort=""
         self.curFridaVer = "15.1.9"
-        self.actionVer15.setChecked(True)
+        # self.actionVer14.setChecked(True)
 
     def clearSymbol(self):
         self.listSymbol.clear()

@@ -17,7 +17,7 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
         self.btnHexDump.clicked.connect(self.hexDump)
         self.btnCString.clicked.connect(self.cstring)
         self.btnBreak.clicked.connect(self.setBreak)
-
+        self.btnModules.clicked.connect(self.showModules)
 
         self.searchHistory= []
         self.searchResult=""
@@ -132,6 +132,20 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
         except :
             pass
 
+    def showModules(self):
+        modules=data_info.rpc.get_modules()
+        if self.txtModule.text() == '':
+            self.appendResult(str(modules))
+        else:
+            flag=False
+            for module in modules:
+                if self.txtModule.text() in module['name']:
+                    self.appendResult(str(module))
+                    flag=True
+            if flag==False:
+                self.appendResult("没有找到指定模块")
+            
+
     def setBreak(self):
         module = self.txtModule.text()
         symbol = self.txtSymbol.text()
@@ -223,7 +237,24 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
         if len(base) <= 0:
             QMessageBox.warning(self, "提示", "请输入起始地址")
             return
-        res = data_info.rpc.cstring(int(base, 16))
+        try:
+            if "+" in base:
+                base = base.split("+")[0]
+                offset=base.split("+")[1]
+                if "0x" in base:
+                    base = int(base, 16)
+                if "0x" in offset:
+                    offset = int(offset, 16)
+                base=base+offset
+            else:
+                if "0x" in base:
+                    base = int(base, 16)
+                else:
+                    base = int(base)
+        except:
+            QMessageBox.warning(self, "提示", "请输入正确的地址")
+            return
+        res = data_info.rpc.cstring(base)
         self.appendResult(res)
 
     def hexDump(self):
@@ -235,11 +266,30 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
         if len(baseSize) <= 0:
             QMessageBox.warning(self, "提示", "请输入范围大小")
             return
+        try:
+            if "+" in base:
+                baseSp=base.split("+")
+                base = baseSp[0]
+                offset=baseSp[1]
+                if "0x" in base:
+                    base = int(base, 16)
+                if "0x" in offset:
+                    offset = int(offset, 16)
+                base=base+offset
+            else:
+                if "0x" in base:
+                    base = int(base, 16)
+                else:
+                    base = int(base)
+        except:
+            QMessageBox.warning(self, "提示", "请输入正确的地址")
+            return
+        
         if baseSize.startswith("0x"):
             size = int(baseSize, 16)
         else:
             size=int(baseSize)
-        res= data_info.rpc.hexdump(int(base, 16), size)
+        res= data_info.rpc.hexdump(base, size)
         self.appendResult(res)
 
     def appendHistory(self,data):

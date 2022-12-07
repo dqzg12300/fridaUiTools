@@ -1,0 +1,56 @@
+# -*- mode: python ; coding: utf-8 -*-
+
+
+block_cipher = None
+
+SETUP_DIR = '/Users/king/git_src/fridaUiTools/'
+a = Analysis(
+    ['kmainForm.py'],
+    pathex=['/Users/king/git_src/fridaUiTools/'],
+    binaries=[(SETUP_DIR+'libcapstone.dylib','libcapstone.dylib'),(SETUP_DIR+'libkeystone.dylib','libkeystone.dylib')],
+    datas=[(SETUP_DIR+'config/type.json','config/type.json'),
+            (SETUP_DIR+'custom','custom'),
+            (SETUP_DIR+'exec','exec'),
+            (SETUP_DIR+'js','js'),
+            (SETUP_DIR+'lib','lib'),
+            (SETUP_DIR+'sh','sh'),
+            ],
+    hiddenimports=[],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
+    noarchive=False,
+)
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    [],
+    name='kmainForm',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
+app = BUNDLE(
+    exe,
+    name='kmainForm.app',
+    icon=None,
+    bundle_identifier=None,
+)
