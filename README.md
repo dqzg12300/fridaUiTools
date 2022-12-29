@@ -19,6 +19,9 @@ spawn附加时提示错误，ERROR.无法获取到进程列表。好久不用这
 fridaMemoryAccessTrace的里面有例子，使用测试可以先安装他的apk。然后module填libnative-lib.so，symbol填test_value，length填4。
 实现比较简单，测试比较少。发现bug再修吧。
 
+## 更新 2022-12-28
+新增frida16的支持，新增frida过检测
+
 ## 更新 2022-11-21
 修复register_native_hook，修复了spawn启动会缺少一点数据的问题
 优化FCAnd_jnitrace可以选择指定模块和函数

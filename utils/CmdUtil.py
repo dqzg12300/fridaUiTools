@@ -50,3 +50,12 @@ def adbshellCmd(cmd):
     else:
         text = "cmd命令执行" + cmd
     return text
+
+def adbshellCmdEnd(cmd,end):
+    cmd="%s '%s' %s"%(cmdhead,cmd,end)
+    text = exec(cmd)
+    if len(text) > 0:
+        text += "\ncmd命令执行" + cmd
+    else:
+        text = "cmd命令执行" + cmd
+    return text

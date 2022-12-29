@@ -143,80 +143,6 @@
            <string>hook多选(附加进程前使用)</string>
           </property>
           <layout class="QGridLayout" name="gridLayout_7">
-           <item row="0" column="0">
-            <layout class="QGridLayout" name="gridLayout_5">
-             <item row="0" column="0">
-              <widget class="QCheckBox" name="chkNetwork">
-               <property name="text">
-                <string>r0capture</string>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="1">
-              <widget class="QCheckBox" name="chkJni">
-               <property name="text">
-                <string>jnitrace</string>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="2">
-              <widget class="QCheckBox" name="chkJavaEnc">
-               <property name="text">
-                <string>java加解密</string>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="3">
-              <widget class="QCheckBox" name="chkSslPining">
-               <property name="text">
-                <string>ssl pining</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="0">
-              <widget class="QCheckBox" name="chkHookEvent">
-               <property name="text">
-                <string>hookEvent</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="1">
-              <widget class="QCheckBox" name="chkRegisterNative">
-               <property name="text">
-                <string>RegisterNative</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="2">
-              <widget class="QCheckBox" name="chkArtMethod">
-               <property name="text">
-                <string>ArtMethod</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="3">
-              <widget class="QCheckBox" name="chkLibArt">
-               <property name="text">
-                <string>libArt</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="0">
-              <widget class="QCheckBox" name="chkAntiDebug">
-               <property name="text">
-                <string>anti_debug</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="1">
-              <widget class="QCheckBox" name="chkNewJnitrace">
-               <property name="text">
-                <string>FCAnd_jnitrace</string>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
            <item row="2" column="0">
             <layout class="QHBoxLayout" name="horizontalLayout">
              <item>
@@ -300,6 +226,93 @@
                </property>
                <property name="text">
                 <string>Patch</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btnAntiFrida">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>frida检测</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item row="0" column="0">
+            <layout class="QGridLayout" name="gridLayout_5">
+             <item row="0" column="0">
+              <widget class="QCheckBox" name="chkNetwork">
+               <property name="text">
+                <string>r0capture</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QCheckBox" name="chkJni">
+               <property name="text">
+                <string>jnitrace</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="2">
+              <widget class="QCheckBox" name="chkJavaEnc">
+               <property name="text">
+                <string>java加解密</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="3">
+              <widget class="QCheckBox" name="chkSslPining">
+               <property name="text">
+                <string>ssl pining</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QCheckBox" name="chkHookEvent">
+               <property name="text">
+                <string>hookEvent</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QCheckBox" name="chkRegisterNative">
+               <property name="text">
+                <string>RegisterNative</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="2">
+              <widget class="QCheckBox" name="chkArtMethod">
+               <property name="text">
+                <string>ArtMethod</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="3">
+              <widget class="QCheckBox" name="chkLibArt">
+               <property name="text">
+                <string>libArt</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0">
+              <widget class="QCheckBox" name="chkAntiDebug">
+               <property name="text">
+                <string>anti_debug</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QCheckBox" name="chkNewJnitrace">
+               <property name="text">
+                <string>FCAnd_jnitrace</string>
                </property>
               </widget>
              </item>
@@ -842,6 +855,7 @@
     </property>
     <addaction name="actionVer14"/>
     <addaction name="actionVer15"/>
+    <addaction name="actionVer16"/>
    </widget>
    <addaction name="menufile"/>
    <addaction name="menuedit"/>
@@ -1051,6 +1065,11 @@
    </property>
    <property name="text">
     <string>adb shell mks 0</string>
+   </property>
+  </action>
+  <action name="actionVer16">
+   <property name="text">
+    <string>16.0.8</string>
    </property>
   </action>
  </widget>

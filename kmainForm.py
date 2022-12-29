@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog, QStatusBar, 
     QTableWidgetItem, QMenu, QAction, QActionGroup
 
 from forms import SelectPackage
+from forms.AntiFrida import antiFridaForm
 from forms.CallFunction import callFunctionForm
 from forms.Custom import customForm
 from forms.DumpAddress import dumpAddressForm
@@ -114,11 +115,12 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.actionUsb.triggered.connect(self.UsbConn)
         self.actionVer14.triggered.connect(self.ChangeVer14)
         self.actionVer15.triggered.connect(self.ChangeVer15)
+        self.actionVer16.triggered.connect(self.ChangeVer16)
         self.actionChangePort.triggered.connect(self.ChangePort)
         self.verGroup = QActionGroup(self)
         self.verGroup.addAction(self.actionVer14)
         self.verGroup.addAction(self.actionVer15)
-
+        self.verGroup.addAction(self.actionVer16)
         self.btnDumpPtr.clicked.connect(self.dumpPtr)
         self.btnDumpSo.clicked.connect(self.dumpSo)
         self.btnFart.clicked.connect(self.dumpFart)
@@ -177,6 +179,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         # self.btnOpFartLog.clicked.connect(self.fartOpLog)
         self.btnMemSearch.clicked.connect(self.searchMem)
 
+        self.btnAntiFrida.clicked.connect(self.antiFrida)
+
         self.dumpForm = dumpAddressForm()
         self.jniform = jnitraceForm()
         self.newJniform=jnitraceForm()
@@ -195,6 +199,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.wifiForm=wifiForm()
         self.portForm = portForm()
         self.searchMemForm= searchMemoryForm()
+        self.antiFdForm=antiFridaForm()
 
         self.modules = None
         self.classes = None
@@ -213,8 +218,9 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.address=""
         self.port=""
         self.customPort=""
-        self.curFridaVer = "15.1.9"
-        # self.actionVer14.setChecked(True)
+        # 16.0.8  15.1.9  14.2.18
+        self.curFridaVer = "16.0.8"
+        self.actionVer16.setChecked(True)
 
     def clearSymbol(self):
         self.listSymbol.clear()
@@ -573,7 +579,11 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             return
         self.curFridaVer = "15.1.9"
 
-
+    def ChangeVer16(self, checked):
+        if checked==False:
+            return
+        self.curFridaVer = "16.0.8"
+    
     def Frida32Start(self):
         self.ShStart(f"frida-server-{self.curFridaVer}-android-arm")
 
@@ -927,6 +937,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.searchMemForm.init()
         self.searchMemForm.show()
 
+
     # ====================end======需要附加后才能使用的功能,基本都是在内存中查数据================================
 
     # ====================start======附加前使用的功能,基本都是在内存中查数据================================
@@ -1109,6 +1120,16 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         else:
             self.hooksData[typeStr] = []
             self.hooksData[typeStr].append(patchHook)
+        self.updateTabHooks()
+
+    def antiFrida(self):
+        self.antiFdForm.exec()
+        if self.antiFdForm.antiType=="":
+            return
+        hookData = {"class": self.antiFdForm.antiType, "method": self.antiFdForm.keyword,"isExitThread":self.antiFdForm.chkExitThread.isChecked(),
+                     "bak": "简单的过frida检测.", "address": self.pform.address, "code": self.pform.patch}
+        typeStr = "antiFrida"
+        self.hooksData[typeStr]=hookData
         self.updateTabHooks()
 
     def saveHooks(self):
@@ -1295,6 +1316,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.methods = info[searchTyep]
             for method in info[searchTyep]:
                 self.listMethod.addItem(method)
+
 
     # ====================end======附加前使用的功能,基本都是在内存中查数据================================
     # 关于我

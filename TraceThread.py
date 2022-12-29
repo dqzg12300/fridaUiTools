@@ -196,6 +196,15 @@ class Runthread(QThread):
                 jsdata =jsdata.replace("%methodName%", self.hooksData[item]["method"])
                 jsdata = jsdata.replace("%offset%", self.hooksData[item]["offset"])
                 source +=jsdata
+            elif item=="antiFrida":
+                jsdata = open("./js/anti_frida.js", 'r', encoding="utf8").read()
+                jsdata = jsdata.replace("%antiType%", self.hooksData[item]["class"])
+                jsdata = jsdata.replace("%Keyword%", self.hooksData[item]["method"])
+                if self.hooksData[item]["isExitThread"]:
+                    jsdata = jsdata.replace("%isExitThread%", "1")
+                else:
+                    jsdata = jsdata.replace("%isExitThread%", "")
+                source += jsdata
         source += open("./js/default.js", 'r', encoding="utf8").read()
         source = source.replace("%spawn%", "1" if self.isSpawn else "")
         source += open("./js/Wallbreaker.js", 'r', encoding="utf8").read()
