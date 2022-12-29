@@ -10,6 +10,9 @@ spawn附加时提示错误，ERROR.无法获取到进程列表。好久不用这
 ## 交流群
 <img src="./img/qun.jpg" style="zoom:50%">
 
+## 更新 2022-12-28
+新增frida16的支持，新增frida过检测
+
 ## 更新 2022-12-02
 修复搜索内存功能中的一些bug，搜索到的结果新增右键查询模块信息功能。修复一些细节问题
 
@@ -18,9 +21,6 @@ spawn附加时提示错误，ERROR.无法获取到进程列表。好久不用这
 新增功能内存断点trace，附加后使用。参考来源[fridaMemoryAccessTrace](https://github.com/asmjmp0/fridaMemoryAccessTrace)
 fridaMemoryAccessTrace的里面有例子，使用测试可以先安装他的apk。然后module填libnative-lib.so，symbol填test_value，length填4。
 实现比较简单，测试比较少。发现bug再修吧。
-
-## 更新 2022-12-28
-新增frida16的支持，新增frida过检测
 
 ## 更新 2022-11-21
 修复register_native_hook，修复了spawn启动会缺少一点数据的问题
