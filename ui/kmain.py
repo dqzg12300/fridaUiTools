@@ -467,6 +467,7 @@ class Ui_MainWindow(object):
         self.actionMks0.setCheckable(True)
         self.actionMks0.setObjectName("actionMks0")
         self.actionVer16 = QtWidgets.QAction(MainWindow)
+        self.actionVer16.setCheckable(True)
         self.actionVer16.setObjectName("actionVer16")
         self.menufile.addAction(self.actionClearTmp)
         self.menufile.addAction(self.actionClearLogs)
