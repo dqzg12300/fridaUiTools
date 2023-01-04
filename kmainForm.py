@@ -219,8 +219,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.port=""
         self.customPort=""
         # 16.0.8  15.1.9  14.2.18
-        self.curFridaVer = "14.2.18"
-        self.actionVer14.setChecked(True)
+        self.curFridaVer = "15.1.9"
+        self.actionVer15.setChecked(True)
 
     def clearSymbol(self):
         self.listSymbol.clear()
@@ -863,7 +863,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.log("Error:未勾选fart脱壳脚本")
             QMessageBox().information(self, "提示", "未勾选fart脱壳脚本")
             return
-
+        CmdUtil.adbshellCmd("mkdir /data/data/"+self.labPackage.text()+"/fart/")
         res = self.fartForm.exec()
         if res == 0:
             return
