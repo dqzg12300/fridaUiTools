@@ -5,7 +5,7 @@ from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QDialog, QTableWidgetItem, QMenu, QAction, QHeaderView, QMessageBox
 
 from ui.zenTracer import Ui_ZenTracerDialog
-
+from PyQt5 import QtCore
 
 class zenTracerForm(QDialog,Ui_ZenTracerDialog):
     def __init__(self, parent=None):
@@ -36,8 +36,8 @@ class zenTracerForm(QDialog,Ui_ZenTracerDialog):
         self.btnMethodBreakAdd.clicked.connect(self.methodBreakAdd)
 
         self.cmbPackage.currentTextChanged.connect(self.changePackage)
-
-        self.header = ["名称", "类型"]
+        self._translate = QtCore.QCoreApplication.translate
+        self.header = [self._translate("zenTracerForm","名称"), self._translate("zenTracerForm","类型")]
         self.tabTracer.setColumnCount(2)
         self.tabTracer.setHorizontalHeaderLabels(self.header)
         self.tabTracer.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -102,6 +102,9 @@ class zenTracerForm(QDialog,Ui_ZenTracerDialog):
 
     def classAdd(self):
         className=self.txtClass.text()
+        if className=="":
+            QMessageBox().information(self, "hint", self._translate("zenTracerForm", "类名不能为空"))
+            return
         if className in self.traceClass:
             return
         self.traceClass.append(className)
@@ -109,6 +112,9 @@ class zenTracerForm(QDialog,Ui_ZenTracerDialog):
 
     def classBreakAdd(self):
         className = self.txtClassBreak.text()
+        if className=="":
+            QMessageBox().information(self, "hint", self._translate("zenTracerForm", "拉黑类名不能为空"))
+            return
         if className in self.traceBClass:
             return
         self.traceBClass.append(className)
@@ -116,7 +122,7 @@ class zenTracerForm(QDialog,Ui_ZenTracerDialog):
 
     def methodAdd(self):
         if len(self.txtClass.text())<=0:
-            QMessageBox().information(self, "提示", "未指定函数所属类")
+            QMessageBox().information(self, "hint",self._translate("zenTracerForm","未指定函数所属类"))
             return
         methodName = self.txtMethod.text()
         if methodName in self.traceMethods:
@@ -130,7 +136,7 @@ class zenTracerForm(QDialog,Ui_ZenTracerDialog):
 
     def methodBreakAdd(self):
         if len(self.txtClassBreak.text())<=0:
-            QMessageBox().information(self, "提示", "未指定拉黑函数所属类")
+            QMessageBox().information(self, "hint", self._translate("zenTracerForm","未指定拉黑函数所属类"))
             return
         methodName = self.txtMethodBreak.text()
         if methodName in self.traceBMethods:
@@ -226,9 +232,9 @@ class zenTracerForm(QDialog,Ui_ZenTracerDialog):
 
     def rightMenuShow(self):
         rightMenu = QMenu(self.tabTracer)
-        removeAction = QAction(u"删除", self,triggered=self.hooksRemove)
+        removeAction = QAction(self._translate("zenTracerForm","删除"), self,triggered=self.hooksRemove)
         rightMenu.addAction(removeAction)
 
-        clearAction = QAction(u"清空", self, triggered=self.hooksClear)
+        clearAction = QAction(self._translate("zenTracerForm","清空"), self, triggered=self.hooksClear)
         rightMenu.addAction(clearAction)
         rightMenu.exec_(QCursor.pos())

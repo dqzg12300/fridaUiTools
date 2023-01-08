@@ -43,8 +43,8 @@ class dumpSoForm(QDialog,Ui_DumpSoDialog):
 
 
     def submit(self):
-        if len(self.txtModule.text())<=0 or len(self.txtModule.text())<=0:
-            QMessageBox().information(self, "提示", "模块名或函数为空")
+        if len(self.txtModule.text())<=0 :
+            QMessageBox().information(self, "hint", "module is empty")
             return
         self.moduleName = self.txtModule.text()
         self.accept()

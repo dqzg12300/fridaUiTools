@@ -68,10 +68,10 @@ class stalkerForm(QDialog,Ui_StalkerDialog):
         offset = self.txtOffset.text()
         symbol= self.txtSymbol.text()
         if len(moduleName) <= 0:
-            QMessageBox().information(self, "提示", "模块不能为空")
+            QMessageBox().information(self, "hint", "missing module")
             return
         if len(offset) <= 0 and len(symbol)<=0:
-            QMessageBox().information(self, "提示", "offset和symbol至少填写一项")
+            QMessageBox().information(self, "hint", "must enter offset or symbol")
             return
         self.moduleName = moduleName
         self.offset = offset

@@ -6,7 +6,7 @@ from forms.fbreak import handle_exception, data_info
 from forms.fbreak.handle_excepetion_info import exception_info
 from forms.fbreak.rpcFunc import rpcFunc
 from ui.searchMemory import Ui_searchMemory
-
+from PyQt5 import QtCore
 
 class searchMemoryForm(QDialog,Ui_searchMemory):
     def __init__(self, parent=None):
@@ -18,11 +18,12 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
         self.btnCString.clicked.connect(self.cstring)
         self.btnBreak.clicked.connect(self.setBreak)
         self.btnModules.clicked.connect(self.showModules)
-
+        self._translate = QtCore.QCoreApplication.translate
         self.searchHistory= []
         self.searchResult=""
 
-        self.header = ["序号","值", "地址","备注"]
+        self.header = [self._translate("searchMemoryForm","序号"),self._translate("searchMemoryForm","值"),
+                       self._translate("searchMemoryForm","地址"),self._translate("searchMemoryForm","备注")]
 
         self.tabHistory.clear()
         self.tabHistory.setColumnCount(4)
@@ -143,7 +144,7 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
                     self.appendResult(str(module))
                     flag=True
             if flag==False:
-                self.appendResult("没有找到指定模块")
+                self.appendResult(self._translate("searchMemoryForm","没有找到指定模块"))
             
 
     def setBreak(self):
@@ -153,7 +154,7 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
         abaddress= self.txtAbAddress.text()
         breakSize=self.txtBreakSize.text()
         if len(breakSize)<=0:
-            QMessageBox.warning(self, "提示", "请输入断点大小")
+            QMessageBox.warning(self, "hint",self._translate("searchMemoryForm", "请输入断点大小"))
             return
 
         if breakSize.startswith("0x"):
@@ -165,7 +166,7 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
         if len(module) > 0:
             moduleBase=data_info.rpc.get_module(module)
             baseAddr= int(moduleBase["base"], 16)
-            self.appendResult("模块%s基址为：0x%x" % (module,baseAddr))
+            self.appendResult(self._translate("searchMemoryForm","模块%s基址为：0x%x") % (module,baseAddr))
 
         if len(abaddress)>0:
             data_info.break_point_info['break_addr'] = int(abaddress, 16)
@@ -190,7 +191,7 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
 
     def logRightMenuShow(self):
         rightMenu = QMenu(self.txtResult)
-        clearAction = QAction(u"清空", self, triggered=self.clearResultLog)
+        clearAction = QAction(self._translate("searchMemoryForm","清空"), self, triggered=self.clearResultLog)
         rightMenu.addAction(clearAction)
         rightMenu.exec_(QCursor.pos())
 
@@ -220,9 +221,9 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
 
     def rightMenuShow(self):
         rightMenu = QMenu(self.tabHistory)
-        clearAction = QAction(u"清空", self, triggered=self.clearHistory)
+        clearAction = QAction(self._translate("searchMemoryForm","清空"), self, triggered=self.clearHistory)
         rightMenu.addAction(clearAction)
-        selectModuleAction = QAction(u"查询所属module", self, triggered=self.selectModule)
+        selectModuleAction = QAction(self._translate("searchMemoryForm","查询所属module"), self, triggered=self.selectModule)
         rightMenu.addAction(selectModuleAction)
 
         rightMenu.exec_(QCursor.pos())
@@ -235,7 +236,7 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
     def cstring(self):
         base = self.txtBase.text()
         if len(base) <= 0:
-            QMessageBox.warning(self, "提示", "请输入起始地址")
+            QMessageBox.warning(self, "hint",self._translate("searchMemoryForm","请输入起始地址") )
             return
         try:
             if "+" in base:
@@ -252,7 +253,7 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
                 else:
                     base = int(base)
         except:
-            QMessageBox.warning(self, "提示", "请输入正确的地址")
+            QMessageBox.warning(self, "hint",self._translate("searchMemoryForm","请输入正确的地址"))
             return
         res = data_info.rpc.cstring(base)
         self.appendResult(res)
@@ -261,10 +262,10 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
         base = self.txtBase.text()
         baseSize = self.txtSize.text()
         if len(base) <= 0:
-            QMessageBox.warning(self, "提示", "请输入起始地址")
+            QMessageBox.warning(self, "hint",self._translate("searchMemoryForm","请输入起始地址") )
             return
         if len(baseSize) <= 0:
-            QMessageBox.warning(self, "提示", "请输入范围大小")
+            QMessageBox.warning(self, "hint", self._translate("searchMemoryForm","请输入范围大小"))
             return
         try:
             if "+" in base:
@@ -282,7 +283,7 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
                 else:
                     base = int(base)
         except:
-            QMessageBox.warning(self, "提示", "请输入正确的地址")
+            QMessageBox.warning(self, "hint",self._translate("searchMemoryForm","请输入正确的地址") )
             return
         
         if baseSize.startswith("0x"):
@@ -303,7 +304,7 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
             self.tabHistory.setItem(0, 3, QTableWidgetItem(line["bak"]))
             idx+=1
         # self.appendResult(str(data))
-        QMessageBox.information(self, "提示", f"搜索完成,检索到{len(historyData)}条结果")
+        QMessageBox.information(self, "hint",self._translate("searchMemoryForm","搜索完成,检索到%d条结果") % len(historyData))
 
     def appendResult(self, result):
         self.txtResult.appendPlainText(result)
@@ -311,7 +312,7 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
     def search(self):
         input=self.txtInput.text()
         if len(input) == 0:
-            QMessageBox.warning(self, "提示", "请输入搜索内容")
+            QMessageBox.warning(self, "hint", self._translate("searchMemoryForm","请输入搜索内容"))
             return
 
         base=self.txtBase.text()
@@ -325,7 +326,7 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
                 else:
                     value=int(input)
             except:
-                QMessageBox.warning(self, "提示", "请输入正确的整数")
+                QMessageBox.warning(self, "hint", self._translate("searchMemoryForm","请输入正确的整数"))
                 return
             size = 1
             if value<=0xff:
@@ -347,7 +348,7 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
             self.th.newScanProtect(postdata)
         else:
             if len(baseSize) <= 0:
-                QMessageBox.warning(self, "提示", "请输入范围大小")
+                QMessageBox.warning(self, "hint", self._translate("searchMemoryForm","请输入范围大小"))
                 return
             postdata={"start":base,"end":base+baseSize,"value":value,"size":size,"bak":self.txtBak.text()}
             self.th.newScanByAddress(postdata)

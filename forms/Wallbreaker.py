@@ -5,7 +5,7 @@ from PyQt5 import uic
 from PyQt5.QtWidgets import QDialog, QMessageBox
 
 from ui.wallBreaker import Ui_Wallbreaker
-
+from PyQt5 import QtCore
 
 class DvmDescConverter:
     def __init__(self, desc):
@@ -49,6 +49,7 @@ class wallBreakerForm(QDialog,Ui_Wallbreaker):
         self.txtClassName.textChanged.connect(self.changeClass)
         self.classes = None
         self.api=None
+        self._translate = QtCore.QCoreApplication.translate
 
     def initData(self):
         self.listClasses.clear()
@@ -294,10 +295,10 @@ class wallBreakerForm(QDialog,Ui_Wallbreaker):
     def classSearch(self):
         className=self.txtClassName.text()
         if len(className)<=0:
-            QMessageBox().information(self, "提示", "未填写类名")
+            QMessageBox().information(self, "hint",self._translate("wallBreakerForm","未填写类名"))
             return
         if self.api==None:
-            QMessageBox().information(self, "提示", "未设置api,可能附加失败")
+            QMessageBox().information(self, "hint",self._translate("wallBreakerForm","未设置api,可能附加失败"))
             return
         instances = self.api.class_match(className)
         self.appendLog("\n".join(instances))
@@ -305,10 +306,10 @@ class wallBreakerForm(QDialog,Ui_Wallbreaker):
     def classDump(self):
         className = self.txtClassName.text()
         if len(className) <= 0:
-            QMessageBox().information(self, "提示", "未填写类名")
+            QMessageBox().information(self, "hint", self._translate("wallBreakerForm","未填写类名"))
             return
         if self.api==None:
-            QMessageBox().information(self, "提示", "未设置api,可能附加失败")
+            QMessageBox().information(self, "hint", self._translate("wallBreakerForm","未设置api,可能附加失败"))
             return
         result= self.class_dump(className, pretty_print=False, short_name=True)
         self.appendLog(result)
@@ -316,10 +317,10 @@ class wallBreakerForm(QDialog,Ui_Wallbreaker):
     def objectSearch(self):
         className = self.txtClassName.text()
         if len(className) <= 0:
-            QMessageBox().information(self, "提示", "未填写类名")
+            QMessageBox().information(self, "hint",self._translate("wallBreakerForm", "未填写类名"))
             return
         if self.api==None:
-            QMessageBox().information(self, "提示", "未设置api,可能附加失败")
+            QMessageBox().information(self, "hint", self._translate("wallBreakerForm","未设置api,可能附加失败"))
             return
         instances = self.object_search(className, stop=False)
         for handle in instances:
@@ -330,10 +331,10 @@ class wallBreakerForm(QDialog,Ui_Wallbreaker):
         className = self.txtClassName.text()
         address = self.txtAddress.text()
         if len(address) <= 0:
-            QMessageBox().information(self, "提示", "未填写地址")
+            QMessageBox().information(self, "hint", self._translate("wallBreakerForm","未填写地址"))
             return
         if self.api==None:
-            QMessageBox().information(self, "提示", "未设置api,可能附加失败")
+            QMessageBox().information(self, "hint",self._translate("wallBreakerForm", "未设置api,可能附加失败"))
             return
         res=self.object_dump(address, as_class=className, pretty_print=False, short_name=True)
         self.appendLog(res)

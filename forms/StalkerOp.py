@@ -19,7 +19,7 @@ class stalkerMatchForm(QDialog,Ui_StalkerMatchDialog):
 
     def selectLogPath(self):
         fileName_choose, filetype = QFileDialog.getOpenFileName(self,
-                                                                "选取文件",
+                                                                "select file",
                                                                 self.cwd,
                                                                 "Text Files (*.txt);;Log Files(*.log);;All Files (*)")
         if fileName_choose == "":
@@ -29,7 +29,7 @@ class stalkerMatchForm(QDialog,Ui_StalkerMatchDialog):
 
     def selectSavePath(self):
         fileName_choose, filetype = QFileDialog.getSaveFileName(self,
-                                                                "文件保存",
+                                                                "file save",
                                                                 self.cwd,  # 起始路径
                                                                 "All Files (*);;Text Files (*.txt)")  # 设置文件扩展名过滤,用双分号间隔
         if fileName_choose == "":
@@ -41,10 +41,10 @@ class stalkerMatchForm(QDialog,Ui_StalkerMatchDialog):
 
     def submit(self):
         if len(self.txtLogPath.text())<=0 or os.path.exists(self.txtLogPath.text())==False:
-            QMessageBox().information(self, "提示", "log路径为空或文件不存在")
+            QMessageBox().information(self, "hint", "missing log path")
             return
         if len(self.txtSavePath.text())<=0:
-            QMessageBox().information(self, "提示", "save路径为空")
+            QMessageBox().information(self, "hint", "missing save path")
             return
         logfile=open(self.txtLogPath.text(),"r",encoding="utf-8")
         logdata=logfile.read()

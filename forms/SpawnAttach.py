@@ -36,7 +36,7 @@ class spawnAttachForm(QDialog,Ui_SpawnAttachDialog):
     def submit(self):
         packageName = self.txtPackage.text()
         if len(packageName) <= 0:
-            QMessageBox().information(self, "提示", "package为空")
+            QMessageBox().information(self, "hint", "missing packageName")
             return
         self.packageName = packageName
         if packageName not in self.packages :

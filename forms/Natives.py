@@ -68,7 +68,7 @@ class nativesForm(QDialog,Ui_NativesDialog):
         moduleName = self.txtModule.text()
         methods = self.txtMethods.toPlainText().replace("\n",",")
         if len(moduleName) <= 0 or len(methods) <= 0:
-            QMessageBox().information(self, "提示", "模块名或函数为空")
+            QMessageBox().information(self, "hint", "must enter mudule and method")
             return
         self.moduleName = moduleName
         self.methods = methods

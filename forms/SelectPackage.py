@@ -36,7 +36,7 @@ class selectPackageForm(QDialog,Ui_SelectPackageDialog):
     def submit(self):
         packageName = self.txtPackage.text()
         if len(packageName) <= 0:
-            QMessageBox().information(self, "提示", "未选择package")
+            QMessageBox().information(self, "hint", "missing packageNamee")
             return
         self.packageName = packageName
         self.accept()

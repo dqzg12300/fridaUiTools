@@ -1,7 +1,6 @@
 from PyQt5.QtWidgets import QDialog, QMessageBox
 
 from ui.dumpAddress import Ui_DumpAddressDialog
-
 class dumpAddressForm(QDialog,Ui_DumpAddressDialog):
     def __init__(self, parent=None):
         super(dumpAddressForm, self).__init__(parent)
@@ -58,13 +57,13 @@ class dumpAddressForm(QDialog,Ui_DumpAddressDialog):
         address = self.txtAddress.text()
         size=self.txtSize.text()
         if len(address) <= 0:
-            QMessageBox().information(self, "提示", "地址不能为空")
+            QMessageBox().information(self, "hint",self._translate("dumpAddressForm", "missing address"))
             return
         self.dumpType=self.cmbDumpType.currentText()
         try:
             if self.dumpType=="hexdump":
                 if len(size)<=0:
-                    QMessageBox().information(self, "提示", "长度不能为空")
+                    QMessageBox().information(self, "hint", self._translate("dumpAddressForm", "missing size"))
                     return
                 else:
                     if "0x" in size:
@@ -77,6 +76,6 @@ class dumpAddressForm(QDialog,Ui_DumpAddressDialog):
             else:
                 self.address = int(address)
         except Exception as ex:
-            QMessageBox().information(self, "提示", "地址或长度格式输入错误")
+            QMessageBox().information(self, "hint",self._translate("dumpAddressForm","dump exception.")+ex)
             return
         self.accept()

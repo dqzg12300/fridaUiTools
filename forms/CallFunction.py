@@ -31,9 +31,9 @@ class callFunctionForm(QDialog,Ui_CallFunctionDialog):
 
     def submit(self):
         if len(self.txtMethod.text())<=0:
-            QMessageBox().information(self, "提示", "函数不能为空")
+            QMessageBox().information(self, "hint", "function is empty")
             return
         methodName = self.txtMethod.text()
         args=self.txtArgs.text()
         self.api.callnormal(methodName,args)
-        QMessageBox().information(self, "提示", "调用完成")
+        QMessageBox().information(self, "hint", "call success")

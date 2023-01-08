@@ -70,10 +70,10 @@ class jnitraceForm(QDialog,Ui_JniTraceDialog):
     def submit(self):
         if self.checkData:
             if(self.txtModule.text()==""):
-                QMessageBox.information(self, "提示", "module不能为空")
+                QMessageBox.information(self, "hint", "missing module")
                 return
             if self.txtMethod.text() == "" and self.txtOffset.text() == "":
-                QMessageBox().information(self, "提示", "symbol和offset需要选填一个")
+                QMessageBox().information(self, "hint", "must enter symbol or offset")
                 return
 
         self.moduleName = self.txtModule.text()

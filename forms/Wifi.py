@@ -22,10 +22,10 @@ class wifiForm(QDialog,Ui_WifiDialog):
         address = self.txtAddress.text()
         port = self.txtPort.text()
         if len(address) <= 0:
-            QMessageBox().information(self, "提示", "地址不能为空")
+            QMessageBox().information(self, "hint", "missing address")
             return
         if len(port) <= 0:
-            QMessageBox().information(self, "提示", "端口不能为空")
+            QMessageBox().information(self, "hint", "missing port")
             return
         self.address = address
         self.port = port

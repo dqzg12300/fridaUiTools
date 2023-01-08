@@ -5,7 +5,7 @@ from datetime import datetime
 from PyQt5.QtCore import Qt, QPoint
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QDialog, QHeaderView, QMenu, QAction, QTableWidgetItem, QMessageBox
-
+from PyQt5 import QtCore
 from ui.custom import Ui_CustomDialog
 
 
@@ -15,8 +15,8 @@ class customForm(QDialog,Ui_CustomDialog):
         self.setupUi(self)
         self.setWindowOpacity(0.93)
         self.btnSubmit.clicked.connect(self.submit)
-
-        self.header = ["别名", "文件名", "备注"]
+        self._translate = QtCore.QCoreApplication.translate
+        self.header = [self._translate("customForm","别名"), self._translate("customForm","文件名"),self._translate("customForm", "备注")]
         self.tabCustomList.setColumnCount(3)
         self.tabCustomList.setHorizontalHeaderLabels(self.header)
         self.tabCustomList.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -44,7 +44,7 @@ class customForm(QDialog,Ui_CustomDialog):
                 self.txtJsName.setText(data["name"])
                 self.txtBak.setText(data["bak"])
         else:
-            QMessageBox().information(self, "提示", "文件" + data["fileName"] + "不存在")
+            QMessageBox().information(self, "hint", self._translate("customForm", "文件 ") + data["fileName"] + self._translate("customForm", " 不存在"))
 
     def UiClear(self):
         self.txtBak.setText("")
@@ -55,8 +55,8 @@ class customForm(QDialog,Ui_CustomDialog):
     # 右键菜单
     def cusTomRightMenuShow(self):
         rightMenu = QMenu(self.tabCustomList)
-        removeAction = QAction(u"删除", self, triggered=self.customRemove)
-        addAction = QAction(u"添加到hook", self, triggered=self.customAdd)
+        removeAction = QAction(self._translate("customForm", "删除"), self, triggered=self.customRemove)
+        addAction = QAction(self._translate("customForm", "添加到hook"), self, triggered=self.customAdd)
         rightMenu.addAction(removeAction)
         rightMenu.addAction(addAction)
         rightMenu.exec_(QCursor.pos())
@@ -64,7 +64,7 @@ class customForm(QDialog,Ui_CustomDialog):
     # 右键菜单
     def cusTomHookRightMenuShow(self):
         rightMenu = QMenu(self.tabCustomHookList)
-        removeAction = QAction(u"删除", self, triggered=self.hooksRemove)
+        removeAction = QAction(self._translate("customForm", "删除"), self, triggered=self.hooksRemove)
         rightMenu.addAction(removeAction)
         rightMenu.exec_(QCursor.pos())
 
@@ -80,7 +80,7 @@ class customForm(QDialog,Ui_CustomDialog):
                         flag=True
                         break
                 if flag:
-                    QMessageBox().information(self, "提示", "文件"+self.customs[item.row()]["fileName"]+",已添加到hook,不能重复添加")
+                    QMessageBox().information(self, "hint", self._translate("customForm","文件")+self.customs[item.row()]["fileName"]+self._translate("customForm",",已添加到hook,不能重复添加"))
                     continue
                 self.customHooks.append(self.customs[item.row()])
                 break
@@ -157,10 +157,10 @@ class customForm(QDialog,Ui_CustomDialog):
 
     def submit(self):
         if len(self.txtJsName.text())<=0:
-            QMessageBox().information(self, "提示", "别名不能为空")
+            QMessageBox().information(self, "hint",self._translate("customForm","别名不能为空") )
             return
         if len(self.txtJsData.toPlainText())<=0:
-            QMessageBox().information(self, "提示", "脚本不能为空")
+            QMessageBox().information(self, "hint",self._translate("customForm","脚本不能为空") )
             return
         data={}
         data["name"]=self.txtJsName.text()

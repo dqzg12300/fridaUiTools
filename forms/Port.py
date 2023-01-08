@@ -21,7 +21,7 @@ class portForm(QDialog,Ui_Port):
     def submit(self):
         port = self.txtPort.text()
         if len(port) <= 0:
-            QMessageBox().information(self, "提示", "端口不能为空")
+            QMessageBox().information(self, "hint", "missing port")
             return
         self.port = port
         self.accept()

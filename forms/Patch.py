@@ -93,7 +93,7 @@ class patchForm(QDialog,Ui_PatchDialog):
         address = self.txtAddress.text()
         patch=self.txtPatch.text()
         if len(moduleName) <= 0 or len(address)<=0 or len(patch)<=0:
-            QMessageBox().information(self, "提示", "类名为空")
+            QMessageBox().information(self, "hint", "must enter module and address and patch data")
             return
         self.moduleName = moduleName
         self.address = address

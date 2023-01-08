@@ -19,7 +19,7 @@ class fartForm(QDialog,Ui_FartDialog):
 
     def selectClasses(self):
         fileName_choose, filetype = QFileDialog.getOpenFileName(self,
-                                                                "选取文件",
+                                                                "select file",
                                                                 self.examplePath,
                                                                 "Text Files (*.txt);;All Files (*)")
         if fileName_choose == "":
@@ -32,7 +32,7 @@ class fartForm(QDialog,Ui_FartDialog):
     def submitFridaFartClass(self):
         classes=self.txtClasses.toPlainText()
         if len(classes)<=0:
-            QMessageBox().information(self, "提示", "未填写类名")
+            QMessageBox().information(self, "hint", "missing class")
             return
         self.classes=classes
         self.done(1)
@@ -44,7 +44,7 @@ class fartForm(QDialog,Ui_FartDialog):
     def submitFartClass(self):
         classes=self.txtClasses.toPlainText()
         if len(classes)<=0:
-            QMessageBox().information(self, "提示", "未填写类名")
+            QMessageBox().information(self, "hint", "missing class")
             return
         self.classes=classes
         self.done(3)
