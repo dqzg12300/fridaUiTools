@@ -5,10 +5,10 @@ import sys
 from time import sleep
 
 from PyQt5 import uic, QtWidgets
-from PyQt5.QtCore import Qt, QPoint
+from PyQt5.QtCore import Qt, QPoint, QTranslator
 from PyQt5.QtGui import QStandardItemModel, QStandardItem, QCursor
 from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog, QStatusBar, QLabel, QMessageBox, QHeaderView, \
-    QTableWidgetItem, QMenu, QAction, QActionGroup
+    QTableWidgetItem, QMenu, QAction, QActionGroup, qApp
 
 from forms import SelectPackage
 from forms.AntiFrida import antiFridaForm
@@ -36,7 +36,12 @@ import json, os, threading, frida
 import platform
 
 import TraceThread
+from utils.IniUtil import IniConfig
 
+conf=IniConfig()
+
+def restart_real_live():
+    qApp.exit(1207)
 
 class kmainForm(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
@@ -47,8 +52,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.th = TraceThread.Runthread(self.hooksData, "", False,self.connType)
         self.updateCmbHooks()
         self.outlogger = LogUtil.Logger('all.txt', level='debug')
-        with open("./config/type.json", "r", encoding="utf8") as typeFile:
-            self.typeData = json.loads(typeFile.read())
+
 
     def initUi(self):
         self.setWindowOpacity(0.93)
@@ -83,6 +87,23 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.labPackage = QLabel('')
         self.statusBar.addPermanentWidget(self.labPackage, stretch=2)
 
+        self.languageGroup = QActionGroup(self)
+        self.languageGroup.addAction(self.actionChina)
+        self.languageGroup.addAction(self.actionEnglish)
+        language = conf.read("kmain", "language")
+        if language == "China":
+            self.actionChina.setChecked(True)
+        else:
+            self.actionEnglish.setChecked(True)
+
+
+        if self.actionChina.isChecked():
+            typePath="./config/type.json"
+        else:
+            typePath = "./config/type_en.json"
+        with open(typePath, "r", encoding="utf8") as typeFile:
+            self.typeData = json.loads(typeFile.read())
+
         self.actionAttach.triggered.connect(self.actionAttachStart)
         self.actionSpawn.triggered.connect(self.actionSpawnStart)
         self.actionAttachName.triggered.connect(self.actionAttachNameStart)
@@ -116,11 +137,15 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.actionVer14.triggered.connect(self.ChangeVer14)
         self.actionVer15.triggered.connect(self.ChangeVer15)
         self.actionVer16.triggered.connect(self.ChangeVer16)
+        self.actionEnglish.triggered.connect(self.ChangeEnglish)
+        self.actionChina.triggered.connect(self.ChangeChina)
+
         self.actionChangePort.triggered.connect(self.ChangePort)
         self.verGroup = QActionGroup(self)
         self.verGroup.addAction(self.actionVer14)
         self.verGroup.addAction(self.actionVer15)
         self.verGroup.addAction(self.actionVer16)
+
         self.btnDumpPtr.clicked.connect(self.dumpPtr)
         self.btnDumpSo.clicked.connect(self.dumpSo)
         self.btnFart.clicked.connect(self.dumpFart)
@@ -157,7 +182,10 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.btnImportHooks.clicked.connect(self.importHooks)
         self.btnLoadHooks.clicked.connect(self.loadHooks)
         self.btnClearHooks.clicked.connect(self.clearHooks)
-        self.header = ["功能", "类名/模块名", "函数", "备注"]
+        if self.actionChina.isChecked():
+            self.header = ["名称", "类名/模块名", "函数", "备注"]
+        else:
+            self.header = ["name", "class or func", "func", "bak"]
         self.tabHooks.setColumnCount(4)
         self.tabHooks.setHorizontalHeaderLabels(self.header)
         self.tabHooks.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -178,8 +206,9 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.btnOpStalkerLog.clicked.connect(self.stalkerOpLog)
         # self.btnOpFartLog.clicked.connect(self.fartOpLog)
         self.btnMemSearch.clicked.connect(self.searchMem)
-
         self.btnAntiFrida.clicked.connect(self.antiFrida)
+
+
 
         self.dumpForm = dumpAddressForm()
         self.jniform = jnitraceForm()
@@ -218,6 +247,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.address=""
         self.port=""
         self.customPort=""
+
         # 16.0.8  15.1.9  14.2.18
         self.curFridaVer = "15.1.9"
         self.actionVer15.setChecked(True)
@@ -583,6 +613,27 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         if checked==False:
             return
         self.curFridaVer = "16.0.8"
+
+    def ChangeEnglish(self,checked):
+        if checked==False:
+            return
+        conf.write("kmain","language","English")
+        reply = QMessageBox.question(self,
+                                     "提示",
+                                     "是否立刻重启应用生效？",
+                                     QMessageBox.Yes | QMessageBox.No)
+        if reply:
+            restart_real_live()
+    def ChangeChina(self,checked):
+        if checked==False:
+            return
+        conf.write("kmain", "language", "China")
+        reply = QMessageBox.question(self,
+                                     "提示",
+                                     "是否立刻重启应用生效？",
+                                     QMessageBox.Yes | QMessageBox.No)
+        if reply:
+            restart_real_live()
     
     def Frida32Start(self):
         self.ShStart(f"frida-server-{self.curFridaVer}-android-arm")
@@ -1197,7 +1248,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
     # 更新加载hook列表
     def updateCmbHooks(self):
         self.cmbHooks.clear()
-        self.cmbHooks.addItem("选择hook列表")
+        self.cmbHooks.addItem("select hook list")
         for name in os.listdir("./hooks"):
             if name.index(name) >= 0:
                 self.cmbHooks.addItem(name.replace(".json", ""))
@@ -1377,11 +1428,78 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             CmdUtil.execCmd(CmdUtil.cmdhead + "\"pkill -9 frida\"")
 
 
+def getTrans():
+    trans = QTranslator()
+    trans.load('./ui/kmain.qm')
+    app.installTranslator(trans)
+    qmNames=[
+        "kmain.qm","antiFrida.qm","callFunction.qm","custom.qm","dump_so.qm","dumpAddress.qm",
+        "fart.qm","fartBin.qm","fdClass.qm","jnitrace.qm","natives.qm","patch.qm","port.qm",
+        "searchMemory.qm","selectPackage.qm","spawnAttach.qm","stalker.qm","stalkerMatch.qm",
+        "tuoke.qm","wallBreaker.qm","wifi.qm","zenTracer.qm"
+             ]
+    transList=[]
+    for qmName in qmNames:
+        qmPath="./ui/"+qmName
+        trans = QTranslator()
+        trans.load(qmPath)
+        transList.append(trans)
+    return transList
+    # trans = QTranslator()
+    # trans.load('./ui/kmain.qm')
+    # trans.load('./ui/antiFrida.qm')
+    # trans.load('./ui/callFunction.qm')
+    # trans.load('./ui/custom.qm')
+    # trans.load('./ui/dump_so.qm')
+    # trans.load('./ui/dumpAddress.qm')
+    # trans.load('./ui/fart.qm')
+    # trans.load('./ui/fartBin.qm')
+    # trans.load('./ui/fdClass.qm')
+    # trans.load('./ui/jnitrace.qm')
+    # trans.load('./ui/natives.qm')
+    # trans.load('./ui/patch.qm')
+    # trans.load('./ui/port.qm')
+    # trans.load('./ui/searchMemory.qm')
+    # trans.load('./ui/selectPackage.qm')
+    # trans.load('./ui/spawnAttach.qm')
+    # trans.load('./ui/stalker.qm')
+    # trans.load('./ui/stalkerMatch.qm')
+    # trans.load('./ui/tuoke.qm')
+    # trans.load('./ui/wallBreaker.qm')
+    # trans.load('./ui/wifi.qm')
+    # trans.load('./ui/zenTracer.qm')
+    # trans2 = QTranslator()
+    # trans2.load('./ui/zenTracer.qm')
+    # if isEnglish:
+    #     app.installTranslator(trans)
+    #     # app.installTranslator(trans2)
+    # else:
+    #     app.removeTranslator(trans)
+
+
+
 if __name__ == "__main__":
+    current_exit_code = 1207
     app = QApplication(sys.argv)
-    kmain = kmainForm()
-    kmain.show()
-    sys.exit(app.exec_())
+    while current_exit_code == 1207:
+        language=conf.read("kmain","language")
+        trans = QTranslator()
+        trans.load('./ui/kmain.qm')
+        trans.load('./ui/zenTracer.qm')
+        app.installTranslator(trans)
+        # changeTranslator(language=="English")
+        transList= getTrans()
+        if language=="English":
+            for trans in transList:
+                app.installTranslator(trans)
+        else:
+            for trans in transList:
+                app.removeTranslator(trans)
+        kmain = kmainForm()
+        kmain.show()
+        current_exit_code=app.exec_()
+        kmain=None
+    sys.exit(current_exit_code)
 
 
 

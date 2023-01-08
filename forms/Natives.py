@@ -29,7 +29,7 @@ class nativesForm(QDialog,Ui_NativesDialog):
     def flushCmb(self):
         self.cmbPackage.clear()
         files = os.listdir("./tmp/")
-        self.cmbPackage.addItem("选择缓存数据")
+        self.cmbPackage.addItem("tmp data")
         for item in files:
             if ".modules.txt" in item:
                 self.cmbPackage.addItem(item.replace(".modules.txt", ""))
@@ -40,7 +40,7 @@ class nativesForm(QDialog,Ui_NativesDialog):
     def changeModule(self, data):
         if self.modules==None or len(self.modules)<=0:
             return
-        if data=="" or data=="选择缓存数据":
+        if data=="" or data=="tmp data":
             return
         self.listModule.clear()
         if len(data) > 0:
@@ -52,7 +52,7 @@ class nativesForm(QDialog,Ui_NativesDialog):
                 self.listModule.addItem(item)
 
     def changePackage(self, data):
-        if data=="" or data=="选择缓存数据":
+        if data=="" or data=="tmp data":
             return
         filepath = "./tmp/" + data + ".modules.txt"
         with open(filepath, "r", encoding="utf-8") as packageFile:

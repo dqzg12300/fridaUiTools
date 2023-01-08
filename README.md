@@ -10,6 +10,9 @@ spawn附加时提示错误，ERROR.无法获取到进程列表。好久不用这
 ## 交流群
 <img src="./img/qun.jpg" style="zoom:50%">
 
+## 更新 2022-01-08
+新增语言切换功能,支持切换English，修复fart的部分bug
+
 ## 更新 2022-12-28
 新增frida16的支持，新增frida过检测
 

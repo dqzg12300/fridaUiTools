@@ -49,13 +49,13 @@ class zenTracerForm(QDialog,Ui_ZenTracerDialog):
     def flushCmb(self):
         self.cmbPackage.clear()
         files = os.listdir("./tmp/")
-        self.cmbPackage.addItem("选择缓存数据")
+        self.cmbPackage.addItem("tmp data")
         for item in files:
             if ".classes.txt" in item:
                 self.cmbPackage.addItem(item.replace(".classes.txt",""))
 
     def changePackage(self,data):
-        if data=="" or data=="选择缓存数据":
+        if data=="" or data=="tmp data":
             return
         filepath="./tmp/"+data+".classes.txt"
         with open(filepath,"r",encoding="utf-8") as packageFile:

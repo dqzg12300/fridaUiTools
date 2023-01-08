@@ -13,7 +13,7 @@ class selectPackageForm(QDialog,Ui_SelectPackageDialog):
         self.txtPackage.textChanged.connect(self.changePackage)
 
     def changePackage(self,data):
-        if data=="" or data=="选择缓存数据":
+        if data=="" or data=="tmp data":
             return
         self.listPackages.clear()
         if len(data)>0:

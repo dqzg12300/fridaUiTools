@@ -1,0 +1,17 @@
+{
+  "r0capture":{"class":"","method":"","bak":"hook network.refer to r0capture"},
+  "jnitrace":{"class":"","method":"","bak":"hook jni call.refer to jnitrace,must module and native function"},
+  "javaEnc":{"class":"","method":"","bak":"hook java encrypt"},
+  "RegisterNative":{"class":"","method":"","bak":"hook register native，refer to frida_hook_libart"},
+  "ArtMethod":{"class":"","method":"","bak":"hook ArtMethod call，refer to frida_hook_libart"},
+  "libArm":{"class":"","method":"","bak":"refer to frida_hook_libart hook_art.js"},
+  "sslpining":{"class":"","method":"","bak":"hook sslpining.refer to DroidSSLUnpinning"},
+  "dumpdex":{"class":"","method":"","bak":"unpack dex.refer to frida_dump"},
+  "dumpdexclass":{"class":"","method":"","bak":"load all class unpack.refer to frida_dump"},
+  "cookieDump": {"class":"","method":"","bak":"DexFile mCookie unpack"},
+  "FRIDA-DEXDump":{"class":"","method":"","bak":"search memory dex dump.refer to FRIDA-DEXDump"},
+  "fart":{"class":"","method":"","bak":"fart call all method unpack"},
+  "hookEvent": {"class":"","method":"","bak":"hook all view event"},
+  "anti_debug": {"class":"","method":"","bak":"simple anti debug.refer to FridaContainer"},
+  "FCAnd_jnitrace": {"class":"","method":"","bak":"simple jnitrace.refer to FridaContainer"}
+}

@@ -1,9 +1,7 @@
 {
   "r0capture":{"class":"","method":"","bak":"hook网络相关.参考自git项目r0capture"},
-  "jnitrace":{"class":"","method":"","bak":"hook网络相关.参考自git项目jnitrace,需要指定so和native函数"},
-  "javaFile":{"class":"","method":"","bak":"hook java的File类的所有函数"},
+  "jnitrace":{"class":"","method":"","bak":"hook jni.参考自git项目jnitrace,需要指定so和native函数"},
   "javaEnc":{"class":"","method":"","bak":"hook java的算法加解密相关的所有函数"},
-  "javaString":{"class":"","method":"","bak":"hook java的String的所有函数"},
   "RegisterNative":{"class":"","method":"","bak":"hook动态注册函数，参考自frida_hook_libart"},
   "ArtMethod":{"class":"","method":"","bak":"hook ArtMethod函数调用，参考自frida_hook_libart"},
   "libArm":{"class":"","method":"","bak":"参考自frida_hook_libart的hook_art脚本"},
