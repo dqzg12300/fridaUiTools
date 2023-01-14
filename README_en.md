@@ -75,11 +75,11 @@ The list of currently selected hook scripts is displayed. It can be saved for la
 
 ## UI
 
-![image-20230114220753559](.\img\image-20230114220753559.png)
+![image-20230114220753559](./img/image-20230114220753559.png)
 
-![image-20230114220901689](.\img\image-20230114220901689.png)
+![image-20230114220901689](./img/image-20230114220901689.png)
 
-![image-20230114221036915](.\img\image-20230114221036915.png)
+![image-20230114221036915](./img/image-20230114221036915.png)
 
 
 ## Instructions for use
