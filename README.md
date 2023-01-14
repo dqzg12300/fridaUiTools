@@ -1,11 +1,10 @@
 # fridaUiTools
 
+[English](README_en.md) | **中文**
+
 fridaUiTools是一个界面化整理脚本的工具。新人的练手作品。参考项目ZenTracer，觉得既然可以界面化，那么应该可以把功能做的更加完善一些。跨平台支持：win、mac、linux
 
 功能缝合怪。把一些常用的frida的hook脚本简单统一输出方式后，整合进来。并且将自己觉得常用的功能做成界面调用的。还想动态获取一些信息默认的直接展示。后续会根据自己实战的经验。不断完善这个工具。
-
-## 修复
-spawn附加时提示错误，ERROR.无法获取到进程列表。好久不用这个工具，突然想起来，顺手修了下bug。
 
 ## 交流群
 <img src="./img/qun.jpg" style="zoom:50%">
@@ -75,6 +74,17 @@ fridaMemoryAccessTrace的里面有例子，使用测试可以先安装他的apk�
 [连接常见问题](https://www.bilibili.com/video/BV16b4y1x7g5/)
 
 [wifi连接演示](https://www.bilibili.com/video/BV1Aq4y147gu/)
+
+## 运行
+
+1、mac下运行需要命令进入到根目录运行
+
+~~~
+cd fridaUiTools
+./kmainForm_15
+~~~
+
+2、release中打包好的应用,后缀`_14`、`_15`、`_16`分别表示打包时使用的frida不同版本
 
 ## 日志说明
 
