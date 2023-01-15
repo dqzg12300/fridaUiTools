@@ -249,8 +249,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.port=""
         self.customPort=""
 
-        self.curFridaVer = "14.2.18"
-        self.actionVer14.setChecked(True)
+        self.curFridaVer = "15.1.9"
+        self.actionVer15.setChecked(True)
 
 
         # 16.0.8  15.1.9  14.2.18
@@ -573,17 +573,11 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         data = FileUtil.readFile(rfile)
         if self.connType == "wifi":
             data = data.replace("%fridaName%", name + " -l 0.0.0.0:" + self.port)
-            adb="adb"
-            if platform.system() == "Darwin":
-                adb = "%adb%"
-            data=data.replace("%customPort%",f"{adb} forward tcp:{self.port} tcp:{self.port}")
+            data=data.replace("%customPort%",f"adb forward tcp:{self.customPort} tcp:{self.customPort}")
         elif self.connType == "usb":
             if self.customPort!=None and len(self.customPort)>0:
-                adb = "adb"
-                if platform.system() == "Darwin":
-                    adb = "%adb%"
                 data = data.replace("%fridaName%", name + " -l 0.0.0.0:" + self.customPort)
-                data=data.replace("%customPort%",f"{adb} forward tcp:{self.customPort} tcp:{self.customPort}")
+                data=data.replace("%customPort%",f"adb forward tcp:{self.customPort} tcp:{self.customPort}")
             else:
                 data = data.replace("%fridaName%", name)
                 data = data.replace("%customPort%","")
@@ -1224,6 +1218,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.chkLibArt.setChecked(self.chkLibArt.tag in self.hooksData)
 
     def loadJson(self, filepath):
+        if os.path.exists(filepath)==False:
+            return
         with open(filepath, "r", encoding="utf8") as hooksFile:
             data = hooksFile.read()
             self.hooksData = json.loads(data)
