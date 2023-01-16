@@ -12,6 +12,8 @@ class wifiForm(QDialog,Ui_WifiDialog):
         self.setWindowOpacity(0.93)
         self.btnSubmit.clicked.connect(self.submit)
         self.btnClear.clicked.connect(self.clearUi)
+        self.address=""
+        self.wifi_port=""
 
 
     def clearUi(self):

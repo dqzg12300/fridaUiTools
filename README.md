@@ -9,6 +9,9 @@ fridaUiTools是一个界面化整理脚本的工具。新人的练手作品。�
 ## 交流群
 <img src="./img/qun.jpg" style="zoom:50%">
 
+## 更新 2022-01-16
+优化usb端口和wifi配置保存到文件。优化fridaname可以自定义，自定义后需要重新上传frida，就是使用新的名字了。
+
 ## 更新 2022-01-08
 新增语言切换功能,支持切换English，修复fart的部分bug
 

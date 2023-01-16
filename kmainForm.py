@@ -91,6 +91,11 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.languageGroup = QActionGroup(self)
         self.languageGroup.addAction(self.actionChina)
         self.languageGroup.addAction(self.actionEnglish)
+
+        self.fridaName = conf.read("kmain", "frida_name")
+        self.customPort = conf.read("kmain", "usb_port")
+        self.address=conf.read("kmain", "wifi_addr")
+        self.wifi_port = conf.read("kmain", "wifi_port")
         language = conf.read("kmain", "language")
         if language == "China":
             self.actionChina.setChecked(True)
@@ -133,6 +138,10 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.actionFridax86Start.triggered.connect(self.FridaX86Start)
         self.actionFridax64Start.triggered.connect(self.FridaX64Start)
         self.actionPullApk.triggered.connect(self.PullApk)
+
+        self.connectHeadGroup = QActionGroup(self)
+        self.connectHeadGroup.addAction(self.actionWifi)
+        self.connectHeadGroup.addAction(self.actionUsb)
         self.actionWifi.triggered.connect(self.WifiConn)
         self.actionUsb.triggered.connect(self.UsbConn)
         self.actionVer14.triggered.connect(self.ChangeVer14)
@@ -245,9 +254,6 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.chkLibArt.tag = "libArt"
         self.chkHookEvent.tag = "hookEvent"
         self.connType="usb"
-        self.address=""
-        self.port=""
-        self.customPort=""
 
         self.curFridaVer = "15.1.9"
         self.actionVer15.setChecked(True)
@@ -440,18 +446,26 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
     def PushFridaServer(self):
         try:
-            res = CmdUtil.execCmd(f"adb push ./exec/frida-server-{self.curFridaVer}-android-arm /data/local/tmp")
+            name32=""
+            name64=""
+            if self.fridaName!="":
+                name32=self.fridaName+"32"
+                name64=self.fridaName+"64"
+
+            res = CmdUtil.execCmd(f"adb push ./exec/frida-server-{self.curFridaVer}-android-arm /data/local/tmp/"+name32)
             self.log(res)
             if "error" in res:
                 QMessageBox().information(self, "hint",self._translate("kmainForm", "上传失败.") + res)
                 return
-            res = CmdUtil.execCmd(f"adb push ./exec/frida-server-{self.curFridaVer}-android-arm64 /data/local/tmp")
+            res = CmdUtil.execCmd(f"adb push ./exec/frida-server-{self.curFridaVer}-android-arm64 /data/local/tmp/"+name64)
             self.log(res)
             if "file pushed" not in res:
                 QMessageBox().information(self, "hint",self._translate("kmainForm", "上传失败,可能未连接设备.") + res)
                 return
-
-            res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/frida*")
+            if self.fridaName!="":
+                res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/"+self.fridaName+"*")
+            else:
+                res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/frida*")
             self.log(res)
             if "invalid" in res:
                 QMessageBox().information(self, "hint",self._translate("kmainForm", "上传完成，但是设置权限失败。可能是su权限错误，请先cmd切换."))
@@ -571,13 +585,17 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
     def ReplaceSh(self,rfile,wfile,name):
         data = FileUtil.readFile(rfile)
+        adb = "adb"
+        if platform.system() == "Darwin":
+            adb = "%adb%"
         if self.connType == "wifi":
-            data = data.replace("%fridaName%", name + " -l 0.0.0.0:" + self.port)
-            data=data.replace("%customPort%",f"adb forward tcp:{self.customPort} tcp:{self.customPort}")
+            data = data.replace("%fridaName%", name + " -l 0.0.0.0:" + self.wifi_port)
+
+            data=data.replace("%customPort%",f"{adb} forward tcp:{self.customPort} tcp:{self.customPort}")
         elif self.connType == "usb":
             if self.customPort!=None and len(self.customPort)>0:
                 data = data.replace("%fridaName%", name + " -l 0.0.0.0:" + self.customPort)
-                data=data.replace("%customPort%",f"adb forward tcp:{self.customPort} tcp:{self.customPort}")
+                data=data.replace("%customPort%",f"{adb} forward tcp:{self.customPort} tcp:{self.customPort}")
             else:
                 data = data.replace("%fridaName%", name)
                 data = data.replace("%customPort%","")
@@ -587,15 +605,17 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             data = data.replace("%sumod%", "su -c")
         elif self.actionMks0.isChecked():
             data = data.replace("%sumod%", "mks 0")
-
+        
         if platform.system()=="Darwin":
             adbPath= CmdUtil.execCmdData("which adb")
             data=data.replace("%adb%",adbPath.replace("\n",""))
-
+        if self.fridaName != None and len(self.fridaName) > 0:
+            data = data.replace("%fName%", self.fridaName)
         FileUtil.writeFile(wfile,data)
 
     def ShStart(self, name):
         projectPath = os.path.abspath("./")
+
         if platform.system() == "Windows":
             shfile = "%s\\sh\\tmp\\frida_win.tmp"% (projectPath)
             savefile="%s\\sh\\tmp\\frida_win.bat"% (projectPath)
@@ -652,16 +672,32 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             restart_real_live()
     
     def Frida32Start(self):
-        self.ShStart(f"frida-server-{self.curFridaVer}-android-arm")
+        if self.fridaName !=None and len(self.fridaName)>0:
+            name=self.fridaName+"32"
+        else:
+            name=f"frida-server-{self.curFridaVer}-android-arm"
+        self.ShStart(name)
 
     def Frida64Start(self):
-        self.ShStart(f"frida-server-{self.curFridaVer}-android-arm64")
+        if self.fridaName !=None and len(self.fridaName)>0:
+            name=self.fridaName+"64"
+        else:
+            name=f"frida-server-{self.curFridaVer}-android-arm64"
+        self.ShStart(name)
 
     def FridaX86Start(self):
-        self.ShStart(f"frida-server-{self.curFridaVer}-android-x86")
+        if self.fridaName !=None and len(self.fridaName)>0:
+            name=self.fridaName+"64"
+        else:
+            name=f"frida-server-{self.curFridaVer}-android-x86"
+        self.ShStart(name)
 
     def FridaX64Start(self):
-        self.ShStart(f"frida-server-{self.curFridaVer}-android-x86_64")
+        if self.fridaName !=None and len(self.fridaName)>0:
+            name=self.fridaName+"64"
+        else:
+            name=f"frida-server-{self.curFridaVer}-android-x86_64"
+        self.ShStart(name)
 
     def changeCmdType(self,data):
         CmdUtil.cmdhead = data
@@ -727,7 +763,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             else:
                 return frida.get_usb_device()
         elif self.connType=="wifi":
-            str_host = "%s:%s" % (self.address, self.port)
+            str_host = "%s:%s" % (self.address, self.wifi_port)
             manager = frida.get_device_manager()
             device = manager.add_remote_device(str_host)
             return device
@@ -737,7 +773,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.log("actionAttach")
         try:
             if self.connType=="wifi":
-                if len(self.address)<8 or len(self.port)<0:
+                if len(self.address)<8 or len(self.wifi_port)<0:
                     QMessageBox().information(self, "hint", self._translate("kmainForm","当前为wifi连接,但是未设置地址或端口"))
                     return
 
@@ -747,7 +783,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.changeAttachStatus(True)
             self.th = TraceThread.Runthread(self.hooksData, "", False,self.connType)
             self.th.address=self.address
-            self.th.port=self.port
+            self.th.port=self.wifi_port
             self.th.customPort=self.customPort
             self.th.taskOverSignel.connect(self.taskOver)
             self.th.loggerSignel.connect(self.log)
@@ -774,7 +810,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         if res == 0:
             return
         try:
-            if self.connType=="wifi" and (len(self.address)<8 or len(self.port)):
+            if self.connType=="wifi" and (len(self.address)<8 or len(self.wifi_port)):
                 QMessageBox().information(self, "hint",self._translate("kmainForm","当前为wifi连接,但是未设置地址或端口"))
                 return
             # 查下进程。能查到说明frida_server开启了
@@ -783,7 +819,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.changeAttachStatus(True)
             self.th = TraceThread.Runthread(self.hooksData, self.spawnAttachForm.packageName, True,self.connType)
             self.th.address=self.address
-            self.th.port=self.port
+            self.th.port=self.wifi_port
             self.th.taskOverSignel.connect(self.taskOver)
             self.th.loggerSignel.connect(self.log)
             self.th.outloggerSignel.connect(self.outlog)
@@ -816,7 +852,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
     def actionAttachNameStart(self):
         self.log("actionAttachName")
         try:
-            if self.connType=="wifi" and (len(self.address)<8 or len(self.port)):
+            if self.connType=="wifi" and (len(self.address)<8 or len(self.wifi_port)):
                 QMessageBox().information(self, "hint", self._translate("kmainForm","当前为wifi连接,但是未设置地址或端口"))
                 return
             device = self.getFridaDevice()
@@ -829,7 +865,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.changeAttachStatus(True)
             self.th = TraceThread.Runthread(self.hooksData, selectPackageForm.packageName, False,self.connType)
             self.th.address=self.address
-            self.th.port=self.port
+            self.th.port=self.wifi_port
             self.th.taskOverSignel.connect(self.taskOver)
             self.th.loggerSignel.connect(self.log)
             self.th.outloggerSignel.connect(self.outlog)
@@ -844,21 +880,27 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             QMessageBox().information(self, "hint", self._translate("kmainForm","附加异常.") + str(ex))
 
     def ChangePort(self):
+        self.portForm.txtFridaName.setText(self.fridaName)
+        self.portForm.txtPort.setText(self.customPort)
         res=self.portForm.exec()
         if res==0:
             return
+        self.fridaName = self.portForm.fridaName
         self.customPort = self.portForm.port
+        conf.write("kmain", "frida_name", self.fridaName)
+        conf.write("kmain", "usb_port", self.customPort)
 
     def WifiConn(self):
+        self.wifiForm.txtAddress.setText(self.address)
+        self.wifiForm.txtPort.setText(self.wifi_port)
         res=self.wifiForm.exec()
-        if res==0:
-            self.actionWifi.setChecked(False)
+        if res==0 :
             return
         self.connType="wifi"
         self.address=self.wifiForm.address
-        self.port=self.wifiForm.port
-        self.actionWifi.setChecked(True)
-        self.actionUsb.setChecked(False)
+        self.wifi_port=self.wifiForm.port
+        conf.write("kmain", "wifi_addr", self.address)
+        conf.write("kmain", "wifi_port", self.wifi_port)
     def UsbConn(self):
         self.connType="usb"
         self.actionUsb.setChecked(True)
@@ -1187,6 +1229,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
                      "bak": self._translate("kmainForm","简单的过frida检测."), "address": self.pform.address, "code": self.pform.patch}
         typeStr = "antiFrida"
         self.hooksData[typeStr]=hookData
+        CmdUtil.adbshellCmd("touch /data/local/tmp/maps && chmod 777 /data/local/tmp/maps")
         self.updateTabHooks()
 
     def saveHooks(self):
