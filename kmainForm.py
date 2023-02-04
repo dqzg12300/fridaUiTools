@@ -255,8 +255,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.chkHookEvent.tag = "hookEvent"
         self.connType="usb"
 
-        self.curFridaVer = "15.1.9"
-        self.actionVer15.setChecked(True)
+        self.curFridaVer = "16.0.8"
+        self.actionVer16.setChecked(True)
 
 
         # 16.0.8  15.1.9  14.2.18
@@ -810,7 +810,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         if res == 0:
             return
         try:
-            if self.connType=="wifi" and (len(self.address)<8 or len(self.wifi_port)):
+            if self.connType=="wifi" and (len(self.address)<8 or len(self.wifi_port)<=0):
                 QMessageBox().information(self, "hint",self._translate("kmainForm","当前为wifi连接,但是未设置地址或端口"))
                 return
             # 查下进程。能查到说明frida_server开启了
@@ -820,6 +820,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.th = TraceThread.Runthread(self.hooksData, self.spawnAttachForm.packageName, True,self.connType)
             self.th.address=self.address
             self.th.port=self.wifi_port
+            self.th.customPort = self.customPort
             self.th.taskOverSignel.connect(self.taskOver)
             self.th.loggerSignel.connect(self.log)
             self.th.outloggerSignel.connect(self.outlog)
@@ -828,6 +829,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.th.searchAppInfoSignel.connect(self.searchAppInfoRes)
             self.th.searchMemorySignel.connect(self.searchMemResp)
             self.th.attachType="spawn"
+
             self.th.start()
             if len(self.hooksData) <= 0:
                 # QMessageBox().information(self, "提示", "未设置hook选项")
