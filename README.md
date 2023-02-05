@@ -14,6 +14,8 @@ fridaUiTools是一个界面化整理脚本的工具。新人的练手作品。�
 
 [2、fridaUiTools附加进程](https://www.bilibili.com/video/BV1sD4y1T7vh/?vd_source=c92a6075a0b21bb6c62cbedbdd000519)
 
+[3、fridaUiTools功能介绍](https://www.bilibili.com/video/BV168411g7gd/?vd_source=c92a6075a0b21bb6c62cbedbdd000519)
+
 ## 更新 2022-02-04
 修复spawn附加报错，修复wifi的spawn无法附加。
 

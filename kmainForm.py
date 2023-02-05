@@ -255,8 +255,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.chkHookEvent.tag = "hookEvent"
         self.connType="usb"
 
-        self.curFridaVer = "16.0.8"
-        self.actionVer16.setChecked(True)
+        self.curFridaVer = "14.2.18"
+        self.actionVer14.setChecked(True)
 
 
         # 16.0.8  15.1.9  14.2.18
