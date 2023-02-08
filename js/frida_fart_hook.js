@@ -63,9 +63,9 @@ function hookart() {
     }
     var module_libext = null;
     if (Process.arch === "arm64") {
-        module_libext = Module.load("/data/local/tmp/fart/fart64.so");
+        module_libext = Module.load("/data/app/fart64.so");
     } else if (Process.arch === "arm") {
-        module_libext = Module.load("/data/local/tmp/fart/fart.so");
+        module_libext = Module.load("/data/app/fart.so");
     }
     console.log("module_libext",module_libext);
     if (module_libext != null) {

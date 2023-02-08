@@ -492,38 +492,6 @@ function readValue(addr, input, byte_length) {
     return result;
 }
 
-function init_scan_range() {
-    var buffer_length = 1024
-    var result = []
-
-    var addr = Module.findExportByName('libc.so', 'popen')
-    var popen = new NativeFunction(addr, 'pointer', ['pointer', 'pointer']);
-
-    addr = Module.findExportByName('libc.so', 'fgets')
-    var fgets = new NativeFunction(addr, "pointer", ["pointer", "int", "pointer"]);
-
-    addr = Module.findExportByName('libc.so', 'pclose')
-    var pclose = new NativeFunction(addr, "int", ["pointer"]);
-
-    var pid = Process.id
-    var command = 'cat /proc/' + pid + '/maps |grep LinearAlloc'
-    var pfile = popen(Memory.allocUtf8String(command), Memory.allocUtf8String('r'))
-    if(pfile == null)
-    {
-        console.log("popen open failed...");
-        return;
-    }
-
-    var buffer = Memory.alloc(buffer_length);
-
-    while (fgets(buffer, buffer_length, pfile) > 0) {
-        var str = Memory.readUtf8String(buffer);
-        result.push([ptr(parseInt(str.substr(0, 8), 16)), ptr(parseInt(str.substr(9, 8), 16))])
-    }
-    pclose(pfile);
-    return result
-}
-
 var g_data = {};
 var init_value = 0;
 var init_byte_length = 0;
@@ -1017,7 +985,6 @@ function loadAppInfo(){
 function main(){
     klogData("","init","default.js init hook success")
     loadAppInfo();
-    init_scan_range();
     recvMessage();
 }
 setImmediate(main);

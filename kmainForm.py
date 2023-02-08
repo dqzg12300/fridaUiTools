@@ -532,7 +532,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         if "not found" in res:
             QMessageBox().information(self, "hint",self._translate("kmainForm",  "下载失败.没有连接设备") )
             return
-        QMessageBox().information(self, "hint", self._translate("kmainForm",  "下载完成"))
+        QMessageBox().information(self, "hint", self._translate("kmainForm",  "下载完成.输出结果在目录./fartdump/%s/") % pname)
 
     def PullApk(self):
         cmdtp = "grep"
@@ -566,21 +566,22 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         for tmpline in lines:
             if packageName in tmpline:
                 line = tmpline
-        match = re.search(r"baseDir=(/data/app/%s.+)" % packageName, line)
-        if match == None:
-            QMessageBox().information(self, "hint",self._translate("kmainForm", "匹配失败,") + res)
-            return
-        baseDir = match.group(1)
+
+        pathRes= CmdUtil.execCmdData("adb shell pm path %s" % packageName)
+        pathRes=pathRes.replace("package:","")
         if os.path.exists("./apks") == False:
             os.makedirs("./apks")
-        cmd = "adb pull %s ./apks/%s.apk" % (baseDir, packageName)
-        res = CmdUtil.execCmd(cmd)
-        self.log(res)
+            
+        for path in pathRes.split("\n"):
+            if "apk" not in path:
+                continue
+            cmd = "adb pull %s ./apks/%s.apk" % (path, packageName)
+            res = CmdUtil.execCmd(cmd)
+            self.log(res)
         if "error" in res:
             QMessageBox().information(self, "hint", res)
-            return
-        QMessageBox().information(self, "hint", packageName +self._translate("kmainForm", ".apk下载成功"))
-
+        else:
+            QMessageBox().information(self, "hint", packageName +self._translate("kmainForm", ".apk下载成功.输出结果在目录./apks/"))
 
 
     def ReplaceSh(self,rfile,wfile,name):
