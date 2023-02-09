@@ -592,7 +592,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         if self.connType == "wifi":
             data = data.replace("%fridaName%", name + " -l 0.0.0.0:" + self.wifi_port)
 
-            data=data.replace("%customPort%",f"{adb} forward tcp:{self.customPort} tcp:{self.customPort}")
+            data=data.replace("%customPort%",f"{adb} forward tcp:{self.wifi_port} tcp:{self.wifi_port}")
         elif self.connType == "usb":
             if self.customPort!=None and len(self.customPort)>0:
                 data = data.replace("%fridaName%", name + " -l 0.0.0.0:" + self.customPort)
