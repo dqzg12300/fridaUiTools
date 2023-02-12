@@ -30,6 +30,7 @@ function hook_RegisterNatives() {
                 symbol.name.indexOf("CheckJNI") < 0) {
             addrRegisterNatives = symbol.address;
             klog("RegisterNatives is at "+symbol.address+" "+symbol.name);
+            break;
         }
     }
 

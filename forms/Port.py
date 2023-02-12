@@ -23,8 +23,8 @@ class portForm(QDialog,Ui_Port):
 
     def submit(self):
         port = self.txtPort.text()
-        if len(port) <= 0:
-            QMessageBox().information(self, "hint", "missing port")
+        if len(self.txtFridaName.text()) <= 0:
+            QMessageBox().information(self, "hint", "missing FridaName")
             return
         self.port = port
         self.fridaName = self.txtFridaName.text()

@@ -444,20 +444,26 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             return
         QMessageBox().information(self, "hint", self._translate("kmainForm","下载完成") )
 
-    def PushFridaServer(self):
+    def PushFridaServerNormal(self,arch):
         try:
             name32=""
             name64=""
             if self.fridaName!="":
                 name32=self.fridaName+"32"
                 name64=self.fridaName+"64"
+            if arch=="arm":
+                arch32="arm"
+                arch64="arm64"
+            elif arch=="x86":
+                arch32="x86"
+                arch64="x86_64"
 
-            res = CmdUtil.execCmd(f"adb push ./exec/frida-server-{self.curFridaVer}-android-arm /data/local/tmp/"+name32)
+            res = CmdUtil.execCmd(f"adb push ./exec/frida-server-{self.curFridaVer}-android-{arch32} /data/local/tmp/"+name32)
             self.log(res)
             if "error" in res:
                 QMessageBox().information(self, "hint",self._translate("kmainForm", "上传失败.") + res)
                 return
-            res = CmdUtil.execCmd(f"adb push ./exec/frida-server-{self.curFridaVer}-android-arm64 /data/local/tmp/"+name64)
+            res = CmdUtil.execCmd(f"adb push ./exec/frida-server-{self.curFridaVer}-android-{arch64} /data/local/tmp/"+name64)
             self.log(res)
             if "file pushed" not in res:
                 QMessageBox().information(self, "hint",self._translate("kmainForm", "上传失败,可能未连接设备.") + res)
@@ -474,26 +480,11 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         except Exception as ex:
             QMessageBox().information(self, "hint",  self._translate("kmainForm", "上传异常.") + str(ex))
 
+    def PushFridaServer(self):
+        self.PushFridaServerNormal("arm")
+
     def PushFridaServerX86(self):
-        try:
-            res = CmdUtil.execCmd(f"adb push ./exec/frida-server-{self.curFridaVer}-android-x86 /data/local/tmp")
-            self.log(res)
-            if "error" in res:
-                QMessageBox().information(self, "hint", self._translate("kmainForm", "上传失败.") + res)
-                return
-            res = CmdUtil.execCmd(f"adb push ./exec/frida-server-{self.curFridaVer}-android-x86_64 /data/local/tmp")
-            self.log(res)
-            if "file pushed" and "bytes in" not in res:
-                QMessageBox().information(self, "hint",self._translate("kmainForm", "上传失败,可能未连接设备.")   + res)
-                return
-            res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/frida*")
-            self.log(res)
-            if "invalid" in res:
-                QMessageBox().information(self, "hint",self._translate("kmainForm", "上传完成，但是设置权限失败。可能是su权限错误，请先cmd切换."))
-            else:
-                QMessageBox().information(self, "hint",self._translate("kmainForm", "上传完成."))
-        except Exception as ex:
-            QMessageBox().information(self, "hint", self._translate("kmainForm", "上传异常.") + str(ex))
+        self.PushFridaServerNormal("x86")
 
     def PullFartRes(self):
         cmd = ""
