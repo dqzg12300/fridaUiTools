@@ -68,6 +68,7 @@ function traceClass(clsname) {
         var isMatch="%isMatchMethod%";
         //过滤一下要hook的函数，
         methods.forEach(function (method) {
+
             if(matchRegExMethod.length>0){
                 var flag=false;
                 var hasmatch=false;
@@ -89,12 +90,16 @@ function traceClass(clsname) {
                         }
                         hasmatch=true
                     }
+
                     if(isMatch) {
+                        // console.log("match",method.getName().toUpperCase(),matchsplit[1].toUpperCase());
                         if (method.getName().toUpperCase().indexOf(matchsplit[1].toUpperCase()) != -1) {
                             flag = true;
+
                             break;
                         }
                     }else{
+                        // console.log("equals",method.getName().toUpperCase(),matchsplit[1].toUpperCase());
                         if (method.getName().toUpperCase()== matchsplit[1].toUpperCase()) {
                             flag = true;
                             break;

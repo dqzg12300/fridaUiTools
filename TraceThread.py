@@ -368,7 +368,7 @@ class Runthread(QThread):
             self.outlog(data)
 
     def other_message(self,p):
-        self.outlog(p["data"])
+        self.outlog(str(p["data"]))
 
     def showMethods(self,postdata):
         postdata["func"]="showMethod"

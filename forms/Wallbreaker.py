@@ -336,5 +336,5 @@ class wallBreakerForm(QDialog,Ui_Wallbreaker):
         if self.api==None:
             QMessageBox().information(self, "hint",self._translate("wallBreakerForm", "未设置api,可能附加失败"))
             return
-        res=self.object_dump(address, as_class=className, pretty_print=False, short_name=True)
+        res=self.object_dump(int(address,16), as_class=className, pretty_print=False, short_name=True)
         self.appendLog(res)

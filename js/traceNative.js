@@ -43,7 +43,12 @@ function nativeHookFunction(addr,function_name){
             this.logs.push("arg3:",hexdumpMem(this.arg3));
             this.logs.push("arg4:",hexdumpMem(this.arg4));
             this.logs.push("arg5:",hexdumpMem(this.arg5));
+            for(var i=0;i<this.logs.length;i++){
+                klog(this.logs[i]);
+            }
+            // this.logs.clear();
         },onLeave:function(retval){
+            this.logs=[];
             this.logs.push("arg0 leave:",hexdumpMem(this.arg0));
             this.logs.push("arg1 leave:",hexdumpMem(this.arg1));
             this.logs.push("arg2 leave:",hexdumpMem(this.arg2));
@@ -52,7 +57,11 @@ function nativeHookFunction(addr,function_name){
             this.logs.push("arg5 leave:",hexdumpMem(this.arg5));
             this.logs.push("retval leave:",hexdumpMem(retval));
             // console.log(this.logs);
-            klog(this.logs)
+            for(var i=0;i<this.logs.length;i++){
+                klog(this.logs[i]);
+            }
+            // this.logs.clear();
+
         }
     })
 }
