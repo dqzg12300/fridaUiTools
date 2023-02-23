@@ -50,6 +50,7 @@ class Runthread(QThread):
         self.port=""
         self.attachType=""
         self.customPort=None
+        self.default_api=None
 
     def quit(self):
         if self.scripts:
@@ -215,6 +216,7 @@ class Runthread(QThread):
             self.device.resume(pid)
             self.log("resume pid:%s" % pid)
         self.default_script=script
+        self.default_api=script.exports
         self.scripts.append(script)
         if self.DEXDump:
             if self.enable_deep_search:
@@ -222,7 +224,6 @@ class Runthread(QThread):
                 self.outlog("[DEXDump]: deep search mode is enable, maybe wait long time.")
             mds = []
             self.dump(pname, script.exports, mds=mds)
-
         self.attachOverSignel.emit(pname)
 
 
@@ -370,55 +371,54 @@ class Runthread(QThread):
     def other_message(self,p):
         self.outlog(str(p["data"]))
 
-    def showMethods(self,postdata):
-        postdata["func"]="showMethod"
-        self.default_script.post({'type': 'input', 'payload': postdata})
-        self.log("post showMethods:"+postdata["className"]+","+postdata["methodName"])
-
-    def showExport(self,postdata):
-        postdata["func"] = "showExport"
-        self.default_script.post({'type': 'input', 'payload': postdata})
-        self.log("post showExport:"+postdata["moduleName"]+","+postdata["methodName"])
-
-    def dumpPtr(self,postdata):
-        postdata["func"] = "dumpPtr"
-        self.default_script.post({'type': 'input', 'payload': postdata})
-        self.log("post dumpPtr:" + postdata["moduleName"] + "," + str(hex(postdata["address"])))
-
-    def dumpSoPtr(self,postdata):
-        postdata["func"] = "dumpSoPtr"
-        self.default_script.post({'type': 'input', 'payload': postdata})
-        self.log("post dumpSoPtr:" + postdata["moduleName"])
-
-    def searchInfo(self,postdata):
-        postdata["func"] = "searchInfo"
-        self.default_script.post({'type': 'input', 'payload': postdata})
-        self.log("post searchInfo")
-
-    def newScanProtect(self,postdata):
-        postdata["func"] = "newScanProtect"
-        self.default_script.post({'type': 'input', 'payload': postdata})
-        self.log("post newScanProtect")
-
-    def newScanByAddress(self,postdata):
-        postdata["func"] = "newScanByAddress"
-        self.default_script.post({'type': 'input', 'payload': postdata})
-        self.log("post newScanByAddress")
-
-    def getInfo(self,postdata):
-        postdata["func"] = "getInfo"
-        self.default_script.post({'type': 'input', 'payload': postdata})
-        self.log("post getInfo")
-
-    def setBreak(self,postdata):
-        postdata["func"] = "setBreak"
-        self.default_script.post({'type': 'input', 'payload': postdata})
-        self.log("post setBreak")
-
-    def nextScan(self,postdata):
-        postdata["func"] = "nextScan"
-        self.default_script.post({'type': 'input', 'payload': postdata})
-        self.log("post nextScan")
+    # def showMethods(self,postdata):
+    #     postdata["func"]="showMethod"
+    #     self.default_script.post({'type': 'input', 'payload': postdata})
+    #     self.log("post showMethods:"+postdata["className"]+","+postdata["methodName"])
+    # 
+    # def showExport(self,moduleName,methodName):
+    #     self.default_script.showexport(moduleName,methodName)
+    #     self.log("post showExport:"+postdata["moduleName"]+","+postdata["methodName"])
+    # 
+    # def dumpPtr(self,postdata):
+    #     postdata["func"] = "dumpPtr"
+    #     self.default_script.post({'type': 'input', 'payload': postdata})
+    #     self.log("post dumpPtr:" + postdata["moduleName"] + "," + str(hex(postdata["address"])))
+    # 
+    # def dumpSoPtr(self,postdata):
+    #     postdata["func"] = "dumpSoPtr"
+    #     self.default_script.post({'type': 'input', 'payload': postdata})
+    #     self.log("post dumpSoPtr:" + postdata["moduleName"])
+    # 
+    # def searchInfo(self,postdata):
+    #     postdata["func"] = "searchInfo"
+    #     self.default_script.post({'type': 'input', 'payload': postdata})
+    #     self.log("post searchInfo")
+    # 
+    # def newScanProtect(self,postdata):
+    #     postdata["func"] = "newScanProtect"
+    #     self.default_script.post({'type': 'input', 'payload': postdata})
+    #     self.log("post newScanProtect")
+    # 
+    # def newScanByAddress(self,postdata):
+    #     postdata["func"] = "newScanByAddress"
+    #     self.default_script.post({'type': 'input', 'payload': postdata})
+    #     self.log("post newScanByAddress")
+    # 
+    # def getInfo(self,postdata):
+    #     postdata["func"] = "getInfo"
+    #     self.default_script.post({'type': 'input', 'payload': postdata})
+    #     self.log("post getInfo")
+    # 
+    # def setBreak(self,postdata):
+    #     postdata["func"] = "setBreak"
+    #     self.default_script.post({'type': 'input', 'payload': postdata})
+    #     self.log("post setBreak")
+    # 
+    # def nextScan(self,postdata):
+    #     postdata["func"] = "nextScan"
+    #     self.default_script.post({'type': 'input', 'payload': postdata})
+    #     self.log("post nextScan")
 
     def fart(self,fartType,classes):
         # postdata["func"] = "fart"

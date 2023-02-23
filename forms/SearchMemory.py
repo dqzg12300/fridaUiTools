@@ -216,8 +216,6 @@ class searchMemoryForm(QDialog,Ui_searchMemory):
                 if addr>moduleBase and addr<(moduleBase+moduleSize):
                     self.appendResult(str(module))
                     break
-                    
-            
 
     def rightMenuShow(self):
         rightMenu = QMenu(self.tabHistory)

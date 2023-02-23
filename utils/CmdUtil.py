@@ -1,4 +1,4 @@
-
+import os
 import subprocess
 
 cmdhead="adb shell su -c "       #切换使用adb shell su -c 和 adb shell su 0
@@ -59,3 +59,18 @@ def adbshellCmdEnd(cmd,end):
     else:
         text = "cmd命令执行" + cmd
     return text
+
+def fix_so(arch, origin_so_name, so_name, base, size):
+    if arch == "arm":
+        os.system("adb push exec/android/SoFixer32 /data/local/tmp/SoFixer")
+    elif arch == "arm64":
+        os.system("adb push exec/android/SoFixer64 /data/local/tmp/SoFixer")
+    os.system("adb shell chmod +x /data/local/tmp/SoFixer")
+    os.system("adb push " + so_name + " /data/local/tmp/" + so_name)
+    print("adb shell /data/local/tmp/SoFixer -m " + base + " -s /data/local/tmp/" + so_name + " -o /data/local/tmp/" + so_name + ".fix.so")
+    os.system("adb shell /data/local/tmp/SoFixer -m " + base + " -s /data/local/tmp/" + so_name + " -o /data/local/tmp/" + so_name + ".fix.so")
+    os.system("adb pull /data/local/tmp/" + so_name + ".fix.so " + origin_so_name + "_" + base + "_" + str(size) + "_fix.so")
+    os.system("adb shell rm /data/local/tmp/" + so_name)
+    os.system("adb shell rm /data/local/tmp/" + so_name + ".fix.so")
+    os.system("adb shell rm /data/local/tmp/SoFixer")
+    return origin_so_name + "_" + base + "_" + str(size) + "_fix.so"

@@ -304,22 +304,22 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         if len(self.txtModule.text()) <= 0:
             QMessageBox().information(self, "hint", self._translate("kmainForm","未填写模块名称"))
             return
-        postdata = {"type": "export", "baseName": self.txtModule.text().split("----")[0]}
-        self.th.searchInfo(postdata)
+        appinfo = self.th.default_api.searchinfo("export", self.txtModule.text().split("----")[0])
+        self.searchAppInfoRes(appinfo)
 
     def searchSymbol(self):
         if len(self.txtModule.text()) <= 0:
             QMessageBox().information(self, "hint", self._translate("kmainForm","未填写模块名称"))
             return
-        postdata = {"type": "symbol", "baseName": self.txtModule.text().split("----")[0]}
-        self.th.searchInfo(postdata)
+        appinfo=self.th.default_api.searchinfo("symbol", self.txtModule.text().split("----")[0])
+        self.searchAppInfoRes(appinfo)
 
     def searchMethod(self):
         if len(self.txtClass.text()) <= 0:
             QMessageBox().information(self, "hint",self._translate("kmainForm","未填写类型名称"))
             return
-        postdata = {"type": "method", "baseName": self.txtClass.text()}
-        self.th.searchInfo(postdata)
+        appinfo=self.th.default_api.searchinfo("method", self.txtClass.text())
+        self.searchAppInfoRes(appinfo)
 
     def hooksRemove(self):
         for item in self.tabHooks.selectedItems():
@@ -744,6 +744,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             if name not in packageData:
                 packageFile.write(name + "\n")
         self.labPackage.setText(name)
+        appinfo=self.th.default_api.loadappinfo()
+        self.loadAppInfo(appinfo)
 
     def getFridaDevice(self):
         if self.connType=="usb":
@@ -929,10 +931,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         if res == 0:
             return
         # 设置了module就会以module为基址再加上address去dump。如果不设置module。就会直接dump指定的address
-        postdata = {"moduleName": self.dumpForm.moduleName, "address": self.dumpForm.address,
-                    "dumpType": self.dumpForm.dumpType,
-                    "size": self.dumpForm.size}
-        self.th.dumpPtr(postdata)
+        self.th.default_api.dumpptr(self.dumpForm.moduleName,self.dumpForm.address, self.dumpForm.dumpType,self.dumpForm.size)
 
     def dumpSo(self):
         if self.isattach() == False:
@@ -950,8 +949,22 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         res = self.dumpSoForm.exec()
         if res == 0:
             return
-        postdata = {"moduleName": self.dumpSoForm.moduleName}
-        self.th.dumpSoPtr(postdata)
+        self.th.default_api.dumpso(self.dumpSoForm.moduleName)
+        soName=self.dumpSoForm.moduleName
+        module_info = self.th.default_api.findmodule(soName)
+        print(module_info)
+        base = module_info["base"]
+        size = module_info["size"]
+        module_buffer = self.th.default_api.dumpmodule(soName)
+        if module_buffer != -1:
+            dump_so_name = soName + ".dump.so"
+            with open(dump_so_name, "wb") as f:
+                f.write(module_buffer)
+                f.close()
+                arch = self.th.default_api.arch()
+                fix_so_name = CmdUtil.fix_so(arch, soName, dump_so_name, base, size)
+                self.outlog(fix_so_name)
+                os.remove(dump_so_name)
 
     def dumpFart(self):
         if self.isattach() == False:
@@ -1373,10 +1386,11 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.txtClass.setText(item.text())
 
     # 附加成功后取出app的信息展示
-    def loadAppInfo(self, appinfo):
+    def loadAppInfo(self, info):
         self.listModules.clear()
         self.listClasses.clear()
-        info = json.loads(appinfo)
+        if info==None:
+            return
         self.modules = info["modules"]
         self.classes = info["classes"]
 
@@ -1398,8 +1412,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             for module in info["modules"]:
                 packageTmpFile.write(module["name"] + "\n")
 
-    def searchAppInfoRes(self, appinfo):
-        info = json.loads(appinfo)
+    def searchAppInfoRes(self, info):
         searchTyep = info["type"]
         self.searchType = searchTyep
         if searchTyep == "export" or searchTyep == "symbol":

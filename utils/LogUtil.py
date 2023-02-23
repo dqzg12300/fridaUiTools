@@ -11,7 +11,7 @@ class Logger(object):
         'crit':logging.CRITICAL
     }#日志级别关系映射
 
-    def __init__(self,filename,level='info',when='D',backCount=3,fmt='%(asctime)s - %(pathname)s[line:%(lineno)d] - %(levelname)s: %(message)s'):
+    def __init__(self,filename,level='info',when='D',backCount=3,fmt='%(asctime)s : %(message)s'):
         datestr = datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S_')
         filename="./logs/" + datestr + filename
         self.logger = logging.getLogger(filename)
