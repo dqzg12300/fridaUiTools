@@ -15,10 +15,12 @@ function log(text) {
     msg["data"]="ZenTracer:::" + JSON.stringify(packet)
     send(msg)
 }
-
-function klog(data){
+function klog(data,...args){
+    for (let item of args){
+        data+="\t"+item;
+    }
     var message={};
-    message["jsname"]="ZenTracer";
+    message["jsname"]="jni_trace_new";
     message["data"]=data;
     send(message);
 }

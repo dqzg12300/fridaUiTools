@@ -1,20 +1,13 @@
 //简单的一键反调试，来源FridaContainer
 (function(){
-
-function klog(data){
+function klog(data,...args){
+    for (let item of args){
+        data+="\t"+item;
+    }
     var message={};
     message["jsname"]="anti_debug";
     message["data"]=data;
     send(message);
-    // console.log(data);
-}
-function klogData(data,key,value){
-    var message={};
-    message["jsname"]="anti_debug";
-    message["data"]=data;
-    message[key]=value;
-    send(message);
-    // console.log(data);
 }
 
 function tag_klog(tag,data){
@@ -183,7 +176,7 @@ function anti_debug() {
 }
 
 Java.perform(function() {
-    klogData("","init","anti_debug.js init hook success")
+    klog("init","anti_debug.js init hook success")
     anti_debug();
 });
 

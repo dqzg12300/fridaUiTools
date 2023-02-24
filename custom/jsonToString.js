@@ -1,19 +1,15 @@
 
-function klog(data){
+function klog(data,...args){
+    for (let item of args){
+        data+="\t"+item;
+    }
     var message={};
-    message["jsname"]="%customName%";
+    message["jsname"]="jni_trace_new";
     message["data"]=data;
-    send(message);
-}
-function klogData(data,key,value){
-    var message={};
-    message["jsname"]="%customName%";
-    message["data"]=data;
-    message[key]=value;
     send(message);
 }
 
-klogData("","init","%customFileName% init hook success");
+klog("init","%customFileName% init hook success");
 
 function hook_java(){
     Java.perform(function(){

@@ -1,21 +1,16 @@
 //来源FridaContainer
 (function(){
 
-function klog(data){
+function klog(data,...args){
+    for (let item of args){
+        data+="\t"+item;
+    }
     var message={};
     message["jsname"]="FCAnd_Jnitrace";
     message["data"]=data;
     send(message);
-    // console.log(data);
 }
-function klogData(data,key,value){
-    var message={};
-    message["jsname"]="FCAnd_Jnitrace";
-    message["data"]=data;
-    message[key]=value;
-    send(message);
-    // console.log(data);
-}
+
 
 function getLR(context) {
     if (Process.arch == 'arm') {
@@ -2703,7 +2698,7 @@ function hook_jni(library_name, function_name,offset){
 
 function hook_start(){
 
-    klogData("","init","FCAnd_Jnitrace.js init hook success");
+    klog("init","FCAnd_Jnitrace.js init hook success");
     var library_name = "%moduleName%"; // ex: libsqlite.so
     var function_name = "%methodName%"; // ex: JNI_OnLoad
     var offset = "%offset%"; // ex: JNI_OnLoad

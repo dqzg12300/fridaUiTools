@@ -1,24 +1,14 @@
 //整理的过frida检测
 (function(){
-
-function klog(data){
+function klog(data,...args){
+    for (let item of args){
+        data+="\t"+item;
+    }
     var message={};
     message["jsname"]="anti_frida";
     message["data"]=data;
     send(message);
-    // console.log(data);
 }
-function klogData(data,key,value){
-    var message={};
-    message["jsname"]="anti_frida";
-    message["data"]=data;
-    message[key]=value;
-    send(message);
-    // console.log(data);
-}
-
-
-
 
 function fridaCheckPass() {
     var pfn_strstr = Module.findExportByName("libc.so", "strstr");
@@ -169,7 +159,7 @@ var isExitThread="%isExitThread%";
 
 // 方案2使用的参数
 
-klogData("","init","anti_frida.js init hook success")
+klog("init","anti_frida.js init hook success")
 if(antiType.indexOf("strstr")!=-1){
     fridaCheckPass();
 }

@@ -21,21 +21,16 @@ var savepath = "%savepath%";
 var dex_maps = {};
 var artmethod_maps = {};
 
-
-function klog(data){
+function klog(data,...args){
+    for (let item of args){
+        data+="\t"+item;
+    }
     var message={};
-    message["jsname"]="fart";
+    message["jsname"]="frida_fart_hook";
     message["data"]=data;
     send(message);
 }
 
-function klogData(data,key,value){
-    var message={};
-    message["jsname"]="fart";
-    message["data"]=data;
-    message[key]=value;
-    send(message);
-}
 //替换了console.log
 console.log = (function (oriLogFunc) {
   return function () {
@@ -57,7 +52,7 @@ function ArtMethod(dexfile, artmethodptr) {
 }
 
 function hookart() {
-    klogData("","init","frida_fart.js init hook success");
+    klog("init","frida_fart.js init hook success");
     if (ishook_libart === true) {
         return;
     }

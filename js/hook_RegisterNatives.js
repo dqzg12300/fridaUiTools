@@ -1,23 +1,17 @@
 
 (function(){
-
-function klog(data){
+function klog(data,...args){
+    for (let item of args){
+        data+="\t"+item;
+    }
     var message={};
     message["jsname"]="hook_RegisterNatives";
     message["data"]=data;
     send(message);
 }
-function klogData(data,key,value){
-    var message={};
-    message["jsname"]="hook_RegisterNatives";
-    message["data"]=data;
-    message[key]=value;
-    send(message);
-}
-
 
 function hook_RegisterNatives() {
-    klogData("","init","hook_RegisterNatives.js init hook success");
+    klog("init","hook_RegisterNatives.js init hook success");
     var symbols = Module.enumerateSymbolsSync("libart.so");
     var addrRegisterNatives = null;
     for (var i = 0; i < symbols.length; i++) {

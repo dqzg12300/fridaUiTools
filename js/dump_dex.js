@@ -1,15 +1,11 @@
 (function(){
-function klog(data){
+function klog(data,...args){
+    for (let item of args){
+        data+="\t"+item;
+    }
     var message={};
     message["jsname"]="dump_dex";
     message["data"]=data;
-    send(message);
-}
-function klogData(data,key,value){
-    var message={};
-    message["jsname"]="dump_dex";
-    message["data"]=data;
-    message[key]=value;
     send(message);
 }
 
@@ -127,7 +123,7 @@ function dump_dex() {
 
 
 function main(){
-    klogData("","init","dump_dex.js init hook success")
+    klog("init","dump_dex.js init hook success")
     dump_dex();
 }
 

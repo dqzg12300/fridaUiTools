@@ -83,10 +83,12 @@ function toJSONString(obj) {
 }
 
 (function(){
-
-function klog(data){
+function klog(data,...args){
+    for (let item of args){
+        data+="\t"+item;
+    }
     var message={};
-    message["jsname"]="default";
+    message["jsname"]="jni_trace_new";
     message["data"]=data;
     send(message);
 }
@@ -170,7 +172,7 @@ function generate_pattern(input, byte_length) {
     var pattern = null;
     var addr = 0;
     var array_buffer = null;
-    klogData("search:"+input+"\t"+byte_length)
+    klog("search:"+input+"\t"+byte_length)
     switch(byte_length)
     {
         case 0:
@@ -774,7 +776,7 @@ function loadAppInfo(){
 }
 
 function main(){
-    klogData("","init","default.js init hook success")
+    klog("init","default.js init hook success")
 }
 setImmediate(main);
 
@@ -839,7 +841,7 @@ function checkbreakpoint(pc_addr){
                 return buf2hex(rpc.exports.readdata(pc_addr,4)) === breakpoint_desc["thumb_breakpoint_ins"]
             }
         default:
-            klogData(arch+' not support')
+            klogData("","scanlog",arch+' not support')
     }
 }
 /**
@@ -911,7 +913,7 @@ function resume_pagebreak_write_softbreakpoint(break_info,writer){
                     }
                     break
                 default:
-                    klogData(arch+' not support')
+                    klogData("","scanlog",arch+' not support')
             }
         });
     }
@@ -946,7 +948,7 @@ function resume_softbreakpoint_set_pagebreak(soft_breakpoint_info,writer){
             }
             break
         default:
-            klogData(arch+' not support')
+            klogData("","scanlog",arch+' not support')
     }
 
     //恢复原始字节码

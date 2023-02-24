@@ -1,18 +1,12 @@
 
 (function(){
-
-function klog(data){
+function klog(data,...args){
+    for (let item of args){
+        data+="\t"+item;
+    }
     var message={};
-    message["jsname"]="hook_artmethod";
+    message["jsname"]="jni_trace_new";
     message["data"]=data;
-    send(message);
-}
-
-function klogData(data,key,value){
-    var message={};
-    message["jsname"]="hook_artmethod";
-    message["data"]=data;
-    message[key]=value;
     send(message);
 }
 
@@ -135,7 +129,7 @@ function hook_native() {
 }
 
 function main() {
-    klogData("","init","hook_artmethod.js init hook success");
+    klog("init","hook_artmethod.js init hook success");
     hook_dlopen("libart.so", hook_native);
     hook_native();
 }

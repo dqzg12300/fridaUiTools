@@ -5,15 +5,18 @@
 * */
 
 (function(){
-function klogData(data,key,value){
+
+function klog(data,...args){
+    for (let item of args){
+        data+="\t"+item;
+    }
     var message={};
     message["jsname"]="FRIDA-DEXDump";
     message["data"]=data;
-    message[key]=value;
     send(message);
 }
 
-klogData("","init","FRIDA-DEXDump.js init hook success");
+klog("","init","FRIDA-DEXDump.js init hook success");
 
 var enable_deep_search = false;
 

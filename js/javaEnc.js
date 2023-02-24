@@ -1,16 +1,12 @@
 
 (function(){
-function klog(data){
+function klog(data,...args){
+    for (let item of args){
+        data+="\t"+item;
+    }
     var message={};
-    message["jsname"]="javaEnc";
+    message["jsname"]="jni_trace_new";
     message["data"]=data;
-    send(message);
-}
-function klogData(data,key,value){
-    var message={};
-    message["jsname"]="javaEnc";
-    message["data"]=data;
-    message[key]=value;
     send(message);
 }
 
@@ -240,7 +236,7 @@ function base64ToBytes(e) {
 
 
 Java.perform(function () {
-    klogData("","init","javaEnc.js init hook success")
+    klog("init","javaEnc.js init hook success")
     var secretKeySpec = Java.use('javax.crypto.spec.SecretKeySpec');
     secretKeySpec.$init.overload('[B', 'java.lang.String').implementation = function (a, b) {
         showStacks();

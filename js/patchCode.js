@@ -1,18 +1,13 @@
 //还不太明白为什么Memory.protect后就异常了。查清楚了再看看怎么搞。
 
 (function(){
-
-function klog(data){
+function klog(data,...args){
+    for (let item of args){
+        data+="\t"+item;
+    }
     var message={};
-    message["jsname"]="patchCode";
+    message["jsname"]="jni_trace_new";
     message["data"]=data;
-    send(message);
-}
-function klogData(data,key,value){
-    var message={};
-    message["jsname"]="patchCode";
-    message["data"]=data;
-    message[key]=value;
     send(message);
 }
 
@@ -78,7 +73,7 @@ function main(){
     var moduleName = "%moduleName%" // 目标模块
     var patchJson='{PATCHLIST}';
 
-    klogData("","init","patchCode.js init hook success");
+    klog("init","patchCode.js init hook success");
     if (isSpawn) {
         spawn_hook(moduleName, patchJson)
     } else {

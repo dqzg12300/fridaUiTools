@@ -1,17 +1,13 @@
 (function(){
 var jclazz = null;
 var jobj = null;
-function klog(data){
+function klog(data,...args){
+    for (let item of args){
+        data+="\t"+item;
+    }
     var message={};
     message["jsname"]="hookEvent";
     message["data"]=data;
-    send(message);
-}
-function klogData(data,key,value){
-    var message={};
-    message["jsname"]="hookEvent";
-    message["data"]=data;
-    message[key]=value;
     send(message);
 }
 
@@ -44,7 +40,7 @@ function watch(obj, mtdName) {
 
 function OnClickListener() {
     Java.perform(function () {
-        klogData("","init","hookEvent.js init hook success");
+        klog("init","hookEvent.js init hook success");
         //以spawn启动进程的模式来attach的话
         Java.use("android.view.View").setOnClickListener.implementation = function (listener) {
             // console.log("enter setOnClickListener")

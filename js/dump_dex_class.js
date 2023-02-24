@@ -1,19 +1,15 @@
 
 (function(){
+function klog(data,...args){
+    for (let item of args){
+        data+="\t"+item;
+    }
+    var message={};
+    message["jsname"]="dump_dex_class";
+    message["data"]=data;
+    send(message);
+}
 
-function klog(data){
-    var message={};
-    message["jsname"]="dump_dex_class";
-    message["data"]=data;
-    send(message);
-}
-function klogData(data,key,value){
-    var message={};
-    message["jsname"]="dump_dex_class";
-    message["data"]=data;
-    message[key]=value;
-    send(message);
-}
 
 function get_self_process_name() {
     var openPtr = Module.getExportByName('libc.so', 'open');
@@ -162,7 +158,7 @@ function hook_dex() {
 }
 
 function main(){
-    klogData("","init","dump_dex_class.js init hook success")
+    klog("init","dump_dex_class.js init hook success")
     hook_dex();
 }
 

@@ -1,17 +1,12 @@
-function klog(data){
+function klog(data,...args){
+    for (let item of args){
+        data+="\t"+item;
+    }
     var message={};
-    message["jsname"]="%customName%";
+    message["jsname"]="jni_trace_new";
     message["data"]=data;
     send(message);
 }
-function klogData(data,key,value){
-    var message={};
-    message["jsname"]="%customName%";
-    message["data"]=data;
-    message[key]=value;
-    send(message);
-}
-
 function fridaCheckPass() {
     var pfn_strstr = Module.findExportByName("libc.so", "strstr");
     console.log("hook strstr 111");
@@ -46,6 +41,5 @@ function fridaCheckPass() {
 }
 
 klog("test2222");
-klogData("","init","%customFileName% init hook success");
 
 fridaCheckPass();

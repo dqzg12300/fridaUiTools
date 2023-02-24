@@ -8,17 +8,13 @@ var function_name = "%methodName%"; // ex: JNI_OnLoad
 var offset = "%offset%";
 var library_loaded = 0
 
-function klog(data){
+function klog(data,...args){
+    for (let item of args){
+        data+="\t"+item;
+    }
     var message={};
     message["jsname"]="jni_trace_new";
     message["data"]=data;
-    send(message);
-}
-function klogData(data,key,value){
-    var message={};
-    message["jsname"]="jni_trace_new";
-    message["data"]=data;
-    message[key]=value;
     send(message);
 }
 
@@ -85,7 +81,7 @@ if(library_name == "" || (function_name == "" && offset=="")){
     klog("[-] You must provide a function name and a library name to hook")
 }else{
 
-klogData("","init","jni_trace_new.js init hook success library_name:"+library_name+",function_name:"+function_name);
+klog("init","jni_trace_new.js init hook success library_name:"+library_name+",function_name:"+function_name);
 
 // First Step : waiting for the application to load the good library
 // https://android.googlesource.com/platform/system/core/+/master/libnativeloader/native_loader.cpp#746
@@ -371,8 +367,10 @@ function getJNIFunctionAdress(jnienv_addr,func_name){
 
     return Memory.readPointer(jnienv_addr.add(offset))
 }
-
-function klog(data){
+function klog(data,...args){
+    for (let item of args){
+        data+="\t"+item;
+    }
     var message={};
     message["jsname"]="jni_trace_new";
     message["data"]=data;

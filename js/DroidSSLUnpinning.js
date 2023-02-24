@@ -1,22 +1,17 @@
 
 (function(){
-
-function klog(data){
+function klog(data,...args){
+    for (let item of args){
+        data+="\t"+item;
+    }
     var message={};
     message["jsname"]="DroidSSLUnpinning";
     message["data"]=data;
-    send(message);
-}
-function klogData(data,key,value){
-    var message={};
-    message["jsname"]="DroidSSLUnpinning";
-    message["data"]=data;
-    message[key]=value;
     send(message);
 }
 
 Java.perform(function() {
-    klogData("","init","DroidSSLUnpinning.js init hook success")
+    klog("init","DroidSSLUnpinning.js init hook success")
 /*
 hook list:
 1.SSLcontext

@@ -1,18 +1,14 @@
 (function(){
-
-function klog(data){
-var message={};
-message["jsname"]="cookieDump";
-message["data"]=data;
-send(message);
-}
-function klogData(data,key,value){
+function klog(data,...args){
+    for (let item of args){
+        data+="\t"+item;
+    }
     var message={};
     message["jsname"]="cookieDump";
     message["data"]=data;
-    message[key]=value;
     send(message);
 }
+
 
 function getHandle(object) {
     var handle = null;
@@ -174,7 +170,7 @@ function dumpAll(){
 }
 
 function main(){
-    klogData("","init","cookieDump.js init hook success")
+    klog("init","cookieDump.js init hook success")
     dumpAll();
 }
 
