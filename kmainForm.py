@@ -1389,7 +1389,10 @@ class kmainForm(QMainWindow, Ui_MainWindow):
     def loadAppInfo(self, info):
         self.listModules.clear()
         self.listClasses.clear()
+
         if info==None:
+            return
+        if "modules" not in info or "classes" not in info:
             return
         self.modules = info["modules"]
         self.classes = info["classes"]
