@@ -1,5 +1,6 @@
 PyQt5
-frida==15.1.9
+frida==16.0.8
 hexdump==3.3
 capstone==4.0.2
-keystone==22.3.1
+keystone-engine
+click
