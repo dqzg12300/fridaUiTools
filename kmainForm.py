@@ -949,7 +949,6 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         res = self.dumpSoForm.exec()
         if res == 0:
             return
-        self.th.default_api.dumpso(self.dumpSoForm.moduleName)
         soName=self.dumpSoForm.moduleName
         module_info = self.th.default_api.findmodule(soName)
         print(module_info)
@@ -965,6 +964,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
                 fix_so_name = CmdUtil.fix_so(arch, soName, dump_so_name, base, size)
                 self.outlog(fix_so_name)
                 os.remove(dump_so_name)
+                QMessageBox().information(self, "hint",self._translate("kmainForm", f"dump {soName} 成功"))
 
     def dumpFart(self):
         if self.isattach() == False:
