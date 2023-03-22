@@ -679,7 +679,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
     def FridaX86Start(self):
         if self.fridaName !=None and len(self.fridaName)>0:
-            name=self.fridaName+"64"
+            name=self.fridaName+"32"
         else:
             name=f"frida-server-{self.curFridaVer}-android-x86"
         self.ShStart(name)
