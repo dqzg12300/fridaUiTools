@@ -100,6 +100,17 @@
 //       }, 'void', ['pointer']),
 // });
 
+function klog(data,...args){
+    for (let item of args){
+        data+="\t"+item;
+    }
+    var message={};
+    message["jsname"]="jni_trace_new";
+    message["data"]=data;
+    send(message);
+}
+
+
 function initMessage(){
   var message={};
   message["jsname"]="sktrace";
@@ -146,6 +157,9 @@ function stalkerTraceRange(tid, base, size) {
 
                     iterator.putCallout((context) => {
                         var callOutAddress=ptr(context.pc-moduleBase)
+                        if (offsetAddr>0 && callOutAddress.compare(offsetAddr)<0){
+                            return;
+                        }
                         send({
                             type: 'ctx',
                             tid: tid,
@@ -154,7 +168,6 @@ function stalkerTraceRange(tid, base, size) {
                             moduleBase:moduleBase,
                             address:callOutAddress
                         })
-
                     })
 
                 }
@@ -231,7 +244,8 @@ function trace(symbol,offset){
         targetAddress = targetModule.findExportByName(symbol);
     } else if(offset.length>0) {
         var offsetData=parseInt(offset,16);
-
+        offsetAddr=ptr(offsetData);
+        klog("offsetAddr",offsetAddr);
         targetAddress = targetModule.base.add(ptr(offsetData));
     }
     traceAddr(targetAddress)
@@ -271,6 +285,7 @@ const libname = "%moduleName%";
 var isSpawn="%spawn%";
 var symbol="%symbol%";
 var offset="%offset%";
+var offsetAddr=0
 msg= initMessage();
 msg["data"]='----- start trace -----'+libname;
 send(msg);

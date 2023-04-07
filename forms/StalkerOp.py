@@ -51,7 +51,7 @@ class stalkerMatchForm(QDialog,Ui_StalkerMatchDialog):
         logfile.close()
 
         #
-        lines= re.findall(r"DEBUG: (tid:.+?address:.+)",logdata)
+        lines= re.findall(r"(tid:.+?address:.+)",logdata)
         contexts=[]
         insts=[]
         for line in lines:
@@ -74,6 +74,7 @@ class stalkerMatchForm(QDialog,Ui_StalkerMatchDialog):
                     break
             m2 = re.search("context:(.+)", curcontext)
             if m2==None:
+                self.appendResult(line)
                 continue
             condata=json.loads(m2.group(1))
             #如果是arm64的情况。会有x0寄存器，然后把w相关的寄存器值手动加进去
@@ -96,5 +97,6 @@ class stalkerMatchForm(QDialog,Ui_StalkerMatchDialog):
                 newline=str.replace(newline,"{%s}"%op,opdata)
             self.appendResult(newline)
         savefile = open(self.txtSavePath.text(), "w", encoding="utf-8")
-        savefile.write(self.txtResult.toPlainText());
+        savefile.write(self.txtResult.toPlainText())
         savefile.close()
+        QMessageBox().information(self, "hint", "success")
