@@ -157,9 +157,9 @@ function stalkerTraceRange(tid, base, size) {
 
                     iterator.putCallout((context) => {
                         var callOutAddress=ptr(context.pc-moduleBase)
-                        if (offsetAddr>0 && callOutAddress.compare(offsetAddr)<0){
-                            return;
-                        }
+                        // if (offsetAddr>0 && callOutAddress.compare(offsetAddr)<0){
+                        //     return;
+                        // }
                         send({
                             type: 'ctx',
                             tid: tid,

@@ -314,7 +314,6 @@ class Runthread(QThread):
                  p["src_port"], p["dst_addr"], p["dst_port"], data)
 
 
-
     def default_message(self,p):
         if "appinfo" in p:
             self.loadAppInfoSignel.emit(p["appinfo"])

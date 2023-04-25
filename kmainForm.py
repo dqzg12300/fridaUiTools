@@ -8,7 +8,7 @@ from PyQt5 import uic, QtWidgets,QtCore
 from PyQt5.QtCore import Qt, QPoint, QTranslator
 from PyQt5.QtGui import QStandardItemModel, QStandardItem, QCursor
 from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog, QStatusBar, QLabel, QMessageBox, QHeaderView, \
-    QTableWidgetItem, QMenu, QAction, QActionGroup, qApp
+    QTableWidgetItem, QMenu, QAction, QActionGroup, qApp, QLineEdit
 
 from forms import SelectPackage
 from forms.AntiFrida import antiFridaForm
@@ -257,7 +257,33 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
         self.curFridaVer = "14.2.18"
         self.actionVer14.setChecked(True)
+        # self.toolBarPackageNameTxt = QLineEdit(self)
+        # self.toolBarPackageNameTxt.setMaximumWidth(200)
+        # label = QLabel("进程名：", self)
+        # self.toolBar.insertWidget(None,label)
+        # self.toolBar.insertWidget(None,self.toolBarPackageNameTxt)
 
+        self.actionattach = QtWidgets.QAction(self)
+        self.actionattach.setText("attach")
+        self.actionattach.setToolTip("attach by packageName")
+        self.actionattach.triggered.connect(self.actionAttachNameStart)
+        self.toolBar.addAction(self.actionattach)
+
+        self.actionattachF = QtWidgets.QAction(self)
+        self.actionattachF.setText("attachF")
+        self.actionattachF.setToolTip("attach current top app")
+        self.actionattachF.triggered.connect(self.actionAttachStart)
+        self.toolBar.addAction(self.actionattachF)
+
+        self.actionspawn = QtWidgets.QAction(self)
+        self.actionspawn.setText("spawn")
+        self.actionspawn.triggered.connect(self.actionSpawnStart)
+        self.toolBar.addAction(self.actionspawn)
+
+        self.actionstop = QtWidgets.QAction(self)
+        self.actionstop.setText("stop")
+        self.actionstop.triggered.connect(self.StopAttach)
+        self.toolBar.addAction(self.actionstop)
 
         # 16.0.8  15.1.9  14.2.18
         # res=CmdUtil.execCmdData("frida --version")
@@ -600,6 +626,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         
         if platform.system()=="Darwin":
             adbPath= CmdUtil.execCmdData("which adb")
+            if adbPath=="":
+                adbPath="adb"
             data=data.replace("%adb%",adbPath.replace("\n",""))
         if self.fridaName != None and len(self.fridaName) > 0:
             data = data.replace("%fName%", self.fridaName)
