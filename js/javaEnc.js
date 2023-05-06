@@ -244,6 +244,7 @@ Java.perform(function () {
         klog("======================================");
         klog("算法名：" + b + "|str密钥:" + bytesToString(a));
         klog("算法名：" + b + "|Hex密钥:" + bytesToHex(a));
+        klog("算法名：" + b + "|base64密钥:" + bytesToBase64(a));
         return result;
     }
 
@@ -255,6 +256,7 @@ Java.perform(function () {
         var bytes_key_des = this.getKey();
         klog("des密钥  |str " + bytesToString(bytes_key_des));
         klog("des密钥  |hex " + bytesToHex(bytes_key_des));
+        klog("des密钥  |base64 " + bytesToBase64(bytes_key_des));
         return result;
     }
 
@@ -265,6 +267,7 @@ Java.perform(function () {
         var bytes_key_des = this.getKey();
         klog("des密钥  |str " + bytesToString(bytes_key_des));
         klog("des密钥  |hex " + bytesToHex(bytes_key_des));
+        klog("des密钥  |base64 " + bytesToBase64(bytes_key_des));
         return result;
     }
 
@@ -302,6 +305,7 @@ Java.perform(function () {
         var result = this.doFinal(a);
         klog("======================================");
         klog("doFinal参数: |str  :"     + bytesToString(a));
+        klog("doFinal参数: |base64  :"     + bytesToBase64(a));
         klog("doFinal结果: |str  :"     + bytesToString(result));
         klog("doFinal结果: |hex  :"     + bytesToHex(result));
         klog("doFinal结果: |base64  :"  + bytesToBase64(result));
@@ -345,6 +349,7 @@ Java.perform(function () {
         //showStacks();
         klog("======================================");
         klog("digest参数:" + bytesToString(a));
+        klog("digest参数:" + bytesToBase64(a));
         var result = this.digest(a);
         klog("digest结果:" + bytesToHex(result));
         klog("digest结果:" + bytesToBase64(result));
@@ -358,6 +363,7 @@ Java.perform(function () {
         klog("======================================");
         klog("iv向量: |str:" + bytesToString(a));
         klog("iv向量: |hex:" + bytesToHex(a));
+        klog("iv向量: |base64:" + bytesToBase64(a));
         return result;
     }
 
@@ -385,6 +391,7 @@ Java.perform(function () {
         var bytes_key = b.getEncoded();
         klog("init key:" + "|str密钥:" + bytesToString(bytes_key));
         klog("init key:" + "|Hex密钥:" + bytesToHex(bytes_key));
+        klog("init key:" + "|base64密钥:" + bytesToBase64(bytes_key));
         return result;
     }
     cipher.init.overload('int', 'java.security.cert.Certificate').implementation = function (a, b) {
@@ -420,7 +427,7 @@ Java.perform(function () {
         var bytes_key = b.getEncoded();
         klog("init key:" + "|str密钥:" + bytesToString(bytes_key));
         klog("init key:" + "|Hex密钥:" + bytesToHex(bytes_key));
-
+        klog("init key:" + "|base64密钥:" + bytesToBase64(bytes_key));
         return result;
     }
     cipher.init.overload('int', 'java.security.cert.Certificate', 'java.security.SecureRandom').implementation = function (a, b, c) {
@@ -451,6 +458,7 @@ Java.perform(function () {
         var bytes_key = b.getEncoded();
         klog("init key:" + "|str密钥:" + bytesToString(bytes_key));
         klog("init key:" + "|Hex密钥:" + bytesToHex(bytes_key));
+        klog("init key:" + "|Base64密钥:" + bytesToBase64(bytes_key));
         return result;
     }
     cipher.init.overload('int', 'java.security.Key', 'java.security.AlgorithmParameters').implementation = function (a, b, c) {
@@ -468,6 +476,7 @@ Java.perform(function () {
         var bytes_key = b.getEncoded();
         klog("init key:" + "|str密钥:" + bytesToString(bytes_key));
         klog("init key:" + "|Hex密钥:" + bytesToHex(bytes_key));
+        klog("init key:" + "|Base64密钥:" + bytesToBase64(bytes_key));
         return result;
     }
     cipher.init.overload('int', 'java.security.Key', 'java.security.AlgorithmParameters', 'java.security.SecureRandom').implementation = function (a, b, c, d) {
@@ -485,6 +494,7 @@ Java.perform(function () {
         var bytes_key = b.getEncoded();
         klog("init key:" + "|str密钥:" + bytesToString(bytes_key));
         klog("init key:" + "|Hex密钥:" + bytesToHex(bytes_key));
+        klog("init key:" + "|Base64密钥:" + bytesToBase64(bytes_key));
         return result;
     }
     cipher.init.overload('int', 'java.security.Key', 'java.security.spec.AlgorithmParameterSpec', 'java.security.SecureRandom').implementation = function (a, b, c, d) {
@@ -502,6 +512,7 @@ Java.perform(function () {
         var bytes_key = b.getEncoded();
         klog("init key:" + "|str密钥:" + bytesToString(bytes_key));
         klog("init key:" + "|Hex密钥:" + bytesToHex(bytes_key));
+        klog("init key:" + "|Base64密钥:" + bytesToBase64(bytes_key));
         return result;
     }
 

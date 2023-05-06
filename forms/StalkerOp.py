@@ -94,7 +94,7 @@ class stalkerMatchForm(QDialog,Ui_StalkerMatchDialog):
                     opdata="0"
                 else:
                     opdata=condata[op]
-                newline=str.replace(newline,"{%s}"%op,opdata)
+                newline=str.replace(newline,"{%s}"%op,str(opdata))
             self.appendResult(newline)
         savefile = open(self.txtSavePath.text(), "w", encoding="utf-8")
         savefile.write(self.txtResult.toPlainText())
