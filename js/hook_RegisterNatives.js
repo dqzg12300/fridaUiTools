@@ -48,6 +48,9 @@ function hook_RegisterNatives() {
                     var name = Memory.readCString(name_ptr);
                     var sig = Memory.readCString(sig_ptr);
                     var find_module = Process.findModuleByAddress(fnPtr_ptr);
+                    if(find_module==null){
+                        find_module={name:"null",base:0};
+                    }
                     klog("[RegisterNatives] java_class:"+class_name+" name:"+name+ " sig:"+ sig+ " fnPtr:"+fnPtr_ptr+ " module_name:"+find_module.name+ " module_base:"+ find_module.base+ " offset:"+ ptr(fnPtr_ptr).sub(find_module.base));
 
                 }

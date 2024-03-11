@@ -255,13 +255,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.chkHookEvent.tag = "hookEvent"
         self.connType="usb"
 
-        self.curFridaVer = "14.2.18"
-        self.actionVer14.setChecked(True)
-        # self.toolBarPackageNameTxt = QLineEdit(self)
-        # self.toolBarPackageNameTxt.setMaximumWidth(200)
-        # label = QLabel("进程名：", self)
-        # self.toolBar.insertWidget(None,label)
-        # self.toolBar.insertWidget(None,self.toolBarPackageNameTxt)
+
 
         self.actionattach = QtWidgets.QAction(self)
         self.actionattach.setText("attach")
@@ -285,6 +279,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.actionstop.triggered.connect(self.StopAttach)
         self.toolBar.addAction(self.actionstop)
 
+        self.curFridaVer = "14.2.18"
+        self.actionVer14.setChecked(True)
         # 16.0.8  15.1.9  14.2.18
         # res=CmdUtil.execCmdData("frida --version")
         # if "15." in res:

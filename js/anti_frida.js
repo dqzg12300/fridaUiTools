@@ -24,20 +24,24 @@ function fridaCheckPass() {
             for(var i=0;i<keywords.length;i++){
                 if(this.str2.indexOf(keywords[i])!=-1){
                     // klog("strstr keyword:"+keywords[i]);
-                    // klog("enter strstr replace str1:"+this.str1+" - " +"str2:"+ this.str2+" thread_id:"+Process.getCurrentThreadId());
+                    klog("enter strstr replace str1:"+this.str1+" - " +"str2:"+ this.str2+" thread_id:"+Process.getCurrentThreadId());
                     this.hook = true;
                     if(isExitThread){
                         klog("pthread_exit_func");
-                        pthread_exit_func(0);
+                        var stack=Thread.backtrace(this.context,Backtracer.FUZZY).map(DebugSymbol.fromAddress).join(" ");
+                        console.log("####"+Thread.backtrace(this.context,Backtracer.FUZZY).map(DebugSymbol.fromAddress).join(" "));
+                        if(stack.indexOf("libriru_15c9")!=-1){
+                            pthread_exit_func(0);
+                        }
                     }
                     break;
                 }
             }
         },
         onLeave: function (retval) {
-            // if(retval!=0){
-            //     console.log("leave str1:",this.str1," - " , "str2:", this.str2," retval:",retval," thread_id:",Process.getCurrentThreadId());
-            // }
+            if(retval!=0){
+                console.log("leave str1:",this.str1," - " , "str2:", this.str2," retval:",retval," thread_id:",Process.getCurrentThreadId());
+            }
             if (this.hook) {
                 retval.replace(0);
             }
@@ -60,6 +64,8 @@ function hooklibc() {
                     this.buf.writeUtf8String("/system/framework/boot.art");
                     retval.replace(0x1A);
                     klog("readlink ",s2str);
+                    console.log("####"+Thread.backtrace(this.context,Backtracer.FUZZY).map(DebugSymbol.fromAddress).join(" "));
+
                 }
                 //console.log('\nreadlink(' + 's1="' + this.aaa.readCString() + '"' + ', s2="' + this.bbb.readCString() + '"' + ', s3="' + this.ccc + '"' + ')');
             }
@@ -78,6 +84,8 @@ function hooklibc() {
                     this.buf.writeUtf8String("/system/framework/boot.art");
                     retval.replace(0x1A);
                     klog("readlinkat "+s2str);
+                    console.log("####"+Thread.backtrace(this.context,Backtracer.FUZZY).map(DebugSymbol.fromAddress).join(" "));
+
                 }
                 //console.log('\nreadlink(' + 's1="' + this.aaa.readCString() + '"' + ', s2="' + this.bbb.readCString() + '"' + ', s3="' + this.ccc + '"' + ')');
             }
@@ -87,18 +95,29 @@ function hooklibc() {
     klog("hook open");
     const openPtr = Module.getExportByName('libc.so', 'open');
     const open = new NativeFunction(openPtr, 'int', ['pointer', 'int']);
-    var fakePath = "/data/local/tmp/maps";
+    var fakePath = "/data/data/com.yy.dreamer";
     Interceptor.replace(openPtr, new NativeCallback(function (pathnameptr, flag) {
       var pathname = Memory.readUtf8String(pathnameptr);
+      klog("open "+pathname);
       if (pathname.indexOf("maps") >= 0 && pathname.indexOf("proc")>=0) {
           klog("replace maps "+pathname);
           var filename = Memory.allocUtf8String(fakePath);
           klog("replace maps over");
+          console.log("####"+Thread.backtrace(this.context,Backtracer.FUZZY).map(DebugSymbol.fromAddress).join(" "));
+
           return open(filename, flag);
       }
       if (pathname.indexOf("/su") != -1) {
           klog("replace su");
+          console.log("####"+Thread.backtrace(this.context,Backtracer.FUZZY).map(DebugSymbol.fromAddress).join(" "));
+
           var filename = Memory.allocUtf8String("/xxx/su");
+          return open(filename, flag);
+      }
+      if (pathname.indexOf("/stat") != -1 && pathname.indexOf("/proc/self/task/") != -1) {
+          var filename = Memory.allocUtf8String("/data/local/tmp/stat");
+          klog("replace "+pathname);
+          console.log("####"+Thread.backtrace(this.context,Backtracer.FUZZY).map(DebugSymbol.fromAddress).join(" "));
           return open(filename, flag);
       }
       var fd = open(pathnameptr, flag);
@@ -113,12 +132,22 @@ function hooklibc() {
       if (pathname.indexOf("maps") >= 0) {
           var filename = Memory.allocUtf8String(fakePath);
           klog("replace maps");
+          console.log("####"+Thread.backtrace(this.context,Backtracer.FUZZY).map(DebugSymbol.fromAddress).join(" "));
           return openat(fd,filename, flag,mode);
       }
       if (pathname.indexOf("/su") != -1) {
           var filename = Memory.allocUtf8String("/xxx/su");
+          klog("replace "+pathname);
+          console.log("####"+Thread.backtrace(this.context,Backtracer.FUZZY).map(DebugSymbol.fromAddress).join(" "));
           return openat(fd,filename, flag,mode);
       }
+      if (pathname.indexOf("/stat") != -1 &&pathname.indexOf("/proc/self/task/") != -1) {
+          var filename = Memory.allocUtf8String("/data/local/tmp/stat");
+          klog("replace "+pathname);
+          console.log("####"+Thread.backtrace(this.context,Backtracer.FUZZY).map(DebugSymbol.fromAddress).join(" "));
+          return openat(fd,filename, flag,mode);
+      }
+
       var fd = openat(fd,pathnameptr, flag,mode);
       return fd;
     }, 'int', ['int','pointer', 'int','int']));
