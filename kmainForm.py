@@ -768,8 +768,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             if name not in packageData:
                 packageFile.write(name + "\n")
         self.labPackage.setText(name)
-        appinfo=self.th.default_api.loadappinfo()
-        self.loadAppInfo(appinfo)
+        # appinfo=self.th.default_api.loadappinfo()
+        # self.loadAppInfo(appinfo)
 
     def getFridaDevice(self):
         if self.connType=="usb":
