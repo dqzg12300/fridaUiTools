@@ -15,6 +15,7 @@ from forms.AntiFrida import antiFridaForm
 from forms.CallFunction import callFunctionForm
 from forms.Custom import customForm
 from forms.DumpAddress import dumpAddressForm
+from forms.AiSettings import aiSettingsForm
 from forms.DumpSo import dumpSoForm
 from forms.Fart import fartForm
 from forms.FartBin import fartBinForm
@@ -32,6 +33,7 @@ from forms.Wifi import wifiForm
 from forms.ZenTracer import zenTracerForm
 from ui.kmain import Ui_MainWindow
 from utils import LogUtil, CmdUtil, FileUtil
+from utils.AiUtil import AiService, AiWorker
 import json, os, threading, frida
 import platform
 
@@ -47,12 +49,17 @@ class kmainForm(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(kmainForm, self).__init__(parent)
         self.setupUi(self)
+        self.aiService = AiService(conf)
+        self.aiWorker = None
+        self.liveOutputLogBuffer = []
+        self.currentLogMode = "live"
+        self.loadedLogPath = ""
+        self.loadedLogContent = ""
         self.initUi()
         self.hooksData = {}
-        self.th = TraceThread.Runthread(self.hooksData, "", False,self.connType)
+        self.th = TraceThread.Runthread(self.hooksData, "", False, self.connType)
         self.updateCmbHooks()
         self.outlogger = LogUtil.Logger('all.txt', level='debug')
-
 
     def initUi(self):
         self.setWindowOpacity(0.93)
@@ -175,6 +182,24 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.chkAntiDebug.toggled.connect(self.hookAntiDebug)
         self.chkNewJnitrace.toggled.connect(self.hookNewJnitrace)
 
+        self.chkRootBypass = QtWidgets.QCheckBox(self.groupBox_2)
+        self.chkRootBypass.setObjectName("chkRootBypass")
+        self.chkRootBypass.setText(self._translate("kmainForm", "root bypass"))
+        self.gridLayout_5.addWidget(self.chkRootBypass, 2, 2, 1, 1)
+        self.chkRootBypass.toggled.connect(self.hookRootBypass)
+
+        self.chkWebViewDebug = QtWidgets.QCheckBox(self.groupBox_2)
+        self.chkWebViewDebug.setObjectName("chkWebViewDebug")
+        self.chkWebViewDebug.setText(self._translate("kmainForm", "webview debug"))
+        self.gridLayout_5.addWidget(self.chkWebViewDebug, 2, 3, 1, 1)
+        self.chkWebViewDebug.toggled.connect(self.hookWebViewDebug)
+
+        self.chkOkHttpLogger = QtWidgets.QCheckBox(self.groupBox_2)
+        self.chkOkHttpLogger.setObjectName("chkOkHttpLogger")
+        self.chkOkHttpLogger.setText(self._translate("kmainForm", "okhttp logger"))
+        self.gridLayout_5.addWidget(self.chkOkHttpLogger, 3, 0, 1, 2)
+        self.chkOkHttpLogger.toggled.connect(self.hookOkHttpLogger)
+
         self.btnMatchMethod.clicked.connect(self.matchMethod)
 
         self.btnNatives.clicked.connect(self.hookNatives)
@@ -222,7 +247,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
         self.dumpForm = dumpAddressForm()
         self.jniform = jnitraceForm()
-        self.newJniform=jnitraceForm()
+        self.newJniform = jnitraceForm()
         self.zenTracerForm = zenTracerForm()
         self.nativesForm = nativesForm()
         self.spawnAttachForm = spawnAttachForm()
@@ -231,14 +256,15 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.dumpSoForm = dumpSoForm()
         self.fartForm = fartForm()
         self.wallBreakerForm = wallBreakerForm()
-        self.customForm = customForm()
+        self.customForm = customForm(self)
         self.callFunctionForm = callFunctionForm()
         self.fartBinForm = fartBinForm()
         self.stalkerMatchForm = stalkerMatchForm()
-        self.wifiForm=wifiForm()
+        self.wifiForm = wifiForm()
         self.portForm = portForm()
-        self.searchMemForm= searchMemoryForm()
-        self.antiFdForm=antiFridaForm()
+        self.aiSettingsForm = aiSettingsForm(self)
+        self.searchMemForm = searchMemoryForm()
+        self.antiFdForm = antiFridaForm()
 
         self.modules = None
         self.classes = None
@@ -253,9 +279,10 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.chkArtMethod.tag = "ArtMethod"
         self.chkLibArt.tag = "libArt"
         self.chkHookEvent.tag = "hookEvent"
-        self.connType="usb"
-
-
+        self.chkRootBypass.tag = "root_bypass"
+        self.chkWebViewDebug.tag = "webview_debug"
+        self.chkOkHttpLogger.tag = "okhttp_logger"
+        self.connType = "usb"
 
         self.actionattach = QtWidgets.QAction(self)
         self.actionattach.setText("attach")
@@ -295,6 +322,150 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         # else:
         #     self.curFridaVer = "15.1.9"
         #     self.actionVer15.setChecked(True)
+
+        self.initSmartLayout()
+        self.initLogTools()
+        self.initSettingsMenu()
+        self.refreshAiState()
+
+    def initSmartLayout(self):
+        self.resize(1220, 900)
+        self.tabWidget.setDocumentMode(True)
+        self.groupLogs.setDocumentMode(True)
+        self.groupLogs.setTabPosition(QtWidgets.QTabWidget.North)
+
+        self.gridLayout_6.removeWidget(self.groupBox)
+        self.gridLayout_6.removeWidget(self.groupBox_2)
+        self.gridLayout_6.removeWidget(self.groupLogs)
+
+        self.mainTopWidget = QtWidgets.QWidget(self.tab_2)
+        self.mainTopLayout = QtWidgets.QHBoxLayout(self.mainTopWidget)
+        self.mainTopLayout.setContentsMargins(0, 0, 0, 0)
+        self.mainTopLayout.setSpacing(12)
+        self.mainTopLayout.addWidget(self.groupBox, 3)
+        self.mainTopLayout.addWidget(self.groupBox_2, 5)
+
+        self.mainSplitter = QtWidgets.QSplitter(Qt.Vertical, self.tab_2)
+        self.mainSplitter.addWidget(self.mainTopWidget)
+        self.mainSplitter.addWidget(self.groupLogs)
+        self.mainSplitter.setStretchFactor(0, 3)
+        self.mainSplitter.setStretchFactor(1, 5)
+        self.gridLayout_6.addWidget(self.mainSplitter, 0, 0, 1, 1)
+
+        self.groupBox.setTitle(self._translate("kmainForm", "常用功能（附加后使用）"))
+        self.groupBox_2.setTitle(self._translate("kmainForm", "脚本与 Hook 组合（附加前配置）"))
+
+    def initLogTools(self):
+        self.aiAnalysisTab = QtWidgets.QWidget()
+        self.aiAnalysisTab.setObjectName("aiAnalysisTab")
+        self.aiAnalysisLayout = QtWidgets.QVBoxLayout(self.aiAnalysisTab)
+        self.aiAnalysisLayout.setContentsMargins(8, 8, 8, 8)
+        self.aiAnalysisToolbar = QtWidgets.QHBoxLayout()
+        self.aiAnalysisToolbar.setContentsMargins(0, 0, 0, 0)
+        self.labLogStatus = QLabel(self._translate("kmainForm", "当前日志：实时输出"))
+        self.aiAnalysisToolbar.addWidget(self.labLogStatus)
+        self.aiAnalysisToolbar.addStretch(1)
+        self.btnOpenLogFile = QtWidgets.QPushButton(self._translate("kmainForm", "打开日志文件"))
+        self.btnRestoreLiveLog = QtWidgets.QPushButton(self._translate("kmainForm", "恢复实时日志"))
+        self.btnAnalyzeLog = QtWidgets.QPushButton(self._translate("kmainForm", "AI 分析日志"))
+        self.aiAnalysisToolbar.addWidget(self.btnOpenLogFile)
+        self.aiAnalysisToolbar.addWidget(self.btnRestoreLiveLog)
+        self.aiAnalysisToolbar.addWidget(self.btnAnalyzeLog)
+        self.aiAnalysisLayout.addLayout(self.aiAnalysisToolbar)
+        self.txtAiAnalysis = QtWidgets.QPlainTextEdit(self.aiAnalysisTab)
+        self.txtAiAnalysis.setReadOnly(True)
+        self.aiAnalysisLayout.addWidget(self.txtAiAnalysis)
+        self.groupLogs.addTab(self.aiAnalysisTab, self._translate("kmainForm", "AI 分析"))
+
+        self.outputLogToolbarWidget = QtWidgets.QWidget(self.tab_5)
+        self.outputLogToolbarLayout = QtWidgets.QHBoxLayout(self.outputLogToolbarWidget)
+        self.outputLogToolbarLayout.setContentsMargins(0, 0, 0, 0)
+        self.outputLogToolbarLayout.addWidget(QLabel(self._translate("kmainForm", "输出日志视图")))
+        self.outputLogToolbarLayout.addStretch(1)
+        self.gridLayout_2.addWidget(self.outputLogToolbarWidget, 0, 0, 1, 1)
+        self.gridLayout_2.removeWidget(self.txtoutLogs)
+        self.gridLayout_2.addWidget(self.txtoutLogs, 1, 0, 1, 1)
+
+        self.btnOpenLogFile.clicked.connect(self.openLogFile)
+        self.btnRestoreLiveLog.clicked.connect(self.restoreLiveLog)
+        self.btnAnalyzeLog.clicked.connect(self.analyzeLogWithAi)
+
+    def initSettingsMenu(self):
+        self.menuSettings = self.menubar.addMenu(self._translate("kmainForm", "设置"))
+        self.actionAiSettings = QAction(self._translate("kmainForm", "AI 设置"), self)
+        self.actionAiSettings.triggered.connect(self.openAiSettings)
+        self.menuSettings.addAction(self.actionAiSettings)
+        self.toolBar.addSeparator()
+        self.toolBar.addAction(self.actionAiSettings)
+
+    def refreshAiState(self):
+        available = self.aiService.is_available()
+        self.btnAnalyzeLog.setEnabled(available)
+        self.customForm.refreshAiState()
+        if hasattr(self, "txtAiAnalysis") and not available:
+            self.txtAiAnalysis.setPlainText(self.aiService.missing_message())
+
+    def openAiSettings(self):
+        self.aiSettingsForm.loadConfig()
+        res = self.aiSettingsForm.exec()
+        if res == 0:
+            return
+        self.refreshAiState()
+
+    def currentLogText(self):
+        if self.currentLogMode == "file":
+            return self.loadedLogContent
+        return "\n".join(self.liveOutputLogBuffer)
+
+    def openLogFile(self):
+        filepath = QFileDialog.getOpenFileName(self, self._translate("kmainForm", "打开日志文件"), "./logs", "Log Files (*.txt *.log);;All Files (*)")
+        if not filepath[0]:
+            return
+        with open(filepath[0], "r", encoding="utf-8", errors="ignore") as log_file:
+            self.loadedLogContent = log_file.read()
+        self.loadedLogPath = filepath[0]
+        self.currentLogMode = "file"
+        self.txtoutLogs.setPlainText(self.loadedLogContent)
+        self.groupLogs.setCurrentWidget(self.tab_5)
+        self.labLogStatus.setText(self._translate("kmainForm", "当前日志：") + os.path.basename(filepath[0]))
+        self.log(self._translate("kmainForm", "已加载日志文件：") + filepath[0])
+
+    def restoreLiveLog(self):
+        self.currentLogMode = "live"
+        self.loadedLogPath = ""
+        self.loadedLogContent = ""
+        self.txtoutLogs.setPlainText("\n".join(self.liveOutputLogBuffer))
+        self.labLogStatus.setText(self._translate("kmainForm", "当前日志：实时输出"))
+
+    def analyzeLogWithAi(self):
+        if not self.aiService.is_available():
+            self.refreshAiState()
+            QMessageBox().information(self, "hint", self.aiService.missing_message())
+            return
+        content = self.currentLogText()
+        if len(content.strip()) <= 0:
+            QMessageBox().information(self, "hint", self._translate("kmainForm", "当前没有可分析的日志内容"))
+            return
+        self.btnAnalyzeLog.setEnabled(False)
+        self.btnAnalyzeLog.setText(self._translate("kmainForm", "分析中..."))
+        self.txtAiAnalysis.setPlainText(self._translate("kmainForm", "AI 正在分析日志，请稍候..."))
+        self.groupLogs.setCurrentWidget(self.aiAnalysisTab)
+        self.aiWorker = AiWorker(self.aiService.analyze_log, content)
+        self.aiWorker.success.connect(self.onAiAnalysisSuccess)
+        self.aiWorker.error.connect(self.onAiAnalysisFailed)
+        self.aiWorker.start()
+
+    def onAiAnalysisSuccess(self, result):
+        self.btnAnalyzeLog.setEnabled(self.aiService.is_available())
+        self.btnAnalyzeLog.setText(self._translate("kmainForm", "AI 分析日志"))
+        self.txtAiAnalysis.setPlainText(result)
+        self.groupLogs.setCurrentWidget(self.aiAnalysisTab)
+
+    def onAiAnalysisFailed(self, message):
+        self.btnAnalyzeLog.setEnabled(self.aiService.is_available())
+        self.btnAnalyzeLog.setText(self._translate("kmainForm", "AI 分析日志"))
+        self.txtAiAnalysis.setPlainText(message)
+        QMessageBox().information(self, "hint", message)
 
     def clearSymbol(self):
         self.listSymbol.clear()
@@ -371,12 +542,16 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
     # 打印输出日志
     def outlog(self, logstr):
-        if self.actionConsoleLog.isChecked()==False:
-            datestr = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S   ')
-            self.txtoutLogs.appendPlainText(datestr + logstr)
+        datestr = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S   ')
+        line = datestr + logstr
+        self.liveOutputLogBuffer.append(line)
+        if len(self.liveOutputLogBuffer) > 5000:
+            self.liveOutputLogBuffer = self.liveOutputLogBuffer[-5000:]
+        if self.actionConsoleLog.isChecked() == False and self.currentLogMode == "live":
+            self.txtoutLogs.appendPlainText(line)
         self.outlogger.logger.debug(logstr)
         if "default.js init hook success" in logstr:
-            QMessageBox().information(self, "hint", self._translate("kmainForm","附加进程成功"))
+            QMessageBox().information(self, "hint", self._translate("kmainForm", "附加进程成功"))
 
     # 线程调用脚本结束，并且触发结束信号
     def StopAttach(self):
@@ -400,7 +575,13 @@ class kmainForm(QMainWindow, Ui_MainWindow):
                 pass
 
     def ClearOutlog(self):
+        self.liveOutputLogBuffer = []
+        self.loadedLogContent = ""
+        self.loadedLogPath = ""
+        self.currentLogMode = "live"
         self.txtoutLogs.setPlainText("")
+        if hasattr(self, "labLogStatus"):
+            self.labLogStatus.setText(self._translate("kmainForm", "当前日志：实时输出"))
 
     def PushFartSo(self):
         # 有些手机是用su 0来执行shell命令的。不太懂怎么判断是哪种。
@@ -1133,6 +1314,15 @@ class kmainForm(QMainWindow, Ui_MainWindow):
     def hookAntiDebug(self,checked):
         self.chk_hook_insert(checked, "anti_debug",self._translate("kmainForm", "简单一键反调试"))
 
+    def hookRootBypass(self, checked):
+        self.chk_hook_insert(checked, "root_bypass", self._translate("kmainForm", "绕过常见 Root 检测"))
+
+    def hookWebViewDebug(self, checked):
+        self.chk_hook_insert(checked, "webview_debug", self._translate("kmainForm", "开启 WebView 调试与接口日志"))
+
+    def hookOkHttpLogger(self, checked):
+        self.chk_hook_insert(checked, "okhttp_logger", self._translate("kmainForm", "打印 OkHttp 请求与响应关键信息"))
+
     def hookNewJnitrace(self,checked):
         typeStr = "FCAnd_jnitrace"
         if checked:
@@ -1215,6 +1405,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
     def custom(self):
         self.log("custom")
         self.customForm.initData()
+        self.customForm.refreshAiState()
         self.customForm.exec()
         if len(self.customForm.customHooks) > 0:
             self.hooksData["custom"] = []
@@ -1281,15 +1472,26 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.updateCmbHooks()
             QMessageBox().information(self, "hint", self._translate("kmainForm","成功保存到") + filepath)
 
+    def setCheckSilent(self, widget, checked):
+        widget.blockSignals(True)
+        widget.setChecked(checked)
+        widget.blockSignals(False)
+
     # 加载hook列表后。这里刷新下checked
     def refreshChecks(self):
-        self.chkNetwork.setChecked(self.chkNetwork.tag in self.hooksData)
-        self.chkJni.setChecked(self.chkJni.tag in self.hooksData)
-        self.chkJavaEnc.setChecked(self.chkJavaEnc.tag in self.hooksData)
-        self.chkSslPining.setChecked(self.chkSslPining.tag in self.hooksData)
-        self.chkRegisterNative.setChecked(self.chkRegisterNative.tag in self.hooksData)
-        self.chkArtMethod.setChecked(self.chkArtMethod.tag in self.hooksData)
-        self.chkLibArt.setChecked(self.chkLibArt.tag in self.hooksData)
+        self.setCheckSilent(self.chkNetwork, self.chkNetwork.tag in self.hooksData)
+        self.setCheckSilent(self.chkJni, self.chkJni.tag in self.hooksData)
+        self.setCheckSilent(self.chkJavaEnc, self.chkJavaEnc.tag in self.hooksData)
+        self.setCheckSilent(self.chkSslPining, self.chkSslPining.tag in self.hooksData)
+        self.setCheckSilent(self.chkRegisterNative, self.chkRegisterNative.tag in self.hooksData)
+        self.setCheckSilent(self.chkArtMethod, self.chkArtMethod.tag in self.hooksData)
+        self.setCheckSilent(self.chkLibArt, self.chkLibArt.tag in self.hooksData)
+        self.setCheckSilent(self.chkHookEvent, self.chkHookEvent.tag in self.hooksData)
+        self.setCheckSilent(self.chkAntiDebug, "anti_debug" in self.hooksData)
+        self.setCheckSilent(self.chkNewJnitrace, "FCAnd_jnitrace" in self.hooksData)
+        self.setCheckSilent(self.chkRootBypass, self.chkRootBypass.tag in self.hooksData)
+        self.setCheckSilent(self.chkWebViewDebug, self.chkWebViewDebug.tag in self.hooksData)
+        self.setCheckSilent(self.chkOkHttpLogger, self.chkOkHttpLogger.tag in self.hooksData)
 
     def loadJson(self, filepath):
         if os.path.exists(filepath)==False:
@@ -1347,12 +1549,14 @@ class kmainForm(QMainWindow, Ui_MainWindow):
                     self.tabHooks.setItem(line, 1, QTableWidgetItem(itemLine["class"]))
                     self.tabHooks.setItem(line, 2, QTableWidgetItem(itemLine["method"]))
                     self.tabHooks.setItem(line, 3, QTableWidgetItem(itemLine["bak"]))
+                    line += 1
             else:
                 self.tabHooks.insertRow(line)
                 self.tabHooks.setItem(line, 0, QTableWidgetItem(item))
                 self.tabHooks.setItem(line, 1, QTableWidgetItem(self.hooksData[item]["class"]))
                 self.tabHooks.setItem(line, 2, QTableWidgetItem(self.hooksData[item]["method"]))
                 self.tabHooks.setItem(line, 3, QTableWidgetItem(self.hooksData[item]["bak"]))
+                line += 1
 
     def changeModule(self, data):
         if self.modules == None:

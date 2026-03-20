@@ -191,6 +191,12 @@ class Runthread(QThread):
                     source = source.replace("%moduleName%",moduleName)
             elif item=="anti_debug":
                 source += open("./js/anti_debug.js", 'r', encoding="utf8").read()
+            elif item=="root_bypass":
+                source += open("./js/root_bypass.js", 'r', encoding="utf8").read()
+            elif item=="webview_debug":
+                source += open("./js/webview_debug.js", 'r', encoding="utf8").read()
+            elif item=="okhttp_logger":
+                source += open("./js/okhttp_logger.js", 'r', encoding="utf8").read()
             elif item=="FCAnd_jnitrace":
                 jsdata= open("./js/FCAnd_jnitrace.js", 'r', encoding="utf8").read()
                 jsdata=jsdata.replace("%moduleName%",self.hooksData[item]["class"])

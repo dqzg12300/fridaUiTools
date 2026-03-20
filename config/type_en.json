@@ -13,5 +13,8 @@
   "fart":{"class":"","method":"","bak":"fart call all method unpack"},
   "hookEvent": {"class":"","method":"","bak":"hook all view event"},
   "anti_debug": {"class":"","method":"","bak":"simple anti debug.refer to FridaContainer"},
-  "FCAnd_jnitrace": {"class":"","method":"","bak":"simple jnitrace.refer to FridaContainer"}
+  "FCAnd_jnitrace": {"class":"","method":"","bak":"simple jnitrace.refer to FridaContainer"},
+  "root_bypass": {"class":"","method":"","bak":"bypass common root detection for package/file/command checks"},
+  "webview_debug": {"class":"","method":"","bak":"enable WebView debugging and log bridge usage"},
+  "okhttp_logger": {"class":"","method":"","bak":"log OkHttp request and response metadata"}
 }
