@@ -26,8 +26,8 @@ class Runthread(QThread):
     #线程退出信号
     taskOverSignel=pyqtSignal()
     #获取一些附加成功就可以取的通用信息。这里暂时还不知道初始化一些啥信息比较好。先打通流程
-    loadAppInfoSignel=pyqtSignal(str)
-    searchAppInfoSignel=pyqtSignal(str)
+    loadAppInfoSignel=pyqtSignal(object)
+    searchAppInfoSignel=pyqtSignal(object)
     searchMemorySignel=pyqtSignal(str,str)
     setBreakSignel=pyqtSignal(dict)
     #附加成功的信号

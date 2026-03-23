@@ -126,6 +126,14 @@ class customForm(QDialog, Ui_CustomDialog):
         else:
             self.labAiStatus.setText(self._translate("customForm", "AI 状态：") + self.aiService.missing_message())
 
+    def refreshTranslations(self):
+        self.retranslateUi(self)
+        self.header = [self._translate("customForm", "别名"), self._translate("customForm", "文件名"), self._translate("customForm", "备注")]
+        self.txtJsData.setPlaceholderText(self._translate("customForm", "在这里编辑或让 AI 生成符合 custom 模块格式的 Frida Hook 脚本..."))
+        self.updateTabCustom()
+        self.updateTabCustomHook()
+        self.refreshAiState()
+
     def fillPromptTemplate(self):
         template = (
             "目标应用/场景：\n"

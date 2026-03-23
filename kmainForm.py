@@ -41,6 +41,7 @@ import TraceThread
 from utils.IniUtil import IniConfig
 
 conf=IniConfig()
+ACTIVE_TRANSLATORS = []
 
 def restart_real_live():
     qApp.exit(1207)
@@ -55,8 +56,11 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.currentLogMode = "live"
         self.loadedLogPath = ""
         self.loadedLogContent = ""
-        self.initUi()
+        self.language = conf.read("kmain", "language") or "China"
+        self.currentAppInfoSnapshot = {}
+        self.attachedAppInfoSnapshot = {}
         self.hooksData = {}
+        self.initUi()
         self.th = TraceThread.Runthread(self.hooksData, "", False, self.connType)
         self.updateCmbHooks()
         self.outlogger = LogUtil.Logger('all.txt', level='debug')
@@ -103,19 +107,11 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.customPort = conf.read("kmain", "usb_port")
         self.address=conf.read("kmain", "wifi_addr")
         self.wifi_port = conf.read("kmain", "wifi_port")
-        language = conf.read("kmain", "language")
-        if language == "China":
+        if self.language == "China":
             self.actionChina.setChecked(True)
         else:
             self.actionEnglish.setChecked(True)
-
-
-        if self.actionChina.isChecked():
-            typePath="./config/type.json"
-        else:
-            typePath = "./config/type_en.json"
-        with open(typePath, "r", encoding="utf8") as typeFile:
-            self.typeData = json.loads(typeFile.read())
+        self.loadTypeData()
 
         self.actionAttach.triggered.connect(self.actionAttachStart)
         self.actionSpawn.triggered.connect(self.actionSpawnStart)
@@ -241,12 +237,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.btnImportHooks.clicked.connect(self.importHooks)
         self.btnLoadHooks.clicked.connect(self.loadHooks)
         self.btnClearHooks.clicked.connect(self.clearHooks)
-        if self.actionChina.isChecked():
-            self.header = ["名称", "类名/模块名", "函数", "备注"]
-        else:
-            self.header = ["name", "class or func", "func", "bak"]
         self.tabHooks.setColumnCount(4)
-        self.tabHooks.setHorizontalHeaderLabels(self.header)
+        self.refreshHookHeaders()
         self.tabHooks.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
         self.tabHooks.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -354,7 +346,173 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.initSmartLayout()
         self.initLogTools()
         self.initSettingsMenu()
-        self.refreshAiState()
+        self.retranslateDynamicUi()
+
+    def isEnglish(self):
+        return self.language == "English"
+
+    def trText(self, zh_text, en_text):
+        return en_text if self.isEnglish() else zh_text
+
+    def loadTypeData(self):
+        typePath = "./config/type_en.json" if self.isEnglish() else "./config/type.json"
+        with open(typePath, "r", encoding="utf8") as typeFile:
+            self.typeData = json.loads(typeFile.read())
+
+    def valueText(self, value, default="-"):
+        if value is None:
+            return default
+        text = str(value).strip()
+        return text if len(text) > 0 else default
+
+    def boolText(self, value):
+        if value is None or value == "":
+            return "-"
+        return self.trText("是", "Yes") if bool(value) else self.trText("否", "No")
+
+    def setupInfoTable(self, table):
+        table.setColumnCount(2)
+        table.setHorizontalHeaderLabels([
+            self.trText("字段", "Field"),
+            self.trText("值", "Value"),
+        ])
+        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        table.verticalHeader().setVisible(False)
+        table.setAlternatingRowColors(True)
+        table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        table.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        table.setWordWrap(True)
+
+    def setInfoTableRows(self, table, rows):
+        valid_rows = [(self.valueText(key), self.valueText(value)) for key, value in rows if self.valueText(value) != "-"]
+        table.clearContents()
+        table.setRowCount(len(valid_rows))
+        for row, (key, value) in enumerate(valid_rows):
+            keyItem = QTableWidgetItem(key)
+            valueItem = QTableWidgetItem(value)
+            keyItem.setToolTip(key)
+            valueItem.setToolTip(value)
+            table.setItem(row, 0, keyItem)
+            table.setItem(row, 1, valueItem)
+        table.resizeRowsToContents()
+
+    def configureInfoTabs(self):
+        if self.tab_6.layout() is None:
+            self.tab6Layout = QtWidgets.QVBoxLayout(self.tab_6)
+            self.tab6Layout.setContentsMargins(10, 10, 10, 10)
+            self.tab6Layout.setSpacing(12)
+            self.tab6Layout.addWidget(self.groupBox_8)
+        else:
+            self.tab6Layout = self.tab_6.layout()
+
+        self.currentAppExtraGroup = QtWidgets.QGroupBox(self.tab_6)
+        self.currentAppExtraGroup.setObjectName("currentAppExtraGroup")
+        self.currentAppExtraLayout = QtWidgets.QVBoxLayout(self.currentAppExtraGroup)
+        self.currentAppExtraLayout.setContentsMargins(10, 12, 10, 10)
+        self.currentAppExtraLayout.setSpacing(8)
+        self.labCurrentAppInfoHint = QLabel(self.currentAppExtraGroup)
+        self.labCurrentAppInfoHint.setWordWrap(True)
+        self.labCurrentAppInfoHint.setObjectName("panelHint")
+        self.currentAppExtraLayout.addWidget(self.labCurrentAppInfoHint)
+        self.currentAppInfoTable = QtWidgets.QTableWidget(self.currentAppExtraGroup)
+        self.currentAppInfoTable.setObjectName("currentAppInfoTable")
+        self.currentAppExtraLayout.addWidget(self.currentAppInfoTable)
+        self.setupInfoTable(self.currentAppInfoTable)
+        self.tab6Layout.addWidget(self.currentAppExtraGroup)
+        self.tab6Layout.setStretch(0, 3)
+        self.tab6Layout.setStretch(1, 4)
+
+        self.gridLayout_16.setContentsMargins(10, 12, 10, 10)
+        self.gridLayout_16.setSpacing(8)
+        self.labAttachedInfoHint = QLabel(self.groupBox_7)
+        self.labAttachedInfoHint.setWordWrap(True)
+        self.labAttachedInfoHint.setObjectName("panelHint")
+        self.gridLayout_16.addWidget(self.labAttachedInfoHint, 0, 0, 1, 1)
+        self.attachInfoTable = QtWidgets.QTableWidget(self.groupBox_7)
+        self.attachInfoTable.setObjectName("attachInfoTable")
+        self.gridLayout_16.addWidget(self.attachInfoTable, 1, 0, 1, 1)
+        self.setupInfoTable(self.attachInfoTable)
+
+    def buildCurrentAppInfoRows(self):
+        data = self.currentAppInfoSnapshot or {}
+        if len(data) <= 0:
+            return []
+        return [
+            (self.trText("包名", "Package"), data.get("packageName")),
+            (self.trText("进程名", "Process"), data.get("processName")),
+            ("PID", data.get("pid")),
+            (self.trText("当前焦点", "Current focus"), data.get("currentFocus")),
+            (self.trText("启动页面", "Launch component"), data.get("component")),
+            (self.trText("base 路径", "Base path"), data.get("baseDir")),
+            (self.trText("APK 路径", "APK path"), data.get("apkPath")),
+            (self.trText("数据目录", "Data dir"), data.get("dataDir")),
+            (self.trText("主 ABI", "Primary ABI"), data.get("primaryCpuAbi")),
+            (self.trText("版本名", "Version name"), data.get("versionName")),
+            (self.trText("版本号", "Version code"), data.get("versionCode")),
+            ("targetSdk", data.get("targetSdk")),
+            ("UID", data.get("uid")),
+            (self.trText("可调试", "Debuggable"), self.boolText(data.get("debuggable"))),
+            (self.trText("允许备份", "Allow backup"), self.boolText(data.get("allowBackup"))),
+            (self.trText("包标记", "Package flags"), data.get("pkgFlags")),
+            (self.trText("设备 ABI 列表", "Device ABI list"), data.get("deviceAbiList")),
+        ]
+
+    def updateCurrentAppInfoTable(self):
+        if hasattr(self, "currentAppInfoTable"):
+            self.setupInfoTable(self.currentAppInfoTable)
+            self.setInfoTableRows(self.currentAppInfoTable, self.buildCurrentAppInfoRows())
+
+    def buildAttachedInfoRows(self):
+        data = self.attachedAppInfoSnapshot or {}
+        if len(data) <= 0:
+            return []
+        runtime = data.get("runtime", {})
+        package = data.get("package", {})
+        module_count = runtime.get("moduleCount") or len(data.get("modules", []))
+        class_count = runtime.get("classCount") or len(data.get("classes", []))
+        return [
+            (self.trText("附加包名", "Attached package"), data.get("packageName") or package.get("packageName") or self.labPackage.text()),
+            (self.trText("附加方式", "Attach mode"), data.get("attachType")),
+            (self.trText("连接方式", "Connection"), data.get("connectionType")),
+            (self.trText("Frida 版本", "Frida version"), data.get("fridaVersion")),
+            (self.trText("Hook 数量", "Hook count"), data.get("hookCount")),
+            (self.trText("进程 PID", "Process PID"), runtime.get("processId")),
+            (self.trText("进程架构", "Process arch"), runtime.get("arch")),
+            (self.trText("指针大小", "Pointer size"), runtime.get("pointerSize")),
+            (self.trText("页面大小", "Page size"), runtime.get("pageSize")),
+            (self.trText("模块数量", "Module count"), module_count),
+            (self.trText("Java 类数量", "Java class count"), class_count),
+            (self.trText("已附加调试器", "Debugger attached"), self.boolText(runtime.get("debuggerAttached"))),
+            (self.trText("当前目录", "Current dir"), runtime.get("currentDir")),
+            (self.trText("临时目录", "Temp dir"), runtime.get("tmpDir")),
+            (self.trText("应用名称", "App label"), package.get("appLabel")),
+            (self.trText("版本名", "Version name"), package.get("versionName")),
+            (self.trText("版本号", "Version code"), package.get("versionCode")),
+            (self.trText("进程名", "Process"), package.get("processName")),
+            ("targetSdk", package.get("targetSdk")),
+            ("minSdk", package.get("minSdk")),
+            ("UID", package.get("uid")),
+            (self.trText("可调试", "Debuggable"), self.boolText(package.get("debuggable"))),
+            (self.trText("允许备份", "Allow backup"), self.boolText(package.get("allowBackup"))),
+            (self.trText("仅测试包", "Test only"), self.boolText(package.get("testOnly"))),
+            (self.trText("源 APK", "Source APK"), package.get("sourceDir")),
+            (self.trText("数据目录", "Data dir"), package.get("dataDir")),
+            (self.trText("Native 库目录", "Native lib dir"), package.get("nativeLibraryDir")),
+            ("Task Affinity", package.get("taskAffinity")),
+            (self.trText("Application 类", "Application class"), package.get("className")),
+            (self.trText("Android 版本", "Android version"), package.get("androidVersion")),
+            (self.trText("设备信息", "Device"), " / ".join([item for item in [self.valueText(package.get("brand"), ""), self.valueText(package.get("model"), ""), self.valueText(package.get("device"), "")] if len(item) > 0])),
+            (self.trText("支持 ABI", "Supported ABIs"), package.get("supportedAbis")),
+            (self.trText("代码签名策略", "Code-signing policy"), runtime.get("codeSigningPolicy")),
+            (self.trText("附加信息异常", "Attach info error"), data.get("packageError")),
+        ]
+
+    def updateAttachedInfoTable(self):
+        if hasattr(self, "attachInfoTable"):
+            self.setupInfoTable(self.attachInfoTable)
+            self.setInfoTableRows(self.attachInfoTable, self.buildAttachedInfoRows())
 
     def initSmartLayout(self):
         self.resize(1280, 920)
@@ -392,6 +550,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
         self.configureCommonToolsPanel()
         self.configureHookPanel()
+        self.configureInfoTabs()
         self.configureLogWidgets()
         self.applyWorkbenchTheme()
 
@@ -404,6 +563,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         hint = QLabel(description, card)
         hint.setWordWrap(True)
         hint.setObjectName("panelHint")
+        card.hintLabel = hint
         cardLayout.addWidget(hint)
         buttonGrid = QtWidgets.QGridLayout()
         buttonGrid.setHorizontalSpacing(10)
@@ -434,20 +594,20 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.labCommonSummary.setObjectName("sectionHint")
         self.gridLayout_4.addWidget(self.labCommonSummary, 0, 0, 1, 4)
 
-        dumpCard = self.buildButtonCard(
+        self.dumpCard = self.buildButtonCard(
             self._translate("kmainForm", "导出 / 脱壳"),
             self._translate("kmainForm", "聚合 so、指针、dex 与 fart 等导出能力，适合附加后快速取证或脱壳。"),
             [self.btnDumpSo, self.btnDumpPtr, self.btnDumpDex, self.btnFart],
             2,
         )
-        inspectCard = self.buildButtonCard(
+        self.inspectCard = self.buildButtonCard(
             self._translate("kmainForm", "分析 / 调用"),
             self._translate("kmainForm", "保留对象探测、主动调用与内存检索入口，方便围绕目标对象继续深入。"),
             [self.btnWallbreaker, self.btnCallFunction, self.btnMemSearch],
             2,
         )
-        self.gridLayout_4.addWidget(dumpCard, 1, 0, 1, 2)
-        self.gridLayout_4.addWidget(inspectCard, 1, 2, 1, 2)
+        self.gridLayout_4.addWidget(self.dumpCard, 1, 0, 1, 2)
+        self.gridLayout_4.addWidget(self.inspectCard, 1, 2, 1, 2)
 
     def configureHookPanel(self):
         self.gridLayout_7.setContentsMargins(12, 16, 12, 12)
@@ -498,10 +658,10 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.labAdvancedToolHint.setObjectName("panelHint")
         self.advancedToolLayout.addWidget(self.labAdvancedToolHint)
 
-        advancedButtonsGrid = QtWidgets.QGridLayout()
-        advancedButtonsGrid.setHorizontalSpacing(10)
-        advancedButtonsGrid.setVerticalSpacing(10)
-        advancedButtons = [
+        self.advancedButtonsGrid = QtWidgets.QGridLayout()
+        self.advancedButtonsGrid.setHorizontalSpacing(10)
+        self.advancedButtonsGrid.setVerticalSpacing(10)
+        self.advancedButtons = [
             self.btnMatchMethod,
             self.btnNatives,
             self.btnStalker,
@@ -510,13 +670,13 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.btnPatch,
             self.btnAntiFrida,
         ]
-        for index, button in enumerate(advancedButtons):
+        for button in self.advancedButtons:
             self.horizontalLayout.removeWidget(button)
             button.setMinimumHeight(42)
+            button.setMinimumWidth(120)
             button.setCursor(Qt.PointingHandCursor)
             button.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
-            advancedButtonsGrid.addWidget(button, index // 2, index % 2)
-        self.advancedToolLayout.addLayout(advancedButtonsGrid)
+        self.advancedToolLayout.addLayout(self.advancedButtonsGrid)
 
         self.hookPanelWidget = QtWidgets.QWidget(self.groupBox_2)
         self.hookPanelLayout = QtWidgets.QHBoxLayout(self.hookPanelWidget)
@@ -525,6 +685,27 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.hookPanelLayout.addWidget(self.quickScriptGroup, 6)
         self.hookPanelLayout.addWidget(self.advancedToolGroup, 5)
         self.gridLayout_7.addWidget(self.hookPanelWidget, 2, 0, 1, 1)
+        self.rebuildAdvancedToolGrid()
+
+    def rebuildAdvancedToolGrid(self):
+        if not hasattr(self, "advancedButtonsGrid"):
+            return
+        while self.advancedButtonsGrid.count():
+            item = self.advancedButtonsGrid.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(self.advancedToolGroup)
+        width = self.advancedToolGroup.width() or self.groupBox_2.width()
+        if width < 350:
+            columns = 2
+        elif width < 560:
+            columns = 3
+        else:
+            columns = 4
+        for index, button in enumerate(self.advancedButtons):
+            self.advancedButtonsGrid.addWidget(button, index // columns, index % columns)
+        for col in range(columns):
+            self.advancedButtonsGrid.setColumnStretch(col, 1)
 
     def configureLogWidgets(self):
         for editor in [self.txtLogs, self.txtoutLogs]:
@@ -643,7 +824,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.outputLogToolbarWidget = QtWidgets.QWidget(self.tab_5)
         self.outputLogToolbarLayout = QtWidgets.QHBoxLayout(self.outputLogToolbarWidget)
         self.outputLogToolbarLayout.setContentsMargins(0, 0, 0, 0)
-        self.outputLogToolbarLayout.addWidget(QLabel(self._translate("kmainForm", "输出日志视图")))
+        self.labOutputLogView = QLabel(self._translate("kmainForm", "输出日志视图"))
+        self.outputLogToolbarLayout.addWidget(self.labOutputLogView)
         self.outputLogToolbarLayout.addStretch(1)
         self.gridLayout_2.addWidget(self.outputLogToolbarWidget, 0, 0, 1, 1)
         self.gridLayout_2.removeWidget(self.txtoutLogs)
@@ -1119,27 +1301,98 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             return
         self.curFridaVer = "16.0.8"
 
+    def refreshHookHeaders(self):
+        if self.isEnglish():
+            self.header = ["name", "class or func", "func", "bak"]
+        else:
+            self.header = ["名称", "类名/模块名", "函数", "备注"]
+        self.tabHooks.setHorizontalHeaderLabels(self.header)
+
+    def refreshHookMetadataLanguage(self):
+        preset_keys = {
+            "r0capture", "javaEnc", "hookEvent", "RegisterNative", "ArtMethod", "libArm",
+            "sslpining", "anti_debug", "root_bypass", "webview_debug", "okhttp_logger",
+            "shared_prefs_watch", "sqlite_logger", "clipboard_monitor", "intent_monitor",
+        }
+        for key in preset_keys:
+            if key in self.hooksData and key in self.typeData and isinstance(self.hooksData[key], dict):
+                self.hooksData[key]["bak"] = self.typeData[key].get("bak", self.hooksData[key].get("bak", ""))
+
+    def refreshChildTranslations(self):
+        for form in [self.customForm, self.aiSettingsForm]:
+            if hasattr(form, "refreshTranslations"):
+                form.refreshTranslations()
+
+    def retranslateDynamicUi(self):
+        self.refreshHookHeaders()
+        self.groupBox.setTitle(self.trText("常用功能（附加后使用）", "Common tools (post-attach)"))
+        self.groupBox_2.setTitle(self.trText("脚本与 Hook 组合（附加前配置）", "Scripts & Hook presets (pre-attach)"))
+        self.labCommonSummary.setText(self.trText("将常用附加后操作拆分为“导出/脱壳”和“分析/调用”两组，窗口缩放时保持更均衡的按钮尺寸。", "Post-attach actions are grouped into dump/unpack and inspect/call sections so resizing keeps the layout balanced."))
+        self.dumpCard.setTitle(self.trText("导出 / 脱壳", "Dump / Unpack"))
+        self.dumpCard.hintLabel.setText(self.trText("聚合 so、指针、dex 与 fart 等导出能力，适合附加后快速取证或脱壳。", "Bundles so, pointer, dex and fart exports for quick post-attach evidence collection and unpacking."))
+        self.inspectCard.setTitle(self.trText("分析 / 调用", "Inspect / Invoke"))
+        self.inspectCard.hintLabel.setText(self.trText("保留对象探测、主动调用与内存检索入口，方便围绕目标对象继续深入。", "Keeps object inspection, active invocation and memory search close by for deeper follow-up analysis."))
+        self.labHookSummary.setText(self.trText("左侧放常用脚本模板，右侧放高级 Hook 工具与自定义入口，减少配置时的视觉干扰。", "Frequent script presets stay on the left, while advanced hook tools and custom entry points stay on the right to reduce visual noise."))
+        self.quickScriptGroup.setTitle(self.trText("脚本模板开关", "Preset script toggles"))
+        self.labQuickScriptHint.setText(self.trText("适合快速开关的高频 Frida 脚本，优先提供日志、监控与通用绕过能力。", "High-frequency Frida presets for quick toggling, focused on logging, monitoring and common bypass tasks."))
+        self.advancedToolGroup.setTitle(self.trText("高级工具 / 自定义", "Advanced tools / Custom"))
+        self.labAdvancedToolHint.setText(self.trText("需要额外参数或人工编排时，使用这些高级模块；AI 生成 Hook 位于自定义模块中。", "Use these modules when extra parameters or manual orchestration are needed; AI hook generation lives in the custom module."))
+        self.chkRootBypass.setText("root bypass")
+        self.chkWebViewDebug.setText("webview debug")
+        self.chkOkHttpLogger.setText("okhttp logger")
+        self.chkSharedPrefsWatch.setText("shared prefs")
+        self.chkSQLiteLogger.setText("sqlite logger")
+        self.chkClipboardMonitor.setText("clipboard monitor")
+        self.chkIntentMonitor.setText("intent monitor")
+        self.groupBox_7.setTitle(self.trText("附加进程逆向信息", "Attached process RE info"))
+        self.labAttachedInfoHint.setText(self.trText("这里汇总 Frida 运行时、应用包信息、模块/类数量和调试属性，便于附加后快速判断分析切入点。", "This panel summarizes Frida runtime data, package metadata, module/class counts and debug-related flags to help pick an analysis entry point quickly."))
+        self.currentAppExtraGroup.setTitle(self.trText("当前前台应用补充信息", "Foreground app extra info"))
+        self.labCurrentAppInfoHint.setText(self.trText("这里基于 dumpsys / pm 输出补充显示版本、ABI、调试标记、数据目录等信息。", "This panel augments dumpsys / pm results with version, ABI, debug flags and data-path details."))
+        self.groupLogs.setTabText(self.groupLogs.indexOf(self.aiAnalysisTab), self.trText("AI 分析", "AI Analysis"))
+        self.labOutputLogView.setText(self.trText("输出日志视图", "Output log view"))
+        self.btnOpenLogFile.setText(self.trText("打开日志文件", "Open log file"))
+        self.btnRestoreLiveLog.setText(self.trText("恢复实时日志", "Restore live log"))
+        self.btnAnalyzeLog.setText(self.trText("AI 分析日志", "AI analyze log"))
+        self.actionAiSettings.setText(self.trText("AI 设置", "AI Settings"))
+        self.menuSettings.setTitle(self.trText("设置", "Settings"))
+        self.actionattach.setText("attach")
+        self.actionattach.setToolTip("attach by packageName")
+        self.actionattachF.setText("attachF")
+        self.actionattachF.setToolTip("attach current top app")
+        self.actionspawn.setText("spawn")
+        self.actionstop.setText("stop")
+        self.labStatus.setText(self.trText("当前状态:已连接", "Status: connected") if self.actionStop.isEnabled() else self.trText("当前状态:未连接", "Status: disconnected"))
+        if self.currentLogMode == "file" and self.loadedLogPath:
+            self.labLogStatus.setText(self.trText("当前日志：", "Current log: ") + os.path.basename(self.loadedLogPath))
+        else:
+            self.labLogStatus.setText(self.trText("当前日志：实时输出", "Current log: live output"))
+        self.updateCurrentAppInfoTable()
+        self.updateAttachedInfoTable()
+        self.refreshAiState()
+        self.refreshHookMetadataLanguage()
+        self.updateTabHooks()
+        self.refreshChildTranslations()
+
+    def switchLanguage(self, language):
+        if self.language == language:
+            return
+        self.language = language
+        conf.write("kmain", "language", language)
+        apply_app_language(QApplication.instance(), language)
+        self.loadTypeData()
+        self.retranslateUi(self)
+        self.retranslateDynamicUi()
+
     def ChangeEnglish(self,checked):
         if checked==False:
             return
-        conf.write("kmain","language","English")
-        reply = QMessageBox.question(self,
-                                     "hint",
-                                     self._translate("kmainForm","是否立刻重启应用生效？"),
-                                     QMessageBox.Yes | QMessageBox.No)
-        if reply:
-            restart_real_live()
+        self.switchLanguage("English")
+
     def ChangeChina(self,checked):
         if checked==False:
             return
-        conf.write("kmain", "language", "China")
-        reply = QMessageBox.question(self,
-                                     "hint",
-                                     self._translate("kmainForm", "是否立刻重启应用生效？"),
-                                     QMessageBox.Yes | QMessageBox.No)
-        if reply:
-            restart_real_live()
-    
+        self.switchLanguage("China")
+
     def Frida32Start(self):
         if self.fridaName !=None and len(self.fridaName)>0:
             name=self.fridaName+"32"
@@ -1320,6 +1573,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.actionStop.setEnabled(False)
             self.labStatus.setText(self._translate("kmainForm","当前状态:未连接") )
             self.labPackage.setText("")
+            self.attachedAppInfoSnapshot = {}
+            self.updateAttachedInfoTable()
 
     # 根据进程名进行附加进程
     def actionAttachNameStart(self):
@@ -1901,6 +2156,39 @@ class kmainForm(QMainWindow, Ui_MainWindow):
     def listClassClick(self, item):
         self.txtClass.setText(item.text())
 
+    def extractMatch(self, pattern, text, group=1):
+        match = re.search(pattern, text, re.MULTILINE)
+        if match is None:
+            return ""
+        return match.group(group).strip()
+
+    def queryCurrentAppSnapshot(self, packageName, currentFocus, component, pid, baseDir):
+        snapshot = {
+            "packageName": packageName,
+            "processName": packageName,
+            "currentFocus": currentFocus,
+            "component": component,
+            "pid": pid,
+            "baseDir": baseDir,
+        }
+        if len(packageName) <= 0:
+            return snapshot
+        packageDump = CmdUtil.exec("adb shell dumpsys package " + packageName)
+        pathDump = CmdUtil.exec("adb shell pm path " + packageName)
+        snapshot["apkPath"] = self.extractMatch(r"package:([^\n]+)", pathDump)
+        snapshot["versionName"] = self.extractMatch(r"versionName=([^\s]+)", packageDump)
+        snapshot["versionCode"] = self.extractMatch(r"versionCode=([^\s]+)", packageDump)
+        snapshot["targetSdk"] = self.extractMatch(r"targetSdk=([^\s]+)", packageDump)
+        snapshot["uid"] = self.extractMatch(r"userId=(\d+)", packageDump)
+        snapshot["dataDir"] = self.extractMatch(r"dataDir=([^\s]+)", packageDump)
+        snapshot["primaryCpuAbi"] = self.extractMatch(r"primaryCpuAbi=([^\s]+)", packageDump)
+        snapshot["pkgFlags"] = self.extractMatch(r"pkgFlags=\[(.*?)\]", packageDump)
+        snapshot["deviceAbiList"] = CmdUtil.exec("adb shell getprop ro.product.cpu.abilist").strip()
+        flags = snapshot["pkgFlags"].upper()
+        snapshot["debuggable"] = "DEBUGGABLE" in flags
+        snapshot["allowBackup"] = "ALLOW_BACKUP" in flags
+        return snapshot
+
     # 附加成功后取出app的信息展示
     def loadAppInfo(self, info):
         self.listModules.clear()
@@ -1919,9 +2207,30 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         for item in info["classes"]:
             self.listClasses.addItem(item)
 
+        try:
+            self.listModules.itemClicked.disconnect(self.listModuleClick)
+        except Exception:
+            pass
+        try:
+            self.listClasses.itemClicked.disconnect(self.listClassClick)
+        except Exception:
+            pass
         self.listModules.itemClicked.connect(self.listModuleClick)
         self.listClasses.itemClicked.connect(self.listClassClick)
         packageName = self.labPackage.text()
+        attach_type_map = {
+            "attachCurrent": self.trText("附加当前前台进程", "Attach current foreground process"),
+            "attach": self.trText("附加指定进程", "Attach selected process"),
+            "spawn": self.trText("spawn 附加", "Spawn attach"),
+        }
+        snapshot = dict(info)
+        snapshot["packageName"] = packageName
+        snapshot["attachType"] = attach_type_map.get(self.th.attachType, self.th.attachType)
+        snapshot["connectionType"] = "USB" if self.connType == "usb" else "WiFi"
+        snapshot["fridaVersion"] = self.curFridaVer
+        snapshot["hookCount"] = len(self.hooksData)
+        self.attachedAppInfoSnapshot = snapshot
+        self.updateAttachedInfoTable()
 
         with open("./tmp/" + packageName + ".classes.txt", "w+", encoding="utf-8") as packageTmpFile:
             for item in info["classes"]:
@@ -1973,31 +2282,39 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             return
         m1dataSp = m1data.split("/")
         if len(m1dataSp) < 2:
-            self.log(m1)
+            self.log(m1.group(1))
             self.log(self._translate("kmainForm","焦点数据格式不正确"))
             QMessageBox().information(self, "hint", self._translate("kmainForm","焦点数据格式不正确"))
             return
-        self.txtProcessName.setText(m1dataSp[0])
-        self.txtCurrentFocus.setText(m1dataSp[1])
-        res = CmdUtil.exec("adb shell dumpsys activity -p " + self.txtProcessName.text())
-        m2 = re.search(r" (\d+?):%s/" % m1dataSp[0], res)
-        if m2 == None:
-            return
-        self.txtPid.setText(m2.group(1))
-        m3 = re.search(r"android.intent.action.MAIN.+?cmp=(%s.+) " % self.txtProcessName.text(), res)
-        if m3 == None:
-            return
-        self.txtComponent.setText(m3.group(1))
-        m4 = re.search(r"baseDir=(/data/app/%s.+)" % self.txtProcessName.text(), res)
-        if m4 == None:
-            return
-        self.txtBaseDir.setText(m4.group(1))
+
+        packageName = m1dataSp[0]
+        currentFocus = m1dataSp[1]
+        self.txtProcessName.setText(packageName)
+        self.txtCurrentFocus.setText(currentFocus)
+        activityDump = CmdUtil.exec("adb shell dumpsys activity -p " + packageName)
+        pid = self.extractMatch(r" (\d+?):%s/" % re.escape(packageName), activityDump)
+        component = self.extractMatch(r"android.intent.action.MAIN.+?cmp=(%s[^\s]+)" % re.escape(packageName), activityDump)
+        if len(component) <= 0:
+            component = packageName + "/" + currentFocus
+        baseDir = self.extractMatch(r"baseDir=([^\s]+)", activityDump)
+        if len(baseDir) <= 0:
+            baseDir = self.extractMatch(r"package:([^\n]+)", CmdUtil.exec("adb shell pm path " + packageName))
+
+        self.txtPid.setText(pid)
+        self.txtComponent.setText(component)
+        self.txtBaseDir.setText(baseDir)
+        self.currentAppInfoSnapshot = self.queryCurrentAppSnapshot(packageName, currentFocus, component, pid, baseDir)
+        self.updateCurrentAppInfoTable()
 
     def fartOpBin(self):
         self.fartBinForm.show()
 
     def stalkerOpLog(self):
         self.stalkerMatchForm.show()
+
+    def resizeEvent(self, event):
+        super(kmainForm, self).resizeEvent(event)
+        self.rebuildAdvancedToolGrid()
 
     # 不关闭的话，mac下调试时退出会出现无法关闭进程
     def closeEvent(self, event):
@@ -2006,9 +2323,6 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
 
 def getTrans():
-    trans = QTranslator()
-    trans.load('./ui/kmain.qm')
-    app.installTranslator(trans)
     qmNames=[
         "kmain.qm","antiFrida.qm","callFunction.qm","custom.qm","dump_so.qm","dumpAddress.qm",
         "fart.qm","fartBin.qm","fdClass.qm","jnitrace.qm","natives.qm","patch.qm","port.qm",
@@ -2030,6 +2344,15 @@ def getTrans():
     return transList
 
 
+def apply_app_language(app, language):
+    global ACTIVE_TRANSLATORS
+    for trans in ACTIVE_TRANSLATORS:
+        app.removeTranslator(trans)
+    ACTIVE_TRANSLATORS = []
+    if language == "English":
+        ACTIVE_TRANSLATORS = getTrans()
+        for trans in ACTIVE_TRANSLATORS:
+            app.installTranslator(trans)
 
 
 if __name__ == "__main__":
@@ -2037,14 +2360,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     while current_exit_code == 1207:
         language=conf.read("kmain","language")
-        # changeTranslator(language=="English")
-        transList= getTrans()
-        if language=="English":
-            for trans in transList:
-                app.installTranslator(trans)
-        else:
-            for trans in transList:
-                app.removeTranslator(trans)
+        apply_app_language(app, language)
         kmain = kmainForm()
         kmain.show()
         current_exit_code=app.exec_()

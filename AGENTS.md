@@ -31,3 +31,8 @@
 - Main window now relies on dynamic regrouping inside `initSmartLayout()` / `configureCommonToolsPanel()` / `configureHookPanel()` instead of editing the generated `ui/kmain.py` heavily.
 - Added practical Frida preset scripts: `root_bypass`, `webview_debug`, `okhttp_logger`, `shared_prefs_watch`, `sqlite_logger`, `clipboard_monitor`, `intent_monitor`.
 - `kmainForm.py` contains the authoritative checkbox/tag wiring for preset scripts; `TraceThread.py` contains the authoritative JS assembly order.
+- Process intelligence now comes from both `appInfoFlush()` (adb `dumpsys` / `pm`) and `js/default.js::loadAppInfo()` (Frida runtime + Android `ApplicationInfo` / `PackageInfo`), then renders into the dynamic key-value tables created by `configureInfoTabs()`.
+- Runtime language switching no longer relies on restart: `switchLanguage()` + `apply_app_language()` refresh the main window immediately, while `forms/Custom.py` and `forms/AiSettings.py` expose `refreshTranslations()` for safe child-dialog updates.
+- Advanced-tool buttons are no longer a fixed 2-column grid; `rebuildAdvancedToolGrid()` adapts the column count to panel width to avoid the previously uneven layout.
+- Release automation is defined by `.github/workflows/build-release.yml`; it uses `tools/build_release.py` (PyInstaller) and `tools/package_release.py` (zip archive) to publish per-platform artifacts on tag pushes.
+

@@ -771,6 +771,75 @@ function loadAppInfo(){
         appinfo["modules"]=Process.enumerateModules();
         appinfo["classes"]=Java.enumerateLoadedClassesSync();
         appinfo["spawn"]="%spawn%";
+        appinfo["runtime"] = {
+            "processId": Process.id,
+            "arch": Process.arch,
+            "platform": Process.platform,
+            "pointerSize": Process.pointerSize,
+            "pageSize": Process.pageSize,
+            "codeSigningPolicy": Process.codeSigningPolicy,
+            "debuggerAttached": Process.isDebuggerAttached(),
+            "currentDir": Process.getCurrentDir(),
+            "homeDir": Process.getHomeDir(),
+            "tmpDir": Process.getTmpDir(),
+            "moduleCount": appinfo["modules"].length,
+            "classCount": appinfo["classes"].length
+        };
+        try {
+            var ActivityThread = Java.use('android.app.ActivityThread');
+            var ApplicationInfo = Java.use('android.content.pm.ApplicationInfo');
+            var Build = Java.use('android.os.Build');
+            var BuildVersion = Java.use('android.os.Build$VERSION');
+            var application = ActivityThread.currentApplication();
+            if (application) {
+                var context = application.getApplicationContext();
+                var packageName = context.getPackageName();
+                var packageManager = context.getPackageManager();
+                var packageInfo = packageManager.getPackageInfo(packageName, 0);
+                var appMeta = context.getApplicationInfo();
+                var flags = appMeta.flags.value;
+                var label = packageManager.getApplicationLabel(appMeta);
+                var supportedAbis = Build.SUPPORTED_ABIS.value;
+                var minSdkVersion = '';
+                try {
+                    minSdkVersion = appMeta.minSdkVersion.value;
+                } catch (e) {}
+                var longVersionCode = '';
+                try {
+                    longVersionCode = packageInfo.getLongVersionCode();
+                } catch (e) {
+                    longVersionCode = packageInfo.versionCode.value;
+                }
+                appinfo["package"] = {
+                    "packageName": packageName,
+                    "processName": appMeta.processName.value,
+                    "appLabel": label ? label.toString() : '',
+                    "versionName": packageInfo.versionName.value,
+                    "versionCode": '' + longVersionCode,
+                    "targetSdk": '' + appMeta.targetSdkVersion.value,
+                    "minSdk": '' + minSdkVersion,
+                    "uid": '' + appMeta.uid.value,
+                    "enabled": !!appMeta.enabled.value,
+                    "debuggable": (flags & ApplicationInfo.FLAG_DEBUGGABLE.value) !== 0,
+                    "allowBackup": (flags & ApplicationInfo.FLAG_ALLOW_BACKUP.value) !== 0,
+                    "testOnly": (flags & ApplicationInfo.FLAG_TEST_ONLY.value) !== 0,
+                    "sourceDir": appMeta.sourceDir.value,
+                    "publicSourceDir": appMeta.publicSourceDir.value,
+                    "dataDir": appMeta.dataDir.value,
+                    "nativeLibraryDir": appMeta.nativeLibraryDir.value,
+                    "taskAffinity": appMeta.taskAffinity.value,
+                    "className": appMeta.className.value,
+                    "brand": Build.BRAND.value,
+                    "model": Build.MODEL.value,
+                    "device": Build.DEVICE.value,
+                    "androidVersion": BuildVersion.RELEASE.value,
+                    "sdkInt": '' + BuildVersion.SDK_INT.value,
+                    "supportedAbis": supportedAbis ? supportedAbis.join(', ') : ''
+                };
+            }
+        } catch (e) {
+            appinfo["packageError"] = e.toString();
+        }
     })
     return appinfo;
 }

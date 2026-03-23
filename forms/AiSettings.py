@@ -24,6 +24,9 @@ class aiSettingsForm(QDialog, Ui_AiSettingsDialog):
         self.txtApiKey.setText(data["apikey"])
         self.txtModel.setText(data["model"])
 
+    def refreshTranslations(self):
+        self.retranslateUi(self)
+
     def clearUi(self):
         self.txtHost.clear()
         self.txtApiKey.clear()
