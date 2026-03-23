@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import QAction, QDialog, QHeaderView, QMenu, QMessageBox, Q
 
 from ui.custom import Ui_CustomDialog
 from utils.AiUtil import AiService, AiWorker
+from utils.IniUtil import IniConfig
 
 
 class customForm(QDialog, Ui_CustomDialog):
@@ -15,6 +16,7 @@ class customForm(QDialog, Ui_CustomDialog):
         super(customForm, self).__init__(parent)
         self.setupUi(self)
         self.setWindowOpacity(0.95)
+        self.config = IniConfig()
         self._translate = QtCore.QCoreApplication.translate
         self.header = [self._translate("customForm", "别名"), self._translate("customForm", "文件名"), self._translate("customForm", "备注")]
         self.aiService = AiService()
@@ -44,15 +46,21 @@ class customForm(QDialog, Ui_CustomDialog):
         self.tabCustomHookList.customContextMenuRequested[QPoint].connect(self.cusTomHookRightMenuShow)
 
         self.initData()
-        self.refreshAiState()
+        self.refreshTranslations()
+
+    def isEnglish(self):
+        return (self.config.read("kmain", "language") or "China") == "English"
+
+    def trText(self, zh_text, en_text):
+        return en_text if self.isEnglish() else zh_text
 
     def initSmartUi(self):
-        self.resize(1220, 860)
-        self.setMinimumSize(1040, 720)
+        self.resize(1360, 940)
+        self.setMinimumSize(1160, 780)
         self.topSplitter.setChildrenCollapsible(False)
         self.topSplitter.setStretchFactor(0, 5)
         self.topSplitter.setStretchFactor(1, 4)
-        self.topSplitter.setSizes([640, 460])
+        self.topSplitter.setSizes([720, 560])
         self.txtAiPrompt.setMinimumHeight(110)
         self.txtJsData.setMinimumHeight(280)
         self.txtJsData.setPlaceholderText(self._translate("customForm", "在这里编辑或让 AI 生成符合 custom 模块格式的 Frida Hook 脚本..."))
@@ -60,9 +68,12 @@ class customForm(QDialog, Ui_CustomDialog):
         self.tabCustomHookList.setAlternatingRowColors(True)
         self.tabCustomList.verticalHeader().setVisible(False)
         self.tabCustomHookList.verticalHeader().setVisible(False)
+        self.aiButtonLayout.setSpacing(10)
+        self.actionLayout.setSpacing(10)
         for button in [self.btnAiPromptTemplate, self.btnAiGenerate, self.btnClear, self.btnSubmit]:
             button.setCursor(Qt.PointingHandCursor)
             button.setMinimumHeight(40)
+            button.setMinimumWidth(160)
         self.setStyleSheet("""
         QDialog {
             background: #f4f7fb;
@@ -122,26 +133,39 @@ class customForm(QDialog, Ui_CustomDialog):
         available = self.aiService.is_available()
         self.btnAiGenerate.setEnabled(available)
         if available:
-            self.labAiStatus.setText(self._translate("customForm", "AI 状态：已配置，可生成 Hook 脚本"))
+            self.labAiStatus.setText(self.trText("AI 状态：已配置，可生成 Hook 脚本", "AI status: configured and ready to generate hook scripts"))
         else:
-            self.labAiStatus.setText(self._translate("customForm", "AI 状态：") + self.aiService.missing_message())
+            self.labAiStatus.setText(self.trText("AI 状态：", "AI status: ") + self.aiService.missing_message("English" if self.isEnglish() else "China"))
 
     def refreshTranslations(self):
         self.retranslateUi(self)
-        self.header = [self._translate("customForm", "别名"), self._translate("customForm", "文件名"), self._translate("customForm", "备注")]
-        self.txtJsData.setPlaceholderText(self._translate("customForm", "在这里编辑或让 AI 生成符合 custom 模块格式的 Frida Hook 脚本..."))
+        self.setWindowTitle(self.trText("自定义", "Custom"))
+        self.groupBox.setTitle(self.trText("脚本仓库", "Script library"))
+        self.groupBox_3.setTitle(self.trText("当前使用脚本", "Active hook scripts"))
+        self.groupBox_2.setTitle(self.trText("脚本编辑器", "Script editor"))
+        self.groupBox_4.setTitle(self.trText("操作提示", "Usage tips"))
+        self.aiGroup.setTitle(self.trText("AI 助手", "AI Assistant"))
+        self.label.setText(self.trText("脚本别名：", "Alias:"))
+        self.label_6.setText(self.trText("脚本名：", "Filename:"))
+        self.label_5.setText(self.trText("备注：", "Remark:"))
+        self.label_2.setText(self.trText("Hook 脚本：", "Hook script:"))
+        self.btnAiPromptTemplate.setText(self.trText("填充提示词模板", "Fill prompt template"))
+        self.btnAiGenerate.setText(self.trText("AI 生成 Hook", "AI Generate Hook"))
+        self.btnClear.setText(self.trText("清空", "Clear"))
+        self.btnSubmit.setText(self.trText("保存脚本", "Save script"))
+        self.label_3.setText(self.trText("双击左侧脚本可进入编辑；右键可删除或加入当前 Hook 列表。关闭窗口后，右侧列表会同步到主界面的 Hook 列表。", "Double-click a script on the left to edit it. Right-click to delete it or add it to the current hook list. After closing the dialog, the right-side list syncs back to the main window."))
+        self.label_4.setText(self.trText("AI 功能会按照 fridaUiTools custom 模块格式生成脚本；未配置 API Key / Host / 模型时，将自动禁用 AI 按钮。", "AI features generate scripts in the fridaUiTools custom-module format. If API Key / Host / Model is missing, AI buttons stay disabled automatically."))
+        self.header = [self.trText("别名", "Alias"), self.trText("文件名", "Filename"), self.trText("备注", "Remark")]
+        self.txtAiPrompt.setPlaceholderText(self.trText("例如：帮我 hook okhttp3 请求和响应，打印 URL、Header、Body，并保留 call_funs.demo 作为主动调用样例。", "Example: hook okhttp3 requests and responses, print URL, headers and body, and keep call_funs.demo as an active invocation example."))
+        self.txtJsData.setPlaceholderText(self.trText("在这里编辑或让 AI 生成符合 custom 模块格式的 Frida Hook 脚本...", "Edit here or let AI generate a Frida hook script that matches the custom-module format..."))
         self.updateTabCustom()
         self.updateTabCustomHook()
         self.refreshAiState()
 
     def fillPromptTemplate(self):
-        template = (
-            "目标应用/场景：\n"
-            "要 hook 的类 / 方法 / so：\n"
-            "预期行为：\n"
-            "需要打印的内容：参数 / 返回值 / 堆栈 / URL / Header / Body\n"
-            "是否需要 call_funs 主动调用函数：\n"
-            "兼容性要求或注意事项：\n"
+        template = self.trText(
+            "目标应用/场景：\n要 hook 的类 / 方法 / so：\n预期行为：\n需要打印的内容：参数 / 返回值 / 堆栈 / URL / Header / Body\n是否需要 call_funs 主动调用函数：\n兼容性要求或注意事项：\n",
+            "Target app / scenario:\nClass / method / so to hook:\nExpected behavior:\nData to print: args / return value / stack / URL / headers / body\nNeed active invocation through call_funs?:\nCompatibility requirements or cautions:\n"
         )
         self.txtAiPrompt.setPlainText(template)
 
@@ -149,13 +173,13 @@ class customForm(QDialog, Ui_CustomDialog):
         prompt = self.txtAiPrompt.toPlainText().strip()
         if not self.aiService.is_available():
             self.refreshAiState()
-            QMessageBox().information(self, "hint", self.aiService.missing_message())
+            QMessageBox().information(self, "hint", self.aiService.missing_message("English" if self.isEnglish() else "China"))
             return
         if not prompt:
-            QMessageBox().information(self, "hint", self._translate("customForm", "请先填写 AI 需求说明"))
+            QMessageBox().information(self, "hint", self.trText("请先填写 AI 需求说明", "Please describe your AI hook requirement first"))
             return
         self.btnAiGenerate.setEnabled(False)
-        self.btnAiGenerate.setText(self._translate("customForm", "生成中..."))
+        self.btnAiGenerate.setText(self.trText("生成中...", "Generating..."))
         self.aiWorker = AiWorker(
             self.aiService.generate_hook_script,
             prompt,
@@ -169,14 +193,14 @@ class customForm(QDialog, Ui_CustomDialog):
     def onAiScriptGenerated(self, script):
         self.txtJsData.setPlainText(script)
         self.btnAiGenerate.setEnabled(True)
-        self.btnAiGenerate.setText(self._translate("customForm", "AI 生成 Hook"))
+        self.btnAiGenerate.setText(self.trText("AI 生成 Hook", "AI Generate Hook"))
         if not self.txtBak.text().strip():
-            self.txtBak.setText(self._translate("customForm", "AI 生成脚本"))
-        QMessageBox().information(self, "hint", self._translate("customForm", "AI 脚本生成完成，已回填到编辑器"))
+            self.txtBak.setText(self.trText("AI 生成脚本", "AI generated script"))
+        QMessageBox().information(self, "hint", self.trText("AI 脚本生成完成，已回填到编辑器", "AI hook script generated and inserted into the editor"))
 
     def onAiScriptFailed(self, message):
         self.btnAiGenerate.setEnabled(self.aiService.is_available())
-        self.btnAiGenerate.setText(self._translate("customForm", "AI 生成 Hook"))
+        self.btnAiGenerate.setText(self.trText("AI 生成 Hook", "AI Generate Hook"))
         QMessageBox().information(self, "hint", message)
 
     def cusTomDoubleClicked(self, item):

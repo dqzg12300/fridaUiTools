@@ -10,9 +10,9 @@ from utils.IniUtil import IniConfig
 
 AI_SECTION = "ai"
 AI_REQUIRED_FIELDS = {
-    "apikey": "API Key",
-    "host": "Host",
-    "model": "模型",
+    "apikey": {"China": "API Key", "English": "API Key"},
+    "host": {"China": "Host", "English": "Host"},
+    "model": {"China": "模型", "English": "Model"},
 }
 
 HOOK_SYSTEM_PROMPT = """你是一名资深 Frida/Android 逆向工程师。
@@ -68,17 +68,21 @@ class AiService:
             "model": data.get("model", "").strip(),
         }
 
-    def missing_fields(self):
+    def missing_fields(self, language="China"):
+        language = "English" if language == "English" else "China"
         config = self.get_config()
-        return [label for key, label in AI_REQUIRED_FIELDS.items() if not config.get(key)]
+        return [labels[language] for key, labels in AI_REQUIRED_FIELDS.items() if not config.get(key)]
 
     def is_available(self):
         return len(self.missing_fields()) == 0
 
-    def missing_message(self):
-        missing = self.missing_fields()
+    def missing_message(self, language="China"):
+        language = "English" if language == "English" else "China"
+        missing = self.missing_fields(language)
         if not missing:
-            return "AI 配置可用"
+            return "AI configuration is ready" if language == "English" else "AI 配置可用"
+        if language == "English":
+            return "Missing " + " / ".join(missing) + ". Configure AI settings first"
         return "未配置 " + " / ".join(missing) + "，请先在设置中完成 AI 配置"
 
     def _build_endpoint(self, host):

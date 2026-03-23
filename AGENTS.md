@@ -36,3 +36,8 @@
 - Advanced-tool buttons are no longer a fixed 2-column grid; `rebuildAdvancedToolGrid()` adapts the column count to panel width to avoid the previously uneven layout.
 - Release automation is defined by `.github/workflows/build-release.yml`; it uses `tools/build_release.py` (PyInstaller) and `tools/package_release.py` (zip archive) to publish per-platform artifacts on tag pushes.
 
+- English runtime switching now has a manual fallback layer in `kmainForm.py`, `forms/Custom.py`, and `forms/AiSettings.py`; an offscreen CJK-text scan is a useful regression check after UI changes.
+- Main window default size is intentionally larger (`1440x960`, min `1240x860`) and common-tool cards also reflow responsively via `rebuildResponsiveCards()` to avoid clipped/overlapping buttons.
+- GumTrace integration uses the upstream release asset `exec/libGumTrace.so` (currently from `lidongyooo/GumTrace` release `1.2.0`), uploaded through the dynamic `actionPushGumTrace` menu item to `/data/local/tmp/libGumTrace.so`.
+- The custom-script catalog now includes `custom/GumTrace_trace_sample.js`, which exposes `call_funs.gumtrace_start/gumtrace_stop/gumtrace_help` and keeps auto-trace disabled by default for safety.
+

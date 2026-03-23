@@ -67,6 +67,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
     def initUi(self):
         self.setWindowOpacity(0.93)
+        self.resize(1440, 960)
+        self.setMinimumSize(1240, 860)
         # 日志目录
         if os.path.exists("./logs") == False:
             os.makedirs("./logs")
@@ -141,6 +143,10 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.actionFridax86Start.triggered.connect(self.FridaX86Start)
         self.actionFridax64Start.triggered.connect(self.FridaX64Start)
         self.actionPullApk.triggered.connect(self.PullApk)
+        self.actionPushGumTrace = QAction(self)
+        self.actionPushGumTrace.setObjectName("actionPushGumTrace")
+        self.actionPushGumTrace.triggered.connect(self.PushGumTraceLib)
+        self.menu.insertAction(self.actionPullDumpDexRes, self.actionPushGumTrace)
 
         self.connectHeadGroup = QActionGroup(self)
         self.connectHeadGroup.addAction(self.actionWifi)
@@ -515,8 +521,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.setInfoTableRows(self.attachInfoTable, self.buildAttachedInfoRows())
 
     def initSmartLayout(self):
-        self.resize(1280, 920)
-        self.setMinimumSize(1120, 760)
+        self.resize(1440, 960)
+        self.setMinimumSize(1240, 860)
         self.tabWidget.setDocumentMode(True)
         self.groupLogs.setDocumentMode(True)
         self.groupLogs.setTabPosition(QtWidgets.QTabWidget.North)
@@ -565,18 +571,44 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         hint.setObjectName("panelHint")
         card.hintLabel = hint
         cardLayout.addWidget(hint)
-        buttonGrid = QtWidgets.QGridLayout()
-        buttonGrid.setHorizontalSpacing(10)
-        buttonGrid.setVerticalSpacing(10)
-        for index, button in enumerate(buttons):
+        card.buttonGrid = QtWidgets.QGridLayout()
+        card.buttonGrid.setHorizontalSpacing(10)
+        card.buttonGrid.setVerticalSpacing(10)
+        card.cardButtons = buttons
+        card.defaultColumns = columns
+        for button in buttons:
             button.setMinimumHeight(42)
             button.setCursor(Qt.PointingHandCursor)
             button.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
-            row = index // columns
-            col = index % columns
-            buttonGrid.addWidget(button, row, col)
-        cardLayout.addLayout(buttonGrid)
+        cardLayout.addLayout(card.buttonGrid)
+        if not hasattr(self, "responsiveButtonCards"):
+            self.responsiveButtonCards = []
+        self.responsiveButtonCards.append(card)
+        self.layoutButtonCard(card)
         return card
+
+    def layoutButtonCard(self, card):
+        if not hasattr(card, "buttonGrid"):
+            return
+        while card.buttonGrid.count():
+            item = card.buttonGrid.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(card)
+        width = card.width() or card.parentWidget().width()
+        if width < 260:
+            columns = 1
+        else:
+            columns = min(card.defaultColumns, len(card.cardButtons))
+        for index, button in enumerate(card.cardButtons):
+            button.setMinimumWidth(0)
+            card.buttonGrid.addWidget(button, index // columns, index % columns)
+        for col in range(columns):
+            card.buttonGrid.setColumnStretch(col, 1)
+
+    def rebuildResponsiveCards(self):
+        for card in getattr(self, "responsiveButtonCards", []):
+            self.layoutButtonCard(card)
 
     def configureCommonToolsPanel(self):
         self.gridLayout_4.setContentsMargins(12, 16, 12, 12)
@@ -673,7 +705,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         for button in self.advancedButtons:
             self.horizontalLayout.removeWidget(button)
             button.setMinimumHeight(42)
-            button.setMinimumWidth(120)
+            button.setMinimumWidth(104)
             button.setCursor(Qt.PointingHandCursor)
             button.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
         self.advancedToolLayout.addLayout(self.advancedButtonsGrid)
@@ -849,15 +881,16 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
     def refreshAiState(self):
         available = self.aiService.is_available()
+        missing_message = self.aiService.missing_message("English" if self.isEnglish() else "China")
         self.btnAnalyzeLog.setEnabled(available)
         self.customForm.refreshAiState()
         if hasattr(self, "labAiFeatureStatusMain"):
             if available:
-                self.labAiFeatureStatusMain.setText(self._translate("kmainForm", "AI 能力：已配置，可在“自定义”模块生成 Hook，并在日志页签执行 AI 分析。"))
+                self.labAiFeatureStatusMain.setText(self.trText("AI 能力：已配置，可在“自定义”模块生成 Hook，并在日志页签执行 AI 分析。", "AI ready: use the Custom module to generate hooks and the log tab to run AI analysis."))
             else:
-                self.labAiFeatureStatusMain.setText(self._translate("kmainForm", "AI 能力：") + self.aiService.missing_message())
+                self.labAiFeatureStatusMain.setText(self.trText("AI 能力：", "AI status: ") + missing_message)
         if hasattr(self, "txtAiAnalysis") and not available:
-            self.txtAiAnalysis.setPlainText(self.aiService.missing_message())
+            self.txtAiAnalysis.setPlainText(missing_message)
 
     def openAiSettings(self):
         self.aiSettingsForm.loadConfig()
@@ -872,7 +905,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         return "\n".join(self.liveOutputLogBuffer)
 
     def openLogFile(self):
-        filepath = QFileDialog.getOpenFileName(self, self._translate("kmainForm", "打开日志文件"), "./logs", "Log Files (*.txt *.log);;All Files (*)")
+        filepath = QFileDialog.getOpenFileName(self, self.trText("打开日志文件", "Open log file"), "./logs", "Log Files (*.txt *.log);;All Files (*)")
         if not filepath[0]:
             return
         with open(filepath[0], "r", encoding="utf-8", errors="ignore") as log_file:
@@ -881,28 +914,28 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.currentLogMode = "file"
         self.txtoutLogs.setPlainText(self.loadedLogContent)
         self.groupLogs.setCurrentWidget(self.tab_5)
-        self.labLogStatus.setText(self._translate("kmainForm", "当前日志：") + os.path.basename(filepath[0]))
-        self.log(self._translate("kmainForm", "已加载日志文件：") + filepath[0])
+        self.labLogStatus.setText(self.trText("当前日志：", "Current log: ") + os.path.basename(filepath[0]))
+        self.log(self.trText("已加载日志文件：", "Loaded log file: ") + filepath[0])
 
     def restoreLiveLog(self):
         self.currentLogMode = "live"
         self.loadedLogPath = ""
         self.loadedLogContent = ""
         self.txtoutLogs.setPlainText("\n".join(self.liveOutputLogBuffer))
-        self.labLogStatus.setText(self._translate("kmainForm", "当前日志：实时输出"))
+        self.labLogStatus.setText(self.trText("当前日志：实时输出", "Current log: live output"))
 
     def analyzeLogWithAi(self):
         if not self.aiService.is_available():
             self.refreshAiState()
-            QMessageBox().information(self, "hint", self.aiService.missing_message())
+            QMessageBox().information(self, "hint", self.aiService.missing_message("English" if self.isEnglish() else "China"))
             return
         content = self.currentLogText()
         if len(content.strip()) <= 0:
-            QMessageBox().information(self, "hint", self._translate("kmainForm", "当前没有可分析的日志内容"))
+            QMessageBox().information(self, "hint", self.trText("当前没有可分析的日志内容", "There is no log content available for AI analysis"))
             return
         self.btnAnalyzeLog.setEnabled(False)
-        self.btnAnalyzeLog.setText(self._translate("kmainForm", "分析中..."))
-        self.txtAiAnalysis.setPlainText(self._translate("kmainForm", "AI 正在分析日志，请稍候..."))
+        self.btnAnalyzeLog.setText(self.trText("分析中...", "Analyzing..."))
+        self.txtAiAnalysis.setPlainText(self.trText("AI 正在分析日志，请稍候...", "AI is analyzing the log, please wait..."))
         self.groupLogs.setCurrentWidget(self.aiAnalysisTab)
         self.aiWorker = AiWorker(self.aiService.analyze_log, content)
         self.aiWorker.success.connect(self.onAiAnalysisSuccess)
@@ -911,13 +944,13 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
     def onAiAnalysisSuccess(self, result):
         self.btnAnalyzeLog.setEnabled(self.aiService.is_available())
-        self.btnAnalyzeLog.setText(self._translate("kmainForm", "AI 分析日志"))
+        self.btnAnalyzeLog.setText(self.trText("AI 分析日志", "AI analyze log"))
         self.txtAiAnalysis.setPlainText(result)
         self.groupLogs.setCurrentWidget(self.aiAnalysisTab)
 
     def onAiAnalysisFailed(self, message):
         self.btnAnalyzeLog.setEnabled(self.aiService.is_available())
-        self.btnAnalyzeLog.setText(self._translate("kmainForm", "AI 分析日志"))
+        self.btnAnalyzeLog.setText(self.trText("AI 分析日志", "AI analyze log"))
         self.txtAiAnalysis.setPlainText(message)
         QMessageBox().information(self, "hint", message)
 
@@ -1143,6 +1176,27 @@ class kmainForm(QMainWindow, Ui_MainWindow):
     def PushFridaServerX86(self):
         self.PushFridaServerNormal("x86")
 
+    def PushGumTraceLib(self):
+        local_path = "./exec/libGumTrace.so"
+        remote_path = "/data/local/tmp/libGumTrace.so"
+        if os.path.exists(local_path) is False:
+            QMessageBox().information(self, "hint", self.trText("未找到 GumTrace 库文件：", "GumTrace library not found: ") + local_path)
+            return
+        try:
+            res = CmdUtil.execCmd(f"adb push {local_path} {remote_path}")
+            self.log(res)
+            if "file pushed" not in res and "KB/s" not in res:
+                QMessageBox().information(self, "hint", self.trText("上传 GumTrace 失败，可能未连接设备。", "Failed to upload GumTrace. The device may not be connected.") + res)
+                return
+            chmod_res = CmdUtil.adbshellCmd(f"chmod 0777 {remote_path}")
+            self.log(chmod_res)
+            if "invalid" in chmod_res:
+                QMessageBox().information(self, "hint", self.trText("GumTrace 上传完成，但设置权限失败。请确认 su/cmd 切换是否正确。", "GumTrace upload finished, but chmod failed. Check the selected su/cmd mode."))
+                return
+            QMessageBox().information(self, "hint", self.trText("GumTrace 上传完成。默认已放到 /data/local/tmp/libGumTrace.so；若 dlopen 失败，可尝试 adb shell setenforce 0。", "GumTrace uploaded to /data/local/tmp/libGumTrace.so. If dlopen fails, try: adb shell setenforce 0."))
+        except Exception as ex:
+            QMessageBox().information(self, "hint", self.trText("上传 GumTrace 异常：", "Unexpected GumTrace upload error: ") + str(ex))
+
     def PullFartRes(self):
         cmd = ""
         if len(self.th.attachName) > 0:
@@ -1350,11 +1404,93 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.labCurrentAppInfoHint.setText(self.trText("这里基于 dumpsys / pm 输出补充显示版本、ABI、调试标记、数据目录等信息。", "This panel augments dumpsys / pm results with version, ABI, debug flags and data-path details."))
         self.groupLogs.setTabText(self.groupLogs.indexOf(self.aiAnalysisTab), self.trText("AI 分析", "AI Analysis"))
         self.labOutputLogView.setText(self.trText("输出日志视图", "Output log view"))
+        self.txtLogs.setPlaceholderText(self.trText("日志将在这里滚动显示...", "Logs will stream here..."))
+        self.txtoutLogs.setPlaceholderText(self.trText("日志将在这里滚动显示...", "Logs will stream here..."))
+        self.txtAiAnalysis.setPlaceholderText(self.trText("AI 分析结果会显示在这里", "AI analysis output will appear here"))
         self.btnOpenLogFile.setText(self.trText("打开日志文件", "Open log file"))
         self.btnRestoreLiveLog.setText(self.trText("恢复实时日志", "Restore live log"))
         self.btnAnalyzeLog.setText(self.trText("AI 分析日志", "AI analyze log"))
         self.actionAiSettings.setText(self.trText("AI 设置", "AI Settings"))
         self.menuSettings.setTitle(self.trText("设置", "Settings"))
+        self.groupLogs.setTabText(self.groupLogs.indexOf(self.tab_3), self.trText("操作日志", "Operation log"))
+        self.groupLogs.setTabText(self.groupLogs.indexOf(self.tab_5), self.trText("输出日志", "Output log"))
+        self.groupLogs.setTabText(self.groupLogs.indexOf(self.tab_4), self.trText("当前hook列表", "Current hook list"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), self.trText("主界面", "Main"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), self.trText("附加进程信息", "Attach process info"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_6), self.trText("应用信息", "App info"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_7), self.trText("辅助功能", "Assist work"))
+        self.btnDumpPtr.setText(self.trText("dump指定地址", "dump address"))
+        self.btnDumpDex.setText(self.trText("dump_dex加载class后调用", "dump dex after class load"))
+        self.btnCallFunction.setText(self.trText("函数重放", "function replay"))
+        self.btnMemSearch.setText(self.trText("内存搜索", "memory search"))
+        self.btnNatives.setText(self.trText("批量native", "multiple native"))
+        self.btnTuoke.setText(self.trText("脱壳", "unpack"))
+        self.btnCustom.setText(self.trText("自定义", "custom"))
+        self.btnAntiFrida.setText(self.trText("frida检测", "frida check"))
+        self.chkJavaEnc.setText(self.trText("java加解密", "java encrypt"))
+        self.label.setText(self.trText("别名：", "Alias:"))
+        self.label_2.setText(self.trText("别名：", "Alias:"))
+        self.btnSaveHooks.setText(self.trText("保存列表", "Save list"))
+        self.btnImportHooks.setText(self.trText("导入JSON", "Import JSON"))
+        self.btnLoadHooks.setText(self.trText("加载记录", "Load record"))
+        self.btnClearHooks.setText(self.trText("清空列表", "Clear list"))
+        self.groupBox_3.setTitle(self.trText("module列表", "Module list"))
+        self.groupBox_4.setTitle(self.trText("java类列表", "Java class list"))
+        self.groupBox_5.setTitle(self.trText("符号", "Symbols"))
+        self.groupBox_6.setTitle(self.trText("java函数", "Java methods"))
+        self.btnSymbolClear.setText(self.trText("清空", "Clear"))
+        self.btnMethod.setText(self.trText("查询函数", "Search methods"))
+        self.btnMethodClear.setText(self.trText("清空", "Clear"))
+        self.groupBox_8.setTitle(self.trText("手机当前应用信息", "Current foreground app info"))
+        self.label_8.setText(self.trText("提示：这里显示的是移动端当前app的信息，非附加的app信息", "Tip: this panel shows the current foreground app on the device, not necessarily the attached app."))
+        self.label_12.setText(self.trText("启动页面：", "Launch component:"))
+        self.btnFlush.setText(self.trText("刷新", "Refresh"))
+        self.label_9.setText(self.trText("当前视图：", "Current focus:"))
+        self.label_10.setText(self.trText("进程名：", "Process name:"))
+        self.label_11.setText(self.trText("进程id：", "PID:"))
+        self.label_13.setText(self.trText("base路径：", "Base path:"))
+        self.groupBox_9.setTitle(self.trText("功能", "Tools"))
+        self.btnFartOpBin.setText(self.trText("fart处理bin数据", "process fart bin data"))
+        self.btnOpStalkerLog.setText(self.trText("stalker输出整理", "format stalker output"))
+        self.groupBox_10.setTitle(self.trText("todo", "Reserved"))
+        self.menufile.setTitle(self.trText("文件", "file"))
+        self.menuedit.setTitle(self.trText("执行", "run"))
+        self.menuAttach.setTitle(self.trText("附加进程", "attach"))
+        self.menu_frida_server.setTitle(self.trText("启动frida-server", "start frida-server"))
+        self.menuhelp.setTitle(self.trText("帮助", "help"))
+        self.menu.setTitle(self.trText("上传与下载", "upload and download"))
+        self.menucmd.setTitle(self.trText("cmd切换", "change cmd"))
+        self.menu_2.setTitle(self.trText("连接方式", "connect type"))
+        self.menufrida.setTitle(self.trText("frida切换", "frida ver"))
+        self.menu_3.setTitle(self.trText("语言", "language"))
+        self.actionabort.setText(self.trText("关于我", "About"))
+        self.actionStop.setText(self.trText("停止", "Stop"))
+        self.action.setText(self.trText("附加当前进程", "Attach current process"))
+        self.action.setToolTip(self.trText("附加当前进程", "Attach current process"))
+        self.action_2.setText(self.trText("附加指定进程", "Attach named process"))
+        self.action_2.setToolTip(self.trText("附加指定进程", "Attach named process"))
+        self.actionspwan.setText(self.trText("spwan附加", "Spawn attach"))
+        self.actionspwan.setToolTip(self.trText("spwan附加", "Spawn attach"))
+        self.actionAttach.setText(self.trText("附加当前进程", "Attach current process"))
+        self.actionAttachName.setText(self.trText("附加指定进程", "Attach named process"))
+        self.actionSpawn.setText(self.trText("spawn附加", "Spawn attach"))
+        self.actionClearTmp.setText(self.trText("清空缓存数据", "Clear cache"))
+        self.actionClearLogs.setText(self.trText("清空日志文件", "Clear log files"))
+        self.actionClearOutlog.setText(self.trText("清空输出日志", "Clear output log"))
+        self.actionPushFartSo.setText(self.trText("上传fart.so,gson.jar到设备", "Upload fart.so and gson.dex"))
+        self.actionPushGumTrace.setText(self.trText("上传GumTrace库到设备", "Upload GumTrace library"))
+        self.actionClearHookJson.setText(self.trText("清空json列表", "Clear hook JSON list"))
+        self.actionPullDumpDexRes.setText(self.trText("下载dump_dex结果", "Download dump_dex result"))
+        self.actionPushFridaServer.setText(self.trText("上传frida-server(arm,arm64)", "Upload frida-server (arm, arm64)"))
+        self.actionPushFridaServerX86.setText(self.trText("上传frida-server(x86,x64)", "Upload frida-server (x86, x64)"))
+        self.actionPullFartRes.setText(self.trText("下载fart脱壳结果", "Download fart result"))
+        self.actionPullApk.setText(self.trText("下载当前应用apk", "Download current APK"))
+        self.actionUsb.setText(self.trText("usb连接", "USB"))
+        self.actionWifi.setText(self.trText("wifi连接", "WiFi"))
+        self.actionChangePort.setText(self.trText("修改默认端口", "Change default port"))
+        self.actionConsoleLog.setText(self.trText("关闭输出日志", "Disable output log"))
+        self.actionChina.setText(self.trText("中文", "Chinese"))
+        self.actionEnglish.setText("English")
         self.actionattach.setText("attach")
         self.actionattach.setToolTip("attach by packageName")
         self.actionattachF.setText("attachF")
@@ -2314,6 +2450,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
     def resizeEvent(self, event):
         super(kmainForm, self).resizeEvent(event)
+        self.rebuildResponsiveCards()
         self.rebuildAdvancedToolGrid()
 
     # 不关闭的话，mac下调试时退出会出现无法关闭进程
