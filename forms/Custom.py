@@ -22,6 +22,8 @@ class customForm(QDialog, Ui_CustomDialog):
         self.customs = []
         self.customHooks = []
 
+        self.initSmartUi()
+
         self.btnSubmit.clicked.connect(self.submit)
         self.btnClear.clicked.connect(self.UiClear)
         self.btnAiPromptTemplate.clicked.connect(self.fillPromptTemplate)
@@ -43,6 +45,78 @@ class customForm(QDialog, Ui_CustomDialog):
 
         self.initData()
         self.refreshAiState()
+
+    def initSmartUi(self):
+        self.resize(1220, 860)
+        self.setMinimumSize(1040, 720)
+        self.topSplitter.setChildrenCollapsible(False)
+        self.topSplitter.setStretchFactor(0, 5)
+        self.topSplitter.setStretchFactor(1, 4)
+        self.topSplitter.setSizes([640, 460])
+        self.txtAiPrompt.setMinimumHeight(110)
+        self.txtJsData.setMinimumHeight(280)
+        self.txtJsData.setPlaceholderText(self._translate("customForm", "在这里编辑或让 AI 生成符合 custom 模块格式的 Frida Hook 脚本..."))
+        self.tabCustomList.setAlternatingRowColors(True)
+        self.tabCustomHookList.setAlternatingRowColors(True)
+        self.tabCustomList.verticalHeader().setVisible(False)
+        self.tabCustomHookList.verticalHeader().setVisible(False)
+        for button in [self.btnAiPromptTemplate, self.btnAiGenerate, self.btnClear, self.btnSubmit]:
+            button.setCursor(Qt.PointingHandCursor)
+            button.setMinimumHeight(40)
+        self.setStyleSheet("""
+        QDialog {
+            background: #f4f7fb;
+        }
+        QGroupBox {
+            background: #ffffff;
+            border: 1px solid #d7dfeb;
+            border-radius: 10px;
+            margin-top: 14px;
+            font-weight: 600;
+            color: #16324a;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            left: 12px;
+            padding: 0 4px;
+        }
+        QPushButton {
+            background: #eef4ff;
+            border: 1px solid #c8d7ee;
+            border-radius: 8px;
+            padding: 10px 12px;
+        }
+        QPushButton:hover {
+            background: #deebff;
+            border-color: #8fb2f0;
+        }
+        QPushButton:disabled {
+            background: #eef1f4;
+            color: #93a0b0;
+            border-color: #d6dce5;
+        }
+        QLineEdit, QPlainTextEdit, QTableWidget {
+            background: #fbfcff;
+            border: 1px solid #cfd8e5;
+            border-radius: 8px;
+            padding: 6px;
+            selection-background-color: #4f8cff;
+        }
+        QTableWidget {
+            gridline-color: #e5ecf5;
+            alternate-background-color: #f5f9ff;
+        }
+        QHeaderView::section {
+            background: #eef4ff;
+            border: none;
+            border-right: 1px solid #d9e3f0;
+            padding: 6px;
+            font-weight: 600;
+        }
+        QLabel {
+            color: #30485f;
+        }
+        """)
 
     def refreshAiState(self):
         available = self.aiService.is_available()

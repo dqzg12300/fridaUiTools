@@ -28,3 +28,6 @@
 - If `apikey`, `host`, or `model` is missing, AI actions must stay disabled.
 - Main log analysis uses output log buffer in `kmainForm.py`; external log files can temporarily replace the live view and then be restored.
 - `refreshChecks()` should update checkboxes silently to avoid reopening hook dialogs during hook-list import/load.
+- Main window now relies on dynamic regrouping inside `initSmartLayout()` / `configureCommonToolsPanel()` / `configureHookPanel()` instead of editing the generated `ui/kmain.py` heavily.
+- Added practical Frida preset scripts: `root_bypass`, `webview_debug`, `okhttp_logger`, `shared_prefs_watch`, `sqlite_logger`, `clipboard_monitor`, `intent_monitor`.
+- `kmainForm.py` contains the authoritative checkbox/tag wiring for preset scripts; `TraceThread.py` contains the authoritative JS assembly order.

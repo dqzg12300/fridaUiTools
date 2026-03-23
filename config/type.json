@@ -16,5 +16,9 @@
   "FCAnd_jnitrace": {"class":"","method":"","bak":"简化的jnitrace,不需要指定module和函数了.参考项目来自于FridaContainer"},
   "root_bypass": {"class":"","method":"","bak":"绕过常见Root检测,兼容包名/文件/命令检测场景"},
   "webview_debug": {"class":"","method":"","bak":"开启WebView调试并记录loadUrl与JS接口注入"},
-  "okhttp_logger": {"class":"","method":"","bak":"打印OkHttp请求与响应的URL、Header等关键信息"}
+  "okhttp_logger": {"class":"","method":"","bak":"打印OkHttp请求与响应的URL、Header等关键信息"},
+  "shared_prefs_watch": {"class":"","method":"","bak":"监控 SharedPreferences 的 get/put/apply/commit 操作"},
+  "sqlite_logger": {"class":"","method":"","bak":"监控 SQLite 查询、execSQL、增删改操作"},
+  "clipboard_monitor": {"class":"","method":"","bak":"监控剪贴板内容读取与写入"},
+  "intent_monitor": {"class":"","method":"","bak":"监控 Activity/Service/Broadcast 跳转与关键参数"}
 }

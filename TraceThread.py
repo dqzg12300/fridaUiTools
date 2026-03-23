@@ -197,6 +197,14 @@ class Runthread(QThread):
                 source += open("./js/webview_debug.js", 'r', encoding="utf8").read()
             elif item=="okhttp_logger":
                 source += open("./js/okhttp_logger.js", 'r', encoding="utf8").read()
+            elif item=="shared_prefs_watch":
+                source += open("./js/shared_prefs_watch.js", 'r', encoding="utf8").read()
+            elif item=="sqlite_logger":
+                source += open("./js/sqlite_logger.js", 'r', encoding="utf8").read()
+            elif item=="clipboard_monitor":
+                source += open("./js/clipboard_monitor.js", 'r', encoding="utf8").read()
+            elif item=="intent_monitor":
+                source += open("./js/intent_monitor.js", 'r', encoding="utf8").read()
             elif item=="FCAnd_jnitrace":
                 jsdata= open("./js/FCAnd_jnitrace.js", 'r', encoding="utf8").read()
                 jsdata=jsdata.replace("%moduleName%",self.hooksData[item]["class"])

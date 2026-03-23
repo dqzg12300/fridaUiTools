@@ -16,5 +16,9 @@
   "FCAnd_jnitrace": {"class":"","method":"","bak":"simple jnitrace.refer to FridaContainer"},
   "root_bypass": {"class":"","method":"","bak":"bypass common root detection for package/file/command checks"},
   "webview_debug": {"class":"","method":"","bak":"enable WebView debugging and log bridge usage"},
-  "okhttp_logger": {"class":"","method":"","bak":"log OkHttp request and response metadata"}
+  "okhttp_logger": {"class":"","method":"","bak":"log OkHttp request and response metadata"},
+  "shared_prefs_watch": {"class":"","method":"","bak":"monitor SharedPreferences get/put/apply/commit flows"},
+  "sqlite_logger": {"class":"","method":"","bak":"monitor SQLite queries, execSQL and CRUD operations"},
+  "clipboard_monitor": {"class":"","method":"","bak":"monitor clipboard read and write behavior"},
+  "intent_monitor": {"class":"","method":"","bak":"monitor Activity/Service/Broadcast routing details"}
 }
