@@ -677,9 +677,12 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.mainLeftWidget = QtWidgets.QWidget(self.tab_2)
         self.mainLeftLayout = QtWidgets.QVBoxLayout(self.mainLeftWidget)
         self.mainLeftLayout.setContentsMargins(0, 0, 0, 0)
-        self.mainLeftLayout.setSpacing(10)
+        self.mainLeftLayout.setSpacing(8)
+        self.groupBox.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
+        self.groupBox_2.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
         self.mainLeftLayout.addWidget(self.groupBox)
         self.mainLeftLayout.addWidget(self.groupBox_2)
+        self.mainLeftLayout.addStretch(1)
         self.gridLayout_6.addWidget(self.mainLeftWidget, 0, 0, 1, 1)
 
         self.configureClassicMainPanels()
@@ -691,23 +694,79 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.setLogPanelVisible(True)
 
     def configureClassicMainPanels(self):
-        self.gridLayout_4.setContentsMargins(9, 9, 9, 9)
-        self.gridLayout_7.setContentsMargins(9, 9, 9, 9)
+        self.gridLayout_4.setContentsMargins(8, 8, 8, 8)
+        self.gridLayout_7.setContentsMargins(8, 8, 8, 8)
         self.gridLayout_4.setHorizontalSpacing(6)
         self.gridLayout_4.setVerticalSpacing(6)
         self.gridLayout_7.setHorizontalSpacing(6)
         self.gridLayout_7.setVerticalSpacing(6)
 
+        common_buttons = [
+            self.btnDumpSo,
+            self.btnWallbreaker,
+            self.btnCallFunction,
+            self.btnMemSearch,
+            self.btnDumpPtr,
+            self.btnFart,
+            self.btnDumpDex,
+        ]
+        for button in common_buttons:
+            self.gridLayout_4.removeWidget(button)
+            button.setMinimumHeight(34)
+            button.setMaximumHeight(34)
+            button.setCursor(Qt.PointingHandCursor)
+        self.gridLayout_4.addWidget(self.btnDumpSo, 0, 0, 1, 1)
+        self.gridLayout_4.addWidget(self.btnWallbreaker, 0, 1, 1, 1)
+        self.gridLayout_4.addWidget(self.btnCallFunction, 0, 2, 1, 1)
+        self.gridLayout_4.addWidget(self.btnMemSearch, 0, 3, 1, 1)
+        self.gridLayout_4.addWidget(self.btnDumpPtr, 1, 0, 1, 1)
+        self.gridLayout_4.addWidget(self.btnFart, 1, 1, 1, 1)
+        self.gridLayout_4.addWidget(self.btnDumpDex, 1, 2, 1, 2)
+        for col in range(4):
+            self.gridLayout_4.setColumnStretch(col, 1)
+
+        if hasattr(self, "labAiFeatureStatusMain"):
+            self.gridLayout_7.removeWidget(self.labAiFeatureStatusMain)
+            self.labAiFeatureStatusMain.deleteLater()
         self.labAiFeatureStatusMain = QLabel(self.groupBox_2)
         self.labAiFeatureStatusMain.setWordWrap(True)
         self.labAiFeatureStatusMain.setObjectName("aiStateLabel")
         self.gridLayout_7.addWidget(self.labAiFeatureStatusMain, 1, 0, 1, 1)
 
+        if hasattr(self, "mainFeatureButtonGrid"):
+            self.gridLayout_7.removeItem(self.mainFeatureButtonGrid)
+        self.mainFeatureButtonGrid = QtWidgets.QGridLayout()
+        self.mainFeatureButtonGrid.setContentsMargins(0, 0, 0, 0)
+        self.mainFeatureButtonGrid.setHorizontalSpacing(6)
+        self.mainFeatureButtonGrid.setVerticalSpacing(6)
+        self.gridLayout_7.removeItem(self.horizontalLayout)
+
         self.btnGumTracePanel = QtWidgets.QPushButton(self.groupBox_2)
-        self.btnGumTracePanel.setMinimumHeight(40)
+        self.btnGumTracePanel.setMinimumHeight(34)
+        self.btnGumTracePanel.setMaximumHeight(34)
         self.btnGumTracePanel.setCursor(Qt.PointingHandCursor)
         self.btnGumTracePanel.clicked.connect(self.openGumTraceWorkspace)
-        self.horizontalLayout.addWidget(self.btnGumTracePanel)
+
+        feature_buttons = [
+            self.btnMatchMethod,
+            self.btnNatives,
+            self.btnStalker,
+            self.btnTuoke,
+            self.btnCustom,
+            self.btnPatch,
+            self.btnAntiFrida,
+            self.btnGumTracePanel,
+        ]
+        for index, button in enumerate(feature_buttons):
+            self.horizontalLayout.removeWidget(button) if button is not self.btnGumTracePanel else None
+            button.setMinimumHeight(34)
+            button.setMaximumHeight(34)
+            button.setCursor(Qt.PointingHandCursor)
+            self.mainFeatureButtonGrid.addWidget(button, index // 4, index % 4, 1, 1)
+        for col in range(4):
+            self.mainFeatureButtonGrid.setColumnStretch(col, 1)
+        self.gridLayout_7.addLayout(self.mainFeatureButtonGrid, 2, 0, 1, 1)
+        self.gridLayout_7.setRowStretch(3, 1)
 
     def createSummaryCard(self, title, value, accent_color):
         card = QtWidgets.QFrame(self.mainRootWidget)

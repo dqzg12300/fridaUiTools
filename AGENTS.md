@@ -37,7 +37,8 @@
 - Release automation is defined by `.github/workflows/build-release.yml`; it uses `tools/build_release.py` (PyInstaller) and `tools/package_release.py` (zip archive) to publish per-platform artifacts on tag pushes.
 
 - English runtime switching now has a manual fallback layer in `kmainForm.py`, `forms/Custom.py`, and `forms/AiSettings.py`; an offscreen CJK-text scan is a useful regression check after UI changes.
-- Main window now keeps the classic `main` visual style, but the log container (`groupLogs`) has been moved into a right-side splitter panel controlled by `toggleLogDock()` / `setLogPanelVisible()`; use the toolbar action to re-open it after hiding.
+- Main window now keeps the classic `main` visual style, and the log container (`groupLogs`) lives in a right-side dock sidebar controlled by `toggleLogDock()` / `setLogPanelVisible()`; use the toolbar action to re-open it after hiding.
+- The classic main-page action groups are intentionally compacted inside `configureClassicMainPanels()`: `groupBox` and `groupBox_2` use `QSizePolicy.Maximum` vertically, common-tool buttons are reflowed to dense 2-row grids, and future tweaks should avoid the sparse row indices generated in `ui/kmain.py`.
 - The app-info tab now owns the device selector (`cmbDevices`), defaults to the first connected `adb devices` entry, and sets `ANDROID_SERIAL` so all adb-based actions follow the chosen phone.
 - Frida USB attach also follows the selected phone: `kmainForm.getFridaDevice()` and `TraceThread.Runthread.usb_device_id` must stay aligned when multi-device support changes.
 - Assist-work tab was simplified to a single GumTrace/log tool card; the old post-processing buttons remain hidden rather than removed from generated UI.
