@@ -539,98 +539,46 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.setInfoTableRows(self.attachInfoTable, self.buildAttachedInfoRows())
 
     def initSmartLayout(self):
-        self.resize(1360, 900)
-        self.setMinimumSize(1180, 780)
-        self.tabWidget.setDocumentMode(True)
-        self.groupLogs.setDocumentMode(True)
+        self.resize(1180, 860)
+        self.setMinimumSize(980, 760)
+        self.tabWidget.setDocumentMode(False)
+        self.groupLogs.setDocumentMode(False)
         self.groupLogs.setTabPosition(QtWidgets.QTabWidget.North)
         self.groupLogs.setUsesScrollButtons(True)
 
-        self.gridLayout_6.removeWidget(self.groupBox)
-        self.gridLayout_6.removeWidget(self.groupBox_2)
-        self.gridLayout_6.removeWidget(self.groupLogs)
-
-        self.mainRootWidget = QtWidgets.QWidget(self.tab_2)
-        self.mainRootLayout = QtWidgets.QVBoxLayout(self.mainRootWidget)
-        self.mainRootLayout.setContentsMargins(0, 0, 0, 0)
-        self.mainRootLayout.setSpacing(14)
-
-        self.homeTopSplitter = QtWidgets.QSplitter(Qt.Horizontal, self.mainRootWidget)
-        self.homeTopSplitter.setChildrenCollapsible(False)
-
-        self.homeInfoGroup = QtWidgets.QGroupBox(self.mainRootWidget)
-        self.homeInfoGroup.setObjectName("panelCard")
-        self.homeInfoLayout = QtWidgets.QVBoxLayout(self.homeInfoGroup)
-        self.homeInfoLayout.setContentsMargins(14, 14, 14, 14)
-        self.homeInfoLayout.setSpacing(10)
-        self.labHomeInfoHint = QLabel(self.homeInfoGroup)
-        self.labHomeInfoHint.setWordWrap(True)
-        self.labHomeInfoHint.setObjectName("panelHint")
-        self.homeInfoLayout.addWidget(self.labHomeInfoHint)
-        self.homeInfoForm = QtWidgets.QFormLayout()
-        self.homeInfoForm.setHorizontalSpacing(12)
-        self.homeInfoForm.setVerticalSpacing(10)
-        self.labHomeConnectionTitle = QLabel(self.homeInfoGroup)
-        self.labHomePackageTitle = QLabel(self.homeInfoGroup)
-        self.labHomeForegroundTitle = QLabel(self.homeInfoGroup)
-        self.labHomePidTitle = QLabel(self.homeInfoGroup)
-        self.labHomeActivityTitle = QLabel(self.homeInfoGroup)
-        self.labHomeBaseTitle = QLabel(self.homeInfoGroup)
-        self.labHomeAiTitle = QLabel(self.homeInfoGroup)
-        self.labHomeConnectionValue = QLabel(self.homeInfoGroup)
-        self.labHomePackageValue = QLabel(self.homeInfoGroup)
-        self.labHomeForegroundValue = QLabel(self.homeInfoGroup)
-        self.labHomePidValue = QLabel(self.homeInfoGroup)
-        self.labHomeActivityValue = QLabel(self.homeInfoGroup)
-        self.labHomeBaseValue = QLabel(self.homeInfoGroup)
-        self.labHomeAiValue = QLabel(self.homeInfoGroup)
-        for label in [self.labHomeConnectionValue, self.labHomePackageValue, self.labHomeForegroundValue, self.labHomePidValue, self.labHomeActivityValue, self.labHomeBaseValue, self.labHomeAiValue]:
-            label.setWordWrap(True)
-            label.setObjectName("summaryValueCompact")
-        self.homeInfoForm.addRow(self.labHomeConnectionTitle, self.labHomeConnectionValue)
-        self.homeInfoForm.addRow(self.labHomePackageTitle, self.labHomePackageValue)
-        self.homeInfoForm.addRow(self.labHomeForegroundTitle, self.labHomeForegroundValue)
-        self.homeInfoForm.addRow(self.labHomePidTitle, self.labHomePidValue)
-        self.homeInfoForm.addRow(self.labHomeActivityTitle, self.labHomeActivityValue)
-        self.homeInfoForm.addRow(self.labHomeBaseTitle, self.labHomeBaseValue)
-        self.homeInfoForm.addRow(self.labHomeAiTitle, self.labHomeAiValue)
-        self.homeInfoLayout.addLayout(self.homeInfoForm)
-        self.homeInfoButtons = QtWidgets.QHBoxLayout()
-        self.homeInfoButtons.setSpacing(10)
-        self.btnHomeRefreshApp = QtWidgets.QPushButton(self.homeInfoGroup)
-        self.btnHomeRefreshApp.clicked.connect(self.appInfoFlush)
-        self.btnHomeOpenAppInfo = QtWidgets.QPushButton(self.homeInfoGroup)
-        self.btnHomeOpenAppInfo.clicked.connect(lambda: self.tabWidget.setCurrentWidget(self.tab_6))
-        self.btnHomeToggleLogs = QtWidgets.QPushButton(self.homeInfoGroup)
-        self.btnHomeToggleLogs.clicked.connect(self.toggleLogDock)
-        for button in [self.btnHomeRefreshApp, self.btnHomeOpenAppInfo, self.btnHomeToggleLogs]:
+        self.groupBox.setMinimumWidth(0)
+        self.groupBox_2.setMinimumWidth(0)
+        for button in [self.btnDumpSo, self.btnDumpPtr, self.btnDumpDex, self.btnFart,
+                       self.btnWallbreaker, self.btnCallFunction, self.btnMemSearch,
+                       self.btnMatchMethod, self.btnNatives, self.btnStalker, self.btnTuoke,
+                       self.btnCustom, self.btnPatch, self.btnAntiFrida]:
             button.setMinimumHeight(40)
             button.setCursor(Qt.PointingHandCursor)
-            self.homeInfoButtons.addWidget(button)
-        self.homeInfoLayout.addLayout(self.homeInfoButtons)
-        self.homeInfoLayout.addStretch(1)
 
-        self.homeTopSplitter.addWidget(self.homeInfoGroup)
-        self.homeTopSplitter.addWidget(self.groupBox)
-        self.homeTopSplitter.setStretchFactor(0, 4)
-        self.homeTopSplitter.setStretchFactor(1, 6)
-        self.homeTopSplitter.setSizes([420, 760])
-        self.mainRootLayout.addWidget(self.homeTopSplitter, 3)
-
-        self.mainRootLayout.addWidget(self.groupBox_2, 4)
-        self.gridLayout_6.addWidget(self.mainRootWidget, 0, 0, 1, 1)
-
-        self.groupBox.setMinimumWidth(520)
-        self.groupBox_2.setMinimumWidth(520)
-
-        self.configureCommonToolsPanel()
-        self.configureHookPanel()
+        self.configureClassicMainPanels()
         self.configureInfoTabs()
         self.configureAttachExplorerTab()
         self.configureAssistTab()
         self.configureLogWidgets()
-        self.initLogDock()
-        self.applyWorkbenchTheme()
+
+    def configureClassicMainPanels(self):
+        self.gridLayout_4.setContentsMargins(9, 9, 9, 9)
+        self.gridLayout_7.setContentsMargins(9, 9, 9, 9)
+        self.gridLayout_4.setHorizontalSpacing(6)
+        self.gridLayout_4.setVerticalSpacing(6)
+        self.gridLayout_7.setHorizontalSpacing(6)
+        self.gridLayout_7.setVerticalSpacing(6)
+
+        self.labAiFeatureStatusMain = QLabel(self.groupBox_2)
+        self.labAiFeatureStatusMain.setWordWrap(True)
+        self.labAiFeatureStatusMain.setObjectName("aiStateLabel")
+        self.gridLayout_7.addWidget(self.labAiFeatureStatusMain, 1, 0, 1, 1)
+
+        self.btnGumTracePanel = QtWidgets.QPushButton(self.groupBox_2)
+        self.btnGumTracePanel.setMinimumHeight(40)
+        self.btnGumTracePanel.setCursor(Qt.PointingHandCursor)
+        self.btnGumTracePanel.clicked.connect(self.openGumTraceWorkspace)
+        self.horizontalLayout.addWidget(self.btnGumTracePanel)
 
     def createSummaryCard(self, title, value, accent_color):
         card = QtWidgets.QFrame(self.mainRootWidget)
@@ -1411,33 +1359,15 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         QDesktopServices.openUrl(QUrl.fromLocalFile(local_dir))
 
     def refreshOverviewCards(self):
-        connected = self.actionStop.isEnabled()
-        package_name = self.labPackage.text().strip() or self.trText("尚未附加", "No package selected")
-        foreground_name = self.txtProcessName.text().strip() or self.trText("尚未刷新", "Not refreshed yet")
-        pid_value = self.txtPid.text().strip() or "-"
-        component_value = self.txtComponent.text().strip() or "-"
-        base_path = self.txtBaseDir.text().strip() or "-"
-        ai_message = self.aiService.missing_message("English" if self.isEnglish() else "China")
-        ai_value = self.trText("已配置，可用于 Hook 编写和日志分析", "Configured for hook authoring and log analysis") if self.aiService.is_available() else ai_message
-
-        if hasattr(self, "labHomeConnectionValue"):
-            self.labHomeConnectionValue.setText(self.trText("已连接，可直接停止或切换高级工具", "Connected. You can stop or switch to advanced tools.") if connected else self.trText("未连接，请先选择 attach / spawn 方式", "Disconnected. Choose attach or spawn first."))
-        if hasattr(self, "labHomePackageValue"):
-            self.labHomePackageValue.setText(package_name)
-        if hasattr(self, "labHomeForegroundValue"):
-            self.labHomeForegroundValue.setText(foreground_name)
-        if hasattr(self, "labHomePidValue"):
-            self.labHomePidValue.setText(pid_value)
-        if hasattr(self, "labHomeActivityValue"):
-            self.labHomeActivityValue.setText(component_value)
-        if hasattr(self, "labHomeBaseValue"):
-            self.labHomeBaseValue.setText(base_path)
-        if hasattr(self, "labHomeAiValue"):
-            self.labHomeAiValue.setText(ai_value)
         if hasattr(self, "labAssistGumTraceRemote"):
             self.labAssistGumTraceRemote.setText(self.trText("默认远端日志：", "Default remote log: ") + (self.txtGumTraceOutput.text().strip() if hasattr(self, "txtGumTraceOutput") else "/data/local/tmp/gumtrace.log"))
             self.labAssistGumTraceLocal.setText(self.trText("本地下载目录：", "Local download dir: ") + os.path.abspath("./logs/gumtrace"))
             self.labAssistGumTraceFilters.setText(self.trText("线程 / 模块过滤：", "Thread / module filters: ") + (self.txtGumTraceAllowedThreads.text().strip() or self.trText("不限", "all")) + " / " + (self.txtGumTraceTraceModules.text().strip() or "-"))
+        if hasattr(self, "labLogStatus"):
+            if self.currentLogMode == "file" and self.loadedLogPath:
+                self.labLogStatus.setText(self.trText("当前日志：", "Current log: ") + os.path.basename(self.loadedLogPath))
+            else:
+                self.labLogStatus.setText(self.trText("当前日志：实时输出", "Current log: live output"))
 
     def refreshAiState(self):
         available = self.aiService.is_available()
@@ -1476,7 +1406,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.loadedLogPath = filepath[0]
         self.currentLogMode = "file"
         self.txtoutLogs.setPlainText(self.loadedLogContent)
-        self.showLogDock(self.tab_5)
+        self.groupLogs.setCurrentWidget(self.tab_5)
         self.labLogStatus.setText(self.trText("当前日志：", "Current log: ") + os.path.basename(filepath[0]))
         self.log(self.trText("已加载日志文件：", "Loaded log file: ") + filepath[0])
         self.refreshOverviewCards()
@@ -1487,7 +1417,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.loadedLogContent = ""
         self.txtoutLogs.setPlainText("\n".join(self.liveOutputLogBuffer))
         self.labLogStatus.setText(self.trText("当前日志：实时输出", "Current log: live output"))
-        self.showLogDock(self.tab_5)
+        self.groupLogs.setCurrentWidget(self.tab_5)
         self.refreshOverviewCards()
 
     def analyzeLogWithAi(self):
@@ -1502,7 +1432,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.btnAnalyzeLog.setEnabled(False)
         self.btnAnalyzeLog.setText(self.trText("分析中...", "Analyzing..."))
         self.txtAiAnalysis.setPlainText(self.trText("AI 正在分析日志，请稍候...", "AI is analyzing the log, please wait..."))
-        self.showLogDock(self.aiAnalysisTab)
+        self.groupLogs.setCurrentWidget(self.aiAnalysisTab)
         self.aiWorker = AiWorker(self.aiService.analyze_log, content)
         self.aiWorker.success.connect(self.onAiAnalysisSuccess)
         self.aiWorker.error.connect(self.onAiAnalysisFailed)
@@ -1512,13 +1442,13 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.btnAnalyzeLog.setEnabled(self.aiService.is_available())
         self.btnAnalyzeLog.setText(self.trText("AI 分析日志", "AI analyze log"))
         self.txtAiAnalysis.setPlainText(result)
-        self.showLogDock(self.aiAnalysisTab)
+        self.groupLogs.setCurrentWidget(self.aiAnalysisTab)
 
     def onAiAnalysisFailed(self, message):
         self.btnAnalyzeLog.setEnabled(self.aiService.is_available())
         self.btnAnalyzeLog.setText(self.trText("AI 分析日志", "AI analyze log"))
         self.txtAiAnalysis.setPlainText(message)
-        self.showLogDock(self.aiAnalysisTab)
+        self.groupLogs.setCurrentWidget(self.aiAnalysisTab)
         QMessageBox().information(self, "hint", message)
 
     def clearSymbol(self):
@@ -1593,8 +1523,6 @@ class kmainForm(QMainWindow, Ui_MainWindow):
     def log(self, logstr):
         datestr = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S   ')
         self.txtLogs.appendPlainText(datestr + logstr)
-        if hasattr(self, "logDock") and not self.logDock.isVisible():
-            self.showLogDock(self.tab_3)
 
     # 打印输出日志
     def outlog(self, logstr):
@@ -1605,8 +1533,6 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.liveOutputLogBuffer = self.liveOutputLogBuffer[-5000:]
         if self.actionConsoleLog.isChecked() == False and self.currentLogMode == "live":
             self.txtoutLogs.appendPlainText(line)
-        if hasattr(self, "logDock") and not self.logDock.isVisible():
-            self.showLogDock(self.tab_5)
         self.outlogger.logger.debug(logstr)
         if "default.js init hook success" in logstr:
             QMessageBox().information(self, "hint", self._translate("kmainForm", "附加进程成功"))
@@ -1999,46 +1925,16 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
     def retranslateDynamicUi(self):
         self.refreshHookHeaders()
-        self.homeInfoGroup.setTitle(self.trText("当前应用 / 连接信息", "Current app / connection"))
-        self.labHomeInfoHint.setText(self.trText("主页只保留当前应用信息与高频操作；详细浏览和复杂配置统一放到工具中心或独立页面。", "The home page only keeps current-app context and high-frequency actions; detailed inspection and advanced configuration move to the tool center or dedicated pages."))
-        self.labHomeConnectionTitle.setText(self.trText("连接状态：", "Connection:"))
-        self.labHomePackageTitle.setText(self.trText("目标包名：", "Target package:"))
-        self.labHomeForegroundTitle.setText(self.trText("前台应用：", "Foreground app:"))
-        self.labHomePidTitle.setText(self.trText("进程 ID：", "PID:"))
-        self.labHomeActivityTitle.setText(self.trText("当前页面：", "Current activity:"))
-        self.labHomeBaseTitle.setText(self.trText("Base 路径：", "Base path:"))
-        self.labHomeAiTitle.setText(self.trText("AI 状态：", "AI status:"))
-        self.btnHomeRefreshApp.setText(self.trText("刷新当前应用", "Refresh current app"))
-        self.btnHomeOpenAppInfo.setText(self.trText("查看应用详情", "Open app details"))
-        self.btnHomeToggleLogs.setText(self.trText("显示执行日志", "Show execution logs"))
-        self.groupBox.setTitle(self.trText("常规操作", "Quick actions"))
-        self.groupBox_2.setTitle(self.trText("常用 Hook 与工具入口", "Hooks and tool entry"))
-        self.labCommonSummary.setText(self.trText("把附加后最高频的导出、检索、调用操作放在主页，避免进入多层页面。", "Keep the most common post-attach dump, search and replay actions on the home page without diving into nested pages."))
-        self.dumpCard.setTitle(self.trText("导出 / 脱壳", "Dump / Unpack"))
-        self.dumpCard.hintLabel.setText(self.trText("常用导出动作集中在这里，适合快速取证、脱壳和留样。", "High-frequency dump actions live here for quick evidence collection, unpacking and sampling."))
-        self.inspectCard.setTitle(self.trText("分析 / 调用", "Inspect / Invoke"))
-        self.inspectCard.hintLabel.setText(self.trText("常规检索、对象探测和函数重放保留在主页，方便快速联动。", "Routine search, object inspection and function replay stay on the home page for quick iteration."))
-        self.labHookSummary.setText(self.trText("主页只放高频 Hook 预设和工具入口；复杂模块统一收纳到工具中心。", "Only frequent hook presets and tool entry points stay on the home page; complex modules are collected in the tool center."))
-        self.quickScriptGroup.setTitle(self.trText("常用 Hook 预设", "Frequent hook presets"))
-        self.labQuickScriptHint.setText(self.trText("保留最常用的 Frida 预设，适合快速验证网络、日志、绕过和监控场景。", "Keep only the most common Frida presets here for quick validation of networking, bypass and monitoring scenarios."))
-        self.advancedToolGroup.setTitle(self.trText("工具中心", "Tool center"))
-        self.labAdvancedToolHint.setText(self.trText("高级功能不再堆在主页，统一从这里打开 GumTrace、自定义脚本、Patch、Stalker 等模块。", "Advanced capabilities no longer crowd the home page. Open GumTrace, Custom scripts, Patch, Stalker and other modules from here."))
-        self.cmdOpenCustom.setText(self.trText("自定义脚本", "Custom scripts"))
-        self.cmdOpenCustom.setDescription(self.trText("编辑、保存并通过 AI 生成符合模块格式的 Hook 脚本。", "Edit, save and generate hook scripts that match the module format with AI."))
-        self.cmdOpenGumTrace.setText(self.trText("GumTrace", "GumTrace"))
-        self.cmdOpenGumTrace.setDescription(self.trText("打开独立 GumTrace 配置页，设置线程过滤、模块白名单和日志输出。", "Open the dedicated GumTrace page for thread filters, module whitelists and log output."))
-        self.cmdOpenInspector.setText(self.trText("进程浏览", "Process inspector"))
-        self.cmdOpenInspector.setDescription(self.trText("查看模块、符号、类和方法列表，适合深入定位目标。", "Inspect modules, symbols, classes and methods for deeper target discovery."))
-        self.cmdOpenAssist.setText(self.trText("辅助工具", "Assist tools"))
-        self.cmdOpenAssist.setDescription(self.trText("进入日志后处理、GumTrace 日志下载和整理能力。", "Open post-processing tools, GumTrace log download and cleanup flows."))
-        self.cmdPatch.setText(self.trText("Patch", "Patch"))
-        self.cmdPatch.setDescription(self.trText("进入 Patch 模块处理替换逻辑或指令层变更。", "Open the Patch module for replacement logic or instruction-level changes."))
-        self.cmdStalker.setText(self.trText("Stalker", "Stalker"))
-        self.cmdStalker.setDescription(self.trText("打开 Stalker 跟踪配置，用于更细粒度的执行流分析。", "Open Stalker tracing for finer-grained execution-flow analysis."))
-        self.cmdTuoke.setText(self.trText("脱壳 / 辅助导出", "Unpack / export"))
-        self.cmdTuoke.setDescription(self.trText("进入脱壳和更多导出流程，避免主页堆叠太多按钮。", "Open unpacking and extra export flows without crowding the home page."))
-        self.cmdAiSettings.setText(self.trText("AI 设置", "AI settings"))
-        self.cmdAiSettings.setDescription(self.trText("配置 API key、host 和模型；未配置时 AI 功能保持禁用。", "Configure API key, host and model; AI stays disabled until all fields are filled."))
+        self.groupBox.setTitle(self.trText("功能(附加进程后使用)", "Functions (post-attach)"))
+        self.groupBox_2.setTitle(self.trText("hook多选(附加进程前使用)", "Hook selection (pre-attach)"))
+        if hasattr(self, "labAiFeatureStatusMain"):
+            self.labAiFeatureStatusMain.setText(
+                self.trText("AI 状态：已配置后可在“自定义”中写 Hook，并在日志页中分析日志。", "AI status: once configured, use Custom to write hooks and analyze logs in the log tabs.")
+                if self.aiService.is_available() else
+                self.trText("AI 状态：", "AI status: ") + self.aiService.missing_message("English" if self.isEnglish() else "China")
+            )
+        if hasattr(self, "btnGumTracePanel"):
+            self.btnGumTracePanel.setText(self.trText("GumTrace", "GumTrace"))
         self.chkRootBypass.setText("root bypass")
         self.chkWebViewDebug.setText("webview debug")
         self.chkOkHttpLogger.setText("okhttp logger")
@@ -2068,11 +1964,11 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.groupLogs.setTabText(self.groupLogs.indexOf(self.tab_3), self.trText("操作日志", "Operation log"))
         self.groupLogs.setTabText(self.groupLogs.indexOf(self.tab_5), self.trText("输出日志", "Output log"))
         self.groupLogs.setTabText(self.groupLogs.indexOf(self.tab_4), self.trText("当前hook列表", "Current hook list"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), self.trText("主页", "Home"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), self.trText("进程浏览", "Process inspector"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_6), self.trText("应用详情", "App details"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_7), self.trText("辅助工具", "Assist tools"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.gumTraceTab), self.trText("GumTrace", "GumTrace"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), self.trText("主界面", "Main"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), self.trText("附加进程信息", "Attach process info"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_6), self.trText("应用信息", "App info"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_7), self.trText("辅助功能", "Assist work"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.gumTraceTab), self.trText("GumTrace 工作台", "GumTrace workbench"))
         self.btnDumpPtr.setText(self.trText("dump指定地址", "dump address"))
         self.btnDumpDex.setText(self.trText("dump_dex加载class后调用", "dump dex after class load"))
         self.btnCallFunction.setText(self.trText("函数重放", "function replay"))
