@@ -9,13 +9,18 @@ function klog(data, ...args) {
 }
 
 const gumTraceSoPath = "/data/local/tmp/libGumTrace.so";
+const triggerMode = "export";
 const triggerModuleName = "libssl.so";
-const traceModuleNames = "libssl.so,libcrypto.so";
-const traceOutputPath = "/data/local/tmp/gumtrace_ssl.log";
-const triggerExports = ["SSL_read", "SSL_write"];
+const traceModuleWhitelist = ["libssl.so", "libcrypto.so"];
+const traceOutputPath = "/data/local/tmp/gumtrace_export_trace.log";
 const traceThreadId = 0;
 const traceOptions = 0;
+const allowedThreadIds = [1234, 22136];
+const triggerOffsets = [];
+const triggerExports = ["SSL_read", "SSL_write"];
 const stopTraceOnLeave = true;
+const allowRepeatedTrace = true;
+const traceModuleNames = traceModuleWhitelist.length > 0 ? traceModuleWhitelist.join(",") : triggerModuleName;
 
 var gumtraceState = {
     handle: null,
@@ -23,8 +28,9 @@ var gumtraceState = {
     run: null,
     unrun: null,
     tracing: false,
+    installedOffsets: {},
     installedExports: {},
-    waitingDlopen: false,
+    watchingLoad: false,
 };
 
 function ensureGumTraceLoaded() {
@@ -52,22 +58,35 @@ function ensureGumTraceLoaded() {
     return true;
 }
 
-function startGumTrace() {
+function shouldTraceCurrentThread() {
+    if (allowedThreadIds.length === 0) {
+        return true;
+    }
+    var currentTid = Process.getCurrentThreadId();
+    if (allowedThreadIds.indexOf(currentTid) === -1) {
+        klog("gumtrace", "skip thread", currentTid, "allowed=" + allowedThreadIds.join(","));
+        return false;
+    }
+    return true;
+}
+
+function startGumTrace(outputPath) {
     if (!ensureGumTraceLoaded()) {
         return false;
     }
     if (gumtraceState.tracing) {
+        klog("gumtrace", "trace already running", outputPath || traceOutputPath);
         return true;
     }
     gumtraceState.init(
         Memory.allocUtf8String(traceModuleNames),
-        Memory.allocUtf8String(traceOutputPath),
+        Memory.allocUtf8String(outputPath || traceOutputPath),
         traceThreadId,
         traceOptions
     );
     gumtraceState.run();
     gumtraceState.tracing = true;
-    klog("gumtrace", "trace started", traceModuleNames, traceOutputPath, "thread=" + traceThreadId, "options=" + traceOptions);
+    klog("gumtrace", "trace started", traceModuleNames, outputPath || traceOutputPath, "thread=" + traceThreadId, "options=" + traceOptions);
     return true;
 }
 
@@ -81,10 +100,59 @@ function stopGumTrace() {
     klog("gumtrace", "trace stopped");
 }
 
+function installOffsetHooks() {
+    var targetModule = Process.findModuleByName(triggerModuleName);
+    if (targetModule === null) {
+        klog("gumtrace", "target module not loaded yet", triggerModuleName);
+        return false;
+    }
+    if (triggerOffsets.length === 0) {
+        klog("gumtrace", "no trigger offsets configured");
+        return false;
+    }
+    triggerOffsets.forEach(function (offset) {
+        var key = triggerModuleName + "@" + offset;
+        if (gumtraceState.installedOffsets[key]) {
+            return;
+        }
+        var targetAddress = targetModule.base.add(offset);
+        gumtraceState.installedOffsets[key] = true;
+        klog("gumtrace", "install offset trigger", key, targetAddress.toString());
+        Interceptor.attach(targetAddress, {
+            onEnter(args) {
+                this.traceStarted = false;
+                if (!shouldTraceCurrentThread()) {
+                    return;
+                }
+                if (allowRepeatedTrace === false && gumtraceState.tracing) {
+                    return;
+                }
+                if (startGumTrace(traceOutputPath)) {
+                    this.traceStarted = true;
+                    klog("gumtrace", "offset onEnter", key, "x0=" + this.context.x0, "lr=" + this.context.lr);
+                }
+            },
+            onLeave(retval) {
+                if (this.traceStarted) {
+                    klog("gumtrace", "offset onLeave", key, "retval=" + retval);
+                    if (stopTraceOnLeave) {
+                        stopGumTrace();
+                    }
+                }
+            }
+        });
+    });
+    return true;
+}
+
 function installExportHooks() {
     var targetModule = Process.findModuleByName(triggerModuleName);
     if (targetModule === null) {
         klog("gumtrace", "target module not loaded yet", triggerModuleName);
+        return false;
+    }
+    if (triggerExports.length === 0) {
+        klog("gumtrace", "no trigger exports configured");
         return false;
     }
     triggerExports.forEach(function (exportName) {
@@ -102,7 +170,13 @@ function installExportHooks() {
         Interceptor.attach(exportPtr, {
             onEnter(args) {
                 this.traceStarted = false;
-                if (startGumTrace()) {
+                if (!shouldTraceCurrentThread()) {
+                    return;
+                }
+                if (allowRepeatedTrace === false && gumtraceState.tracing) {
+                    return;
+                }
+                if (startGumTrace(traceOutputPath)) {
                     this.traceStarted = true;
                     klog("gumtrace", "enter", key, "arg0=" + args[0], "arg1=" + args[1]);
                 }
@@ -120,14 +194,14 @@ function installExportHooks() {
     return true;
 }
 
-function watchModuleLoad() {
-    if (gumtraceState.waitingDlopen) {
+function watchModuleLoad(installer) {
+    if (gumtraceState.watchingLoad) {
         return;
     }
-    gumtraceState.waitingDlopen = true;
+    gumtraceState.watchingLoad = true;
     var dlopenExt = Module.findExportByName(null, "android_dlopen_ext");
     if (dlopenExt === null) {
-        installExportHooks();
+        installer();
         return;
     }
     Interceptor.attach(dlopenExt, {
@@ -140,28 +214,38 @@ function watchModuleLoad() {
         },
         onLeave() {
             if (this.shouldInstall) {
-                installExportHooks();
+                installer();
             }
         }
     });
-    installExportHooks();
+    installer();
 }
 
 var call_funs = {};
-call_funs.gumtrace_start = function () {
-    startGumTrace();
+call_funs.gumtrace_start = function (args) {
+    var output = (args || "").trim();
+    startGumTrace(output || traceOutputPath);
 };
 call_funs.gumtrace_stop = function () {
     stopGumTrace();
 };
 call_funs.gumtrace_install = function () {
-    installExportHooks();
+    if (triggerMode === "offset") {
+        installOffsetHooks();
+        return;
+    }
+    if (triggerMode === "export") {
+        installExportHooks();
+        return;
+    }
+    klog("gumtrace", "manual mode has no install step");
 };
 call_funs.gumtrace_help = function () {
     klog("gumtrace", "template", "%customFileName%");
-    klog("gumtrace", "edit triggerModuleName/triggerExports/traceModuleNames for your target");
-    klog("gumtrace", "current", triggerModuleName, JSON.stringify(triggerExports), traceModuleNames, traceOutputPath);
-};
+    klog("gumtrace", "mode", triggerMode, "triggerModule=" + triggerModuleName);
+    klog("gumtrace", "trace modules", traceModuleNames, "threads=" + JSON.stringify(allowedThreadIds));
+    klog("gumtrace", "output", traceOutputPath, "stopOnLeave=" + stopTraceOnLeave, "repeat=" + allowRepeatedTrace);
+}
 
 rpc.exports.callnormal = function (methodName, args) {
     if (call_funs[methodName]) {
@@ -170,10 +254,9 @@ rpc.exports.callnormal = function (methodName, args) {
     }
     klog("gumtrace", "unknown call_funs", methodName);
 };
-
-setImmediate(function () {
+setImmediate(function () {{
     klog("init", "%customFileName% loaded");
-    klog("gumtrace", "export trigger template", triggerModuleName, JSON.stringify(triggerExports));
-    klog("gumtrace", "good for SSL/compression/JNI exported native functions");
-    watchModuleLoad();
-});
+    klog("gumtrace", "export trigger trace", triggerModuleName, JSON.stringify(triggerExports));
+    klog("gumtrace", "modules", traceModuleNames, traceOutputPath, "threads=" + JSON.stringify(allowedThreadIds));
+    watchModuleLoad(installExportHooks);
+}});

@@ -9,14 +9,18 @@ function klog(data, ...args) {
 }
 
 const gumTraceSoPath = "/data/local/tmp/libGumTrace.so";
+const triggerMode = "offset";
 const triggerModuleName = "libtarget.so";
-const traceModuleNames = "libtarget.so";
-const traceOutputPath = "/data/local/tmp/gumtrace_offset.log";
-const triggerOffsets = [0x1234];
+const traceModuleWhitelist = ["libtarget.so", "libhelper.so"];
+const traceOutputPath = "/data/local/tmp/gumtrace_offset_auto.log";
 const traceThreadId = 0;
 const traceOptions = 0;
+const allowedThreadIds = [1234];
+const triggerOffsets = [4660, 6280];
+const triggerExports = [];
 const stopTraceOnLeave = true;
 const allowRepeatedTrace = false;
+const traceModuleNames = traceModuleWhitelist.length > 0 ? traceModuleWhitelist.join(",") : triggerModuleName;
 
 var gumtraceState = {
     handle: null,
@@ -25,7 +29,8 @@ var gumtraceState = {
     unrun: null,
     tracing: false,
     installedOffsets: {},
-    loadHookInstalled: false,
+    installedExports: {},
+    watchingLoad: false,
 };
 
 function ensureGumTraceLoaded() {
@@ -50,6 +55,18 @@ function ensureGumTraceLoaded() {
     gumtraceState.run = new NativeFunction(dlsym(handle, Memory.allocUtf8String("run")), "void", []);
     gumtraceState.unrun = new NativeFunction(dlsym(handle, Memory.allocUtf8String("unrun")), "void", []);
     klog("gumtrace", "library loaded", gumTraceSoPath);
+    return true;
+}
+
+function shouldTraceCurrentThread() {
+    if (allowedThreadIds.length === 0) {
+        return true;
+    }
+    var currentTid = Process.getCurrentThreadId();
+    if (allowedThreadIds.indexOf(currentTid) === -1) {
+        klog("gumtrace", "skip thread", currentTid, "allowed=" + allowedThreadIds.join(","));
+        return false;
+    }
     return true;
 }
 
@@ -89,6 +106,10 @@ function installOffsetHooks() {
         klog("gumtrace", "target module not loaded yet", triggerModuleName);
         return false;
     }
+    if (triggerOffsets.length === 0) {
+        klog("gumtrace", "no trigger offsets configured");
+        return false;
+    }
     triggerOffsets.forEach(function (offset) {
         var key = triggerModuleName + "@" + offset;
         if (gumtraceState.installedOffsets[key]) {
@@ -100,6 +121,9 @@ function installOffsetHooks() {
         Interceptor.attach(targetAddress, {
             onEnter(args) {
                 this.traceStarted = false;
+                if (!shouldTraceCurrentThread()) {
+                    return;
+                }
                 if (allowRepeatedTrace === false && gumtraceState.tracing) {
                     return;
                 }
@@ -121,15 +145,63 @@ function installOffsetHooks() {
     return true;
 }
 
-function watchModuleLoad() {
-    if (gumtraceState.loadHookInstalled) {
+function installExportHooks() {
+    var targetModule = Process.findModuleByName(triggerModuleName);
+    if (targetModule === null) {
+        klog("gumtrace", "target module not loaded yet", triggerModuleName);
+        return false;
+    }
+    if (triggerExports.length === 0) {
+        klog("gumtrace", "no trigger exports configured");
+        return false;
+    }
+    triggerExports.forEach(function (exportName) {
+        var key = triggerModuleName + "!" + exportName;
+        if (gumtraceState.installedExports[key]) {
+            return;
+        }
+        var exportPtr = Module.findExportByName(triggerModuleName, exportName);
+        if (exportPtr === null) {
+            klog("gumtrace", "export not found", key);
+            return;
+        }
+        gumtraceState.installedExports[key] = true;
+        klog("gumtrace", "install export trigger", key, exportPtr.toString());
+        Interceptor.attach(exportPtr, {
+            onEnter(args) {
+                this.traceStarted = false;
+                if (!shouldTraceCurrentThread()) {
+                    return;
+                }
+                if (allowRepeatedTrace === false && gumtraceState.tracing) {
+                    return;
+                }
+                if (startGumTrace(traceOutputPath)) {
+                    this.traceStarted = true;
+                    klog("gumtrace", "enter", key, "arg0=" + args[0], "arg1=" + args[1]);
+                }
+            },
+            onLeave(retval) {
+                if (this.traceStarted) {
+                    klog("gumtrace", "leave", key, "retval=" + retval);
+                    if (stopTraceOnLeave) {
+                        stopGumTrace();
+                    }
+                }
+            }
+        });
+    });
+    return true;
+}
+
+function watchModuleLoad(installer) {
+    if (gumtraceState.watchingLoad) {
         return;
     }
-    gumtraceState.loadHookInstalled = true;
+    gumtraceState.watchingLoad = true;
     var dlopenExt = Module.findExportByName(null, "android_dlopen_ext");
     if (dlopenExt === null) {
-        klog("gumtrace", "android_dlopen_ext not found, trying immediate install only");
-        installOffsetHooks();
+        installer();
         return;
     }
     Interceptor.attach(dlopenExt, {
@@ -142,28 +214,38 @@ function watchModuleLoad() {
         },
         onLeave() {
             if (this.shouldInstall) {
-                installOffsetHooks();
+                installer();
             }
         }
     });
-    installOffsetHooks();
+    installer();
 }
 
 var call_funs = {};
-call_funs.gumtrace_start = function () {
-    startGumTrace(traceOutputPath);
+call_funs.gumtrace_start = function (args) {
+    var output = (args || "").trim();
+    startGumTrace(output || traceOutputPath);
 };
 call_funs.gumtrace_stop = function () {
     stopGumTrace();
 };
 call_funs.gumtrace_install = function () {
-    installOffsetHooks();
+    if (triggerMode === "offset") {
+        installOffsetHooks();
+        return;
+    }
+    if (triggerMode === "export") {
+        installExportHooks();
+        return;
+    }
+    klog("gumtrace", "manual mode has no install step");
 };
 call_funs.gumtrace_help = function () {
     klog("gumtrace", "template", "%customFileName%");
-    klog("gumtrace", "edit triggerModuleName/traceModuleNames/triggerOffsets before use");
-    klog("gumtrace", "current", triggerModuleName, JSON.stringify(triggerOffsets), traceOutputPath);
-};
+    klog("gumtrace", "mode", triggerMode, "triggerModule=" + triggerModuleName);
+    klog("gumtrace", "trace modules", traceModuleNames, "threads=" + JSON.stringify(allowedThreadIds));
+    klog("gumtrace", "output", traceOutputPath, "stopOnLeave=" + stopTraceOnLeave, "repeat=" + allowRepeatedTrace);
+}
 
 rpc.exports.callnormal = function (methodName, args) {
     if (call_funs[methodName]) {
@@ -172,10 +254,9 @@ rpc.exports.callnormal = function (methodName, args) {
     }
     klog("gumtrace", "unknown call_funs", methodName);
 };
-
-setImmediate(function () {
+setImmediate(function () {{
     klog("init", "%customFileName% loaded");
-    klog("gumtrace", "offset auto trace template", triggerModuleName, traceOutputPath);
-    klog("gumtrace", "remember to upload libGumTrace.so before tracing");
-    watchModuleLoad();
-});
+    klog("gumtrace", "offset auto trace", triggerModuleName, JSON.stringify(triggerOffsets));
+    klog("gumtrace", "modules", traceModuleNames, traceOutputPath, "threads=" + JSON.stringify(allowedThreadIds));
+    watchModuleLoad(installOffsetHooks);
+}});

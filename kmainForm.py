@@ -5,8 +5,8 @@ import sys
 from time import sleep
 
 from PyQt5 import uic, QtWidgets,QtCore
-from PyQt5.QtCore import Qt, QPoint, QTranslator
-from PyQt5.QtGui import QStandardItemModel, QStandardItem, QCursor
+from PyQt5.QtCore import Qt, QPoint, QTranslator, QUrl
+from PyQt5.QtGui import QStandardItemModel, QStandardItem, QCursor, QDesktopServices
 from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog, QStatusBar, QLabel, QMessageBox, QHeaderView, \
     QTableWidgetItem, QMenu, QAction, QActionGroup, qApp, QLineEdit
 
@@ -32,7 +32,7 @@ from forms.Wallbreaker import wallBreakerForm
 from forms.Wifi import wifiForm
 from forms.ZenTracer import zenTracerForm
 from ui.kmain import Ui_MainWindow
-from utils import LogUtil, CmdUtil, FileUtil
+from utils import LogUtil, CmdUtil, FileUtil, GumTraceUtil
 from utils.AiUtil import AiService, AiWorker
 import json, os, threading, frida
 import platform
@@ -67,8 +67,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
     def initUi(self):
         self.setWindowOpacity(0.93)
-        self.resize(1440, 960)
-        self.setMinimumSize(1240, 860)
+        self.resize(1480, 980)
+        self.setMinimumSize(1280, 880)
         # 日志目录
         if os.path.exists("./logs") == False:
             os.makedirs("./logs")
@@ -357,7 +357,10 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.initSmartLayout()
         self.initLogTools()
         self.initSettingsMenu()
+        self.initGumTraceWorkspace()
+        self.loadGumTraceConfig()
         self.retranslateDynamicUi()
+        self.refreshOverviewCards()
 
     def isEnglish(self):
         return self.language == "English"
@@ -414,9 +417,14 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.tab6Layout = QtWidgets.QVBoxLayout(self.tab_6)
             self.tab6Layout.setContentsMargins(10, 10, 10, 10)
             self.tab6Layout.setSpacing(12)
-            self.tab6Layout.addWidget(self.groupBox_8)
         else:
             self.tab6Layout = self.tab_6.layout()
+
+        self.labAppWorkbenchHint = QLabel(self.tab_6)
+        self.labAppWorkbenchHint.setWordWrap(True)
+        self.labAppWorkbenchHint.setObjectName("sectionHint")
+        self.tab6Layout.addWidget(self.labAppWorkbenchHint)
+        self.groupBox_8.setParent(self.tab_6)
 
         self.currentAppExtraGroup = QtWidgets.QGroupBox(self.tab_6)
         self.currentAppExtraGroup.setObjectName("currentAppExtraGroup")
@@ -431,9 +439,14 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.currentAppInfoTable.setObjectName("currentAppInfoTable")
         self.currentAppExtraLayout.addWidget(self.currentAppInfoTable)
         self.setupInfoTable(self.currentAppInfoTable)
-        self.tab6Layout.addWidget(self.currentAppExtraGroup)
-        self.tab6Layout.setStretch(0, 3)
-        self.tab6Layout.setStretch(1, 4)
+
+        self.appInfoSplitter = QtWidgets.QSplitter(Qt.Horizontal, self.tab_6)
+        self.appInfoSplitter.setChildrenCollapsible(False)
+        self.appInfoSplitter.addWidget(self.groupBox_8)
+        self.appInfoSplitter.addWidget(self.currentAppExtraGroup)
+        self.appInfoSplitter.setStretchFactor(0, 5)
+        self.appInfoSplitter.setStretchFactor(1, 6)
+        self.tab6Layout.addWidget(self.appInfoSplitter, 1)
 
         self.gridLayout_16.setContentsMargins(10, 12, 10, 10)
         self.gridLayout_16.setSpacing(8)
@@ -526,8 +539,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.setInfoTableRows(self.attachInfoTable, self.buildAttachedInfoRows())
 
     def initSmartLayout(self):
-        self.resize(1440, 960)
-        self.setMinimumSize(1240, 860)
+        self.resize(1480, 980)
+        self.setMinimumSize(1280, 880)
         self.tabWidget.setDocumentMode(True)
         self.groupLogs.setDocumentMode(True)
         self.groupLogs.setTabPosition(QtWidgets.QTabWidget.North)
@@ -537,33 +550,269 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.gridLayout_6.removeWidget(self.groupBox_2)
         self.gridLayout_6.removeWidget(self.groupLogs)
 
-        self.mainTopWidget = QtWidgets.QWidget(self.tab_2)
-        self.mainTopLayout = QtWidgets.QHBoxLayout(self.mainTopWidget)
-        self.mainTopLayout.setContentsMargins(0, 0, 0, 0)
-        self.mainTopLayout.setSpacing(14)
-        self.mainTopLayout.addWidget(self.groupBox, 4)
-        self.mainTopLayout.addWidget(self.groupBox_2, 6)
+        self.mainRootWidget = QtWidgets.QWidget(self.tab_2)
+        self.mainRootLayout = QtWidgets.QVBoxLayout(self.mainRootWidget)
+        self.mainRootLayout.setContentsMargins(0, 0, 0, 0)
+        self.mainRootLayout.setSpacing(14)
 
-        self.mainSplitter = QtWidgets.QSplitter(Qt.Vertical, self.tab_2)
-        self.mainSplitter.setChildrenCollapsible(False)
-        self.mainSplitter.addWidget(self.mainTopWidget)
-        self.mainSplitter.addWidget(self.groupLogs)
-        self.mainSplitter.setStretchFactor(0, 4)
-        self.mainSplitter.setStretchFactor(1, 6)
-        self.mainSplitter.setSizes([360, 560])
-        self.gridLayout_6.addWidget(self.mainSplitter, 0, 0, 1, 1)
+        self.mainOverviewWidget = QtWidgets.QWidget(self.mainRootWidget)
+        self.mainOverviewLayout = QtWidgets.QHBoxLayout(self.mainOverviewWidget)
+        self.mainOverviewLayout.setContentsMargins(0, 0, 0, 0)
+        self.mainOverviewLayout.setSpacing(12)
+        self.connectionSummaryCard = self.createSummaryCard(self.trText("连接状态", "Connection"), self.trText("未连接", "Disconnected"), "#4f8cff")
+        self.packageSummaryCard = self.createSummaryCard(self.trText("目标包名", "Target package"), self.trText("尚未附加", "No package selected"), "#14b8a6")
+        self.aiSummaryCard = self.createSummaryCard(self.trText("AI 能力", "AI status"), self.trText("等待检查", "Pending check"), "#a855f7")
+        self.gumTraceSummaryCard = self.createSummaryCard(self.trText("GumTrace 工作台", "GumTrace workbench"), self.trText("未生成脚本", "No generated script"), "#f97316")
+        for card in [self.connectionSummaryCard, self.packageSummaryCard, self.aiSummaryCard, self.gumTraceSummaryCard]:
+            self.mainOverviewLayout.addWidget(card, 1)
+        self.mainRootLayout.addWidget(self.mainOverviewWidget)
 
-        self.groupBox.setTitle(self._translate("kmainForm", "常用功能（附加后使用）"))
-        self.groupBox_2.setTitle(self._translate("kmainForm", "脚本与 Hook 组合（附加前配置）"))
-        self.groupBox.setMinimumWidth(380)
-        self.groupBox_2.setMinimumWidth(560)
-        self.mainTopWidget.setMinimumHeight(320)
+        self.mainWorkbenchSplitter = QtWidgets.QSplitter(Qt.Horizontal, self.mainRootWidget)
+        self.mainWorkbenchSplitter.setChildrenCollapsible(False)
+
+        self.leftWorkbench = QtWidgets.QWidget(self.mainWorkbenchSplitter)
+        self.leftWorkbenchLayout = QtWidgets.QVBoxLayout(self.leftWorkbench)
+        self.leftWorkbenchLayout.setContentsMargins(0, 0, 0, 0)
+        self.leftWorkbenchLayout.setSpacing(14)
+        self.leftWorkbenchLayout.addWidget(self.groupBox)
+        self.leftWorkbenchLayout.addWidget(self.groupBox_2)
+
+        self.gumTraceQuickGroup = QtWidgets.QGroupBox(self.leftWorkbench)
+        self.gumTraceQuickGroup.setObjectName("panelCard")
+        self.gumTraceQuickLayout = QtWidgets.QVBoxLayout(self.gumTraceQuickGroup)
+        self.gumTraceQuickLayout.setContentsMargins(12, 14, 12, 12)
+        self.gumTraceQuickLayout.setSpacing(10)
+        self.labGumTraceQuickHint = QLabel(self.gumTraceQuickGroup)
+        self.labGumTraceQuickHint.setWordWrap(True)
+        self.labGumTraceQuickHint.setObjectName("panelHint")
+        self.gumTraceQuickLayout.addWidget(self.labGumTraceQuickHint)
+        self.labGumTraceScriptSummary = QLabel(self.gumTraceQuickGroup)
+        self.labGumTraceScriptSummary.setWordWrap(True)
+        self.labGumTraceScriptSummary.setObjectName("summaryCaption")
+        self.gumTraceQuickLayout.addWidget(self.labGumTraceScriptSummary)
+        self.labGumTraceFilterSummary = QLabel(self.gumTraceQuickGroup)
+        self.labGumTraceFilterSummary.setWordWrap(True)
+        self.labGumTraceFilterSummary.setObjectName("summaryCaption")
+        self.gumTraceQuickLayout.addWidget(self.labGumTraceFilterSummary)
+        self.gumTraceQuickButtons = QtWidgets.QGridLayout()
+        self.gumTraceQuickButtons.setHorizontalSpacing(10)
+        self.gumTraceQuickButtons.setVerticalSpacing(10)
+        self.btnOpenGumTraceTab = QtWidgets.QPushButton(self.gumTraceQuickGroup)
+        self.btnOpenGumTraceTab.clicked.connect(self.openGumTraceWorkspace)
+        self.btnGenerateGumTraceFromMain = QtWidgets.QPushButton(self.gumTraceQuickGroup)
+        self.btnGenerateGumTraceFromMain.clicked.connect(self.applyGumTraceScriptAndActivate)
+        self.btnGumTraceUploadMain = QtWidgets.QPushButton(self.gumTraceQuickGroup)
+        self.btnGumTraceUploadMain.clicked.connect(self.PushGumTraceLib)
+        self.btnGumTraceDownloadMain = QtWidgets.QPushButton(self.gumTraceQuickGroup)
+        self.btnGumTraceDownloadMain.clicked.connect(self.pullGumTraceLog)
+        for index, button in enumerate([self.btnOpenGumTraceTab, self.btnGenerateGumTraceFromMain, self.btnGumTraceUploadMain, self.btnGumTraceDownloadMain]):
+            button.setMinimumHeight(42)
+            button.setCursor(Qt.PointingHandCursor)
+            button.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+            self.gumTraceQuickButtons.addWidget(button, index // 2, index % 2)
+        self.gumTraceQuickLayout.addLayout(self.gumTraceQuickButtons)
+        self.leftWorkbenchLayout.addWidget(self.gumTraceQuickGroup)
+        self.leftWorkbenchLayout.addStretch(1)
+
+        self.rightWorkbenchSplitter = QtWidgets.QSplitter(Qt.Vertical, self.mainWorkbenchSplitter)
+        self.rightWorkbenchSplitter.setChildrenCollapsible(False)
+        self.rightWorkbenchSplitter.addWidget(self.groupLogs)
+        self.mainInsightGroup = QtWidgets.QGroupBox(self.rightWorkbenchSplitter)
+        self.mainInsightGroup.setObjectName("panelCard")
+        self.mainInsightLayout = QtWidgets.QGridLayout(self.mainInsightGroup)
+        self.mainInsightLayout.setContentsMargins(12, 14, 12, 12)
+        self.mainInsightLayout.setHorizontalSpacing(12)
+        self.mainInsightLayout.setVerticalSpacing(10)
+        self.labMainInsightHint = QLabel(self.mainInsightGroup)
+        self.labMainInsightHint.setWordWrap(True)
+        self.labMainInsightHint.setObjectName("panelHint")
+        self.mainInsightLayout.addWidget(self.labMainInsightHint, 0, 0, 1, 4)
+        self.mainInsightHookCountTitle = QLabel(self.mainInsightGroup)
+        self.mainInsightHookCountValue = QLabel(self.mainInsightGroup)
+        self.mainInsightLogModeTitle = QLabel(self.mainInsightGroup)
+        self.mainInsightLogModeValue = QLabel(self.mainInsightGroup)
+        self.mainInsightLastScriptTitle = QLabel(self.mainInsightGroup)
+        self.mainInsightLastScriptValue = QLabel(self.mainInsightGroup)
+        for value_label in [self.mainInsightHookCountValue, self.mainInsightLogModeValue, self.mainInsightLastScriptValue]:
+            value_label.setWordWrap(True)
+            value_label.setObjectName("summaryValueCompact")
+        self.mainInsightLayout.addWidget(self.mainInsightHookCountTitle, 1, 0, 1, 1)
+        self.mainInsightLayout.addWidget(self.mainInsightHookCountValue, 1, 1, 1, 1)
+        self.mainInsightLayout.addWidget(self.mainInsightLogModeTitle, 1, 2, 1, 1)
+        self.mainInsightLayout.addWidget(self.mainInsightLogModeValue, 1, 3, 1, 1)
+        self.mainInsightLayout.addWidget(self.mainInsightLastScriptTitle, 2, 0, 1, 1)
+        self.mainInsightLayout.addWidget(self.mainInsightLastScriptValue, 2, 1, 1, 3)
+        self.mainInsightButtons = QtWidgets.QHBoxLayout()
+        self.btnMainRefreshAppInfo = QtWidgets.QPushButton(self.mainInsightGroup)
+        self.btnMainRefreshAppInfo.clicked.connect(self.appInfoFlush)
+        self.btnMainOpenCustom = QtWidgets.QPushButton(self.mainInsightGroup)
+        self.btnMainOpenCustom.clicked.connect(self.custom)
+        self.btnMainOpenGumTrace = QtWidgets.QPushButton(self.mainInsightGroup)
+        self.btnMainOpenGumTrace.clicked.connect(self.openGumTraceWorkspace)
+        for button in [self.btnMainRefreshAppInfo, self.btnMainOpenCustom, self.btnMainOpenGumTrace]:
+            button.setMinimumHeight(40)
+            button.setCursor(Qt.PointingHandCursor)
+            self.mainInsightButtons.addWidget(button)
+        self.mainInsightButtons.addStretch(1)
+        self.mainInsightLayout.addLayout(self.mainInsightButtons, 3, 0, 1, 4)
+        self.rightWorkbenchSplitter.addWidget(self.mainInsightGroup)
+        self.rightWorkbenchSplitter.setStretchFactor(0, 7)
+        self.rightWorkbenchSplitter.setStretchFactor(1, 3)
+        self.rightWorkbenchSplitter.setSizes([620, 220])
+
+        self.mainWorkbenchSplitter.addWidget(self.leftWorkbench)
+        self.mainWorkbenchSplitter.addWidget(self.rightWorkbenchSplitter)
+        self.mainWorkbenchSplitter.setStretchFactor(0, 5)
+        self.mainWorkbenchSplitter.setStretchFactor(1, 7)
+        self.mainWorkbenchSplitter.setSizes([560, 860])
+        self.mainRootLayout.addWidget(self.mainWorkbenchSplitter, 1)
+        self.gridLayout_6.addWidget(self.mainRootWidget, 0, 0, 1, 1)
+
+        self.groupBox.setMinimumWidth(420)
+        self.groupBox_2.setMinimumWidth(420)
 
         self.configureCommonToolsPanel()
         self.configureHookPanel()
         self.configureInfoTabs()
+        self.configureAttachExplorerTab()
+        self.configureAssistTab()
         self.configureLogWidgets()
         self.applyWorkbenchTheme()
+
+    def createSummaryCard(self, title, value, accent_color):
+        card = QtWidgets.QFrame(self.mainRootWidget)
+        card.setObjectName("summaryCard")
+        layout = QtWidgets.QVBoxLayout(card)
+        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(6)
+        titleLabel = QLabel(title, card)
+        titleLabel.setObjectName("summaryTitle")
+        valueLabel = QLabel(value, card)
+        valueLabel.setWordWrap(True)
+        valueLabel.setObjectName("summaryValue")
+        valueLabel.setStyleSheet("color: %s;" % accent_color)
+        card.titleLabel = titleLabel
+        card.valueLabel = valueLabel
+        layout.addWidget(titleLabel)
+        layout.addWidget(valueLabel)
+        layout.addStretch(1)
+        return card
+
+    def configureAttachExplorerTab(self):
+        self.gridLayout_14.removeItem(self.horizontalLayout_2)
+        self.gridLayout_14.removeItem(self.horizontalLayout_3)
+        self.gridLayout_14.removeWidget(self.groupBox_7)
+
+        self.attachWorkbenchHeader = QLabel(self.tab)
+        self.attachWorkbenchHeader.setObjectName("sectionHint")
+        self.attachWorkbenchHeader.setWordWrap(True)
+        self.gridLayout_14.addWidget(self.attachWorkbenchHeader, 0, 0, 1, 1)
+
+        self.nativeActionGroup = QtWidgets.QGroupBox(self.tab)
+        self.nativeActionGroup.setObjectName("panelCard")
+        self.nativeActionLayout = QtWidgets.QVBoxLayout(self.nativeActionGroup)
+        self.nativeActionLayout.setContentsMargins(10, 12, 10, 10)
+        self.nativeActionLayout.setSpacing(10)
+        for button in [self.btnExport, self.btnSymbol, self.btnSymbolClear]:
+            self.verticalLayout.removeWidget(button)
+            button.setMinimumHeight(40)
+            button.setCursor(Qt.PointingHandCursor)
+            self.nativeActionLayout.addWidget(button)
+        self.nativeActionLayout.addStretch(1)
+
+        self.javaActionGroup = QtWidgets.QGroupBox(self.tab)
+        self.javaActionGroup.setObjectName("panelCard")
+        self.javaActionLayout = QtWidgets.QVBoxLayout(self.javaActionGroup)
+        self.javaActionLayout.setContentsMargins(10, 12, 10, 10)
+        self.javaActionLayout.setSpacing(10)
+        for button in [self.btnMethod, self.btnMethodClear]:
+            self.verticalLayout_2.removeWidget(button)
+            button.setMinimumHeight(40)
+            button.setCursor(Qt.PointingHandCursor)
+            self.javaActionLayout.addWidget(button)
+        self.javaActionLayout.addStretch(1)
+
+        self.nativeExplorerWidget = QtWidgets.QWidget(self.tab)
+        self.nativeExplorerLayout = QtWidgets.QHBoxLayout(self.nativeExplorerWidget)
+        self.nativeExplorerLayout.setContentsMargins(0, 0, 0, 0)
+        self.nativeExplorerLayout.setSpacing(12)
+        self.nativeExplorerLayout.addWidget(self.groupBox_3, 5)
+        self.nativeExplorerLayout.addWidget(self.nativeActionGroup, 2)
+        self.nativeExplorerLayout.addWidget(self.groupBox_5, 5)
+
+        self.javaExplorerWidget = QtWidgets.QWidget(self.tab)
+        self.javaExplorerLayout = QtWidgets.QHBoxLayout(self.javaExplorerWidget)
+        self.javaExplorerLayout.setContentsMargins(0, 0, 0, 0)
+        self.javaExplorerLayout.setSpacing(12)
+        self.javaExplorerLayout.addWidget(self.groupBox_4, 5)
+        self.javaExplorerLayout.addWidget(self.javaActionGroup, 2)
+        self.javaExplorerLayout.addWidget(self.groupBox_6, 5)
+
+        self.attachExplorerSplitter = QtWidgets.QSplitter(Qt.Vertical, self.tab)
+        self.attachExplorerSplitter.setChildrenCollapsible(False)
+        self.attachExplorerSplitter.addWidget(self.nativeExplorerWidget)
+        self.attachExplorerSplitter.addWidget(self.javaExplorerWidget)
+        self.attachExplorerSplitter.addWidget(self.groupBox_7)
+        self.attachExplorerSplitter.setStretchFactor(0, 4)
+        self.attachExplorerSplitter.setStretchFactor(1, 4)
+        self.attachExplorerSplitter.setStretchFactor(2, 5)
+        self.attachExplorerSplitter.setSizes([240, 240, 320])
+        self.gridLayout_14.addWidget(self.attachExplorerSplitter, 1, 0, 1, 1)
+
+    def configureAssistTab(self):
+        self.gridLayout_19.removeWidget(self.groupBox_9)
+        self.gridLayout_19.removeWidget(self.groupBox_10)
+
+        self.assistWorkbenchHeader = QLabel(self.tab_7)
+        self.assistWorkbenchHeader.setObjectName("sectionHint")
+        self.assistWorkbenchHeader.setWordWrap(True)
+        self.gridLayout_19.addWidget(self.assistWorkbenchHeader, 0, 0, 1, 1)
+
+        self.groupBox_9.setObjectName("panelCard")
+        self.groupBox_10.setObjectName("panelCard")
+        self.btnOpenGumTraceDir = QtWidgets.QPushButton(self.groupBox_10)
+        self.btnOpenGumTraceDir.clicked.connect(self.openGumTraceLogDirectory)
+        self.btnOpenGumTraceDir.setMinimumHeight(40)
+        self.btnOpenGumTraceWorkspace = QtWidgets.QPushButton(self.groupBox_10)
+        self.btnOpenGumTraceWorkspace.clicked.connect(self.openGumTraceWorkspace)
+        self.btnOpenGumTraceWorkspace.setMinimumHeight(40)
+        self.btnAssistUploadGumTrace = QtWidgets.QPushButton(self.groupBox_10)
+        self.btnAssistUploadGumTrace.clicked.connect(self.PushGumTraceLib)
+        self.btnAssistUploadGumTrace.setMinimumHeight(40)
+
+        self.assistSplitter = QtWidgets.QSplitter(Qt.Horizontal, self.tab_7)
+        self.assistSplitter.setChildrenCollapsible(False)
+        self.assistSplitter.addWidget(self.groupBox_9)
+        self.assistSplitter.addWidget(self.groupBox_10)
+        self.assistSplitter.setStretchFactor(0, 5)
+        self.assistSplitter.setStretchFactor(1, 6)
+        self.gridLayout_19.addWidget(self.assistSplitter, 1, 0, 1, 1)
+
+        self.groupBox10Layout = QtWidgets.QVBoxLayout(self.groupBox_10)
+        self.groupBox10Layout.setContentsMargins(12, 14, 12, 12)
+        self.groupBox10Layout.setSpacing(10)
+        self.labAssistGumTraceHint = QLabel(self.groupBox_10)
+        self.labAssistGumTraceHint.setWordWrap(True)
+        self.labAssistGumTraceHint.setObjectName("panelHint")
+        self.groupBox10Layout.addWidget(self.labAssistGumTraceHint)
+        self.labAssistGumTraceRemote = QLabel(self.groupBox_10)
+        self.labAssistGumTraceRemote.setWordWrap(True)
+        self.labAssistGumTraceRemote.setObjectName("summaryCaption")
+        self.groupBox10Layout.addWidget(self.labAssistGumTraceRemote)
+        self.labAssistGumTraceLocal = QLabel(self.groupBox_10)
+        self.labAssistGumTraceLocal.setWordWrap(True)
+        self.labAssistGumTraceLocal.setObjectName("summaryCaption")
+        self.groupBox10Layout.addWidget(self.labAssistGumTraceLocal)
+        self.labAssistGumTraceFilters = QLabel(self.groupBox_10)
+        self.labAssistGumTraceFilters.setWordWrap(True)
+        self.labAssistGumTraceFilters.setObjectName("summaryCaption")
+        self.groupBox10Layout.addWidget(self.labAssistGumTraceFilters)
+        for button in [self.btnPullGumTraceLog, self.btnOpenGumTraceDir, self.btnAssistUploadGumTrace, self.btnOpenGumTraceWorkspace]:
+            button.setCursor(Qt.PointingHandCursor)
+            button.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+            self.groupBox10Layout.addWidget(button)
+        self.groupBox10Layout.addStretch(1)
+
 
     def buildButtonCard(self, title, description, buttons, columns=2):
         card = QtWidgets.QGroupBox(title, self)
@@ -698,6 +947,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.advancedButtonsGrid = QtWidgets.QGridLayout()
         self.advancedButtonsGrid.setHorizontalSpacing(10)
         self.advancedButtonsGrid.setVerticalSpacing(10)
+        self.btnGumTracePanel = QtWidgets.QPushButton(self.advancedToolGroup)
+        self.btnGumTracePanel.clicked.connect(self.openGumTraceWorkspace)
         self.advancedButtons = [
             self.btnMatchMethod,
             self.btnNatives,
@@ -706,6 +957,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.btnCustom,
             self.btnPatch,
             self.btnAntiFrida,
+            self.btnGumTracePanel,
         ]
         for button in self.advancedButtons:
             self.horizontalLayout.removeWidget(button)
@@ -831,8 +1083,30 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         QToolBar, QMenuBar, QStatusBar {
             background: #ffffff;
         }
-        QLabel#panelHint, QLabel#sectionHint, QLabel#aiStateLabel {
+        QFrame#summaryCard {
+            background: #ffffff;
+            border: 1px solid #d7dfeb;
+            border-radius: 12px;
+        }
+        QLabel#panelHint, QLabel#sectionHint, QLabel#aiStateLabel, QLabel#summaryCaption {
             color: #60738a;
+        }
+        QLabel#summaryTitle {
+            color: #60738a;
+            font-weight: 600;
+        }
+        QLabel#summaryValue {
+            font-size: 18px;
+            font-weight: 700;
+            color: #16324a;
+        }
+        QLabel#summaryValueCompact {
+            color: #16324a;
+            font-weight: 600;
+        }
+        QScrollArea {
+            border: none;
+            background: transparent;
         }
         """)
 
@@ -884,6 +1158,266 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.toolBar.addSeparator()
         self.toolBar.addAction(self.actionAiSettings)
 
+
+    def initGumTraceWorkspace(self):
+        self.gumTraceTab = QtWidgets.QWidget()
+        self.gumTraceTab.setObjectName("gumTraceTab")
+        self.gumTraceTabLayout = QtWidgets.QVBoxLayout(self.gumTraceTab)
+        self.gumTraceTabLayout.setContentsMargins(12, 12, 12, 12)
+        self.gumTraceTabLayout.setSpacing(12)
+        self.labGumTraceWorkbenchHint = QLabel(self.gumTraceTab)
+        self.labGumTraceWorkbenchHint.setWordWrap(True)
+        self.labGumTraceWorkbenchHint.setObjectName("sectionHint")
+        self.gumTraceTabLayout.addWidget(self.labGumTraceWorkbenchHint)
+
+        self.gumTraceSplitter = QtWidgets.QSplitter(Qt.Horizontal, self.gumTraceTab)
+        self.gumTraceSplitter.setChildrenCollapsible(False)
+        self.gumTraceTabLayout.addWidget(self.gumTraceSplitter, 1)
+
+        self.gumTraceConfigGroup = QtWidgets.QGroupBox(self.gumTraceSplitter)
+        self.gumTraceConfigGroup.setObjectName("panelCard")
+        self.gumTraceConfigLayout = QtWidgets.QVBoxLayout(self.gumTraceConfigGroup)
+        self.gumTraceConfigLayout.setContentsMargins(12, 14, 12, 12)
+        self.gumTraceConfigLayout.setSpacing(10)
+        self.labGumTraceConfigHint = QLabel(self.gumTraceConfigGroup)
+        self.labGumTraceConfigHint.setWordWrap(True)
+        self.labGumTraceConfigHint.setObjectName("panelHint")
+        self.gumTraceConfigLayout.addWidget(self.labGumTraceConfigHint)
+
+        self.gumTraceFormLayout = QtWidgets.QFormLayout()
+        self.gumTraceFormLayout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.gumTraceFormLayout.setHorizontalSpacing(12)
+        self.gumTraceFormLayout.setVerticalSpacing(10)
+        self.txtGumTraceName = QLineEdit(self.gumTraceConfigGroup)
+        self.txtGumTraceFileName = QLineEdit(self.gumTraceConfigGroup)
+        self.cmbGumTraceMode = QtWidgets.QComboBox(self.gumTraceConfigGroup)
+        self.cmbGumTraceMode.addItem("manual", GumTraceUtil.MODE_MANUAL)
+        self.cmbGumTraceMode.addItem("offset", GumTraceUtil.MODE_OFFSET)
+        self.cmbGumTraceMode.addItem("export", GumTraceUtil.MODE_EXPORT)
+        self.txtGumTraceTraceModules = QLineEdit(self.gumTraceConfigGroup)
+        self.txtGumTraceTriggerModule = QLineEdit(self.gumTraceConfigGroup)
+        self.txtGumTraceOffsets = QLineEdit(self.gumTraceConfigGroup)
+        self.txtGumTraceExports = QLineEdit(self.gumTraceConfigGroup)
+        self.txtGumTraceOutput = QLineEdit(self.gumTraceConfigGroup)
+        self.txtGumTraceAllowedThreads = QLineEdit(self.gumTraceConfigGroup)
+        self.txtGumTraceThreadId = QLineEdit(self.gumTraceConfigGroup)
+        self.txtGumTraceOptions = QLineEdit(self.gumTraceConfigGroup)
+        self.gumTraceFormLayout.addRow("Alias", self.txtGumTraceName)
+        self.gumTraceFormLayout.addRow("File", self.txtGumTraceFileName)
+        self.gumTraceFormLayout.addRow("Mode", self.cmbGumTraceMode)
+        self.gumTraceFormLayout.addRow("Trace modules", self.txtGumTraceTraceModules)
+        self.gumTraceFormLayout.addRow("Trigger module", self.txtGumTraceTriggerModule)
+        self.gumTraceFormLayout.addRow("Offsets", self.txtGumTraceOffsets)
+        self.gumTraceFormLayout.addRow("Exports", self.txtGumTraceExports)
+        self.gumTraceFormLayout.addRow("Output", self.txtGumTraceOutput)
+        self.gumTraceFormLayout.addRow("Allowed threads", self.txtGumTraceAllowedThreads)
+        self.gumTraceFormLayout.addRow("GumTrace thread", self.txtGumTraceThreadId)
+        self.gumTraceFormLayout.addRow("Options", self.txtGumTraceOptions)
+        self.gumTraceConfigLayout.addLayout(self.gumTraceFormLayout)
+
+        self.gumTraceCheckLayout = QtWidgets.QHBoxLayout()
+        self.chkGumTraceStopOnLeave = QtWidgets.QCheckBox(self.gumTraceConfigGroup)
+        self.chkGumTraceAllowRepeat = QtWidgets.QCheckBox(self.gumTraceConfigGroup)
+        self.chkGumTraceAutoAddHook = QtWidgets.QCheckBox(self.gumTraceConfigGroup)
+        self.chkGumTraceOpenDir = QtWidgets.QCheckBox(self.gumTraceConfigGroup)
+        for checkbox in [self.chkGumTraceStopOnLeave, self.chkGumTraceAllowRepeat, self.chkGumTraceAutoAddHook, self.chkGumTraceOpenDir]:
+            self.gumTraceCheckLayout.addWidget(checkbox)
+        self.gumTraceCheckLayout.addStretch(1)
+        self.gumTraceConfigLayout.addLayout(self.gumTraceCheckLayout)
+
+        self.gumTraceActionLayout = QtWidgets.QGridLayout()
+        self.gumTraceActionLayout.setHorizontalSpacing(10)
+        self.gumTraceActionLayout.setVerticalSpacing(10)
+        self.btnGumTraceSaveConfig = QtWidgets.QPushButton(self.gumTraceConfigGroup)
+        self.btnGumTracePreview = QtWidgets.QPushButton(self.gumTraceConfigGroup)
+        self.btnGumTraceSaveCustom = QtWidgets.QPushButton(self.gumTraceConfigGroup)
+        self.btnGumTraceActivate = QtWidgets.QPushButton(self.gumTraceConfigGroup)
+        self.btnGumTraceOpenCustom = QtWidgets.QPushButton(self.gumTraceConfigGroup)
+        self.btnGumTraceUpload = QtWidgets.QPushButton(self.gumTraceConfigGroup)
+        self.btnGumTraceDownload = QtWidgets.QPushButton(self.gumTraceConfigGroup)
+        action_buttons = [self.btnGumTraceSaveConfig, self.btnGumTracePreview, self.btnGumTraceSaveCustom, self.btnGumTraceActivate, self.btnGumTraceOpenCustom, self.btnGumTraceUpload, self.btnGumTraceDownload]
+        for index, button in enumerate(action_buttons):
+            button.setMinimumHeight(40)
+            button.setCursor(Qt.PointingHandCursor)
+            self.gumTraceActionLayout.addWidget(button, index // 2, index % 2)
+        self.gumTraceConfigLayout.addLayout(self.gumTraceActionLayout)
+        self.gumTraceConfigLayout.addStretch(1)
+
+        self.gumTracePreviewGroup = QtWidgets.QGroupBox(self.gumTraceSplitter)
+        self.gumTracePreviewGroup.setObjectName("panelCard")
+        self.gumTracePreviewLayout = QtWidgets.QVBoxLayout(self.gumTracePreviewGroup)
+        self.gumTracePreviewLayout.setContentsMargins(12, 14, 12, 12)
+        self.gumTracePreviewLayout.setSpacing(10)
+        self.labGumTracePreviewHint = QLabel(self.gumTracePreviewGroup)
+        self.labGumTracePreviewHint.setWordWrap(True)
+        self.labGumTracePreviewHint.setObjectName("panelHint")
+        self.gumTracePreviewLayout.addWidget(self.labGumTracePreviewHint)
+        self.labGumTracePreviewSummary = QLabel(self.gumTracePreviewGroup)
+        self.labGumTracePreviewSummary.setWordWrap(True)
+        self.labGumTracePreviewSummary.setObjectName("summaryCaption")
+        self.gumTracePreviewLayout.addWidget(self.labGumTracePreviewSummary)
+        self.txtGumTracePreview = QtWidgets.QPlainTextEdit(self.gumTracePreviewGroup)
+        self.txtGumTracePreview.setReadOnly(True)
+        self.gumTracePreviewLayout.addWidget(self.txtGumTracePreview, 1)
+        self.gumTraceSplitter.setStretchFactor(0, 5)
+        self.gumTraceSplitter.setStretchFactor(1, 6)
+        self.tabWidget.addTab(self.gumTraceTab, "")
+
+        self.txtGumTraceName.textChanged.connect(self.syncGumTraceFileName)
+        self.cmbGumTraceMode.currentIndexChanged.connect(self.updateGumTraceModeFields)
+        self.btnGumTraceSaveConfig.clicked.connect(self.saveGumTraceConfig)
+        self.btnGumTracePreview.clicked.connect(self.renderGumTracePreview)
+        self.btnGumTraceSaveCustom.clicked.connect(self.applyGumTraceScript)
+        self.btnGumTraceActivate.clicked.connect(self.applyGumTraceScriptAndActivate)
+        self.btnGumTraceOpenCustom.clicked.connect(self.custom)
+        self.btnGumTraceUpload.clicked.connect(self.PushGumTraceLib)
+        self.btnGumTraceDownload.clicked.connect(self.pullGumTraceLog)
+        for widget in [self.txtGumTraceName, self.txtGumTraceFileName, self.txtGumTraceTraceModules, self.txtGumTraceTriggerModule, self.txtGumTraceOffsets, self.txtGumTraceExports, self.txtGumTraceOutput, self.txtGumTraceAllowedThreads, self.txtGumTraceThreadId, self.txtGumTraceOptions]:
+            widget.textChanged.connect(self.renderGumTracePreview)
+        for checkbox in [self.chkGumTraceStopOnLeave, self.chkGumTraceAllowRepeat, self.chkGumTraceAutoAddHook, self.chkGumTraceOpenDir]:
+            checkbox.stateChanged.connect(self.renderGumTracePreview)
+        self.cmbGumTraceMode.currentIndexChanged.connect(self.renderGumTracePreview)
+        self.updateGumTraceModeFields()
+
+    def syncGumTraceFileName(self):
+        name = self.txtGumTraceName.text().strip()
+        current = self.txtGumTraceFileName.text().strip()
+        if not name:
+            return
+        if len(current) <= 0 or current.startswith("gumtrace_") or current == current.lower().replace(" ", "_"):
+            normalized = re.sub(r"[^a-zA-Z0-9_]+", "_", name).strip("_").lower() or "gumtrace_script"
+            self.txtGumTraceFileName.setText(normalized + ".js")
+
+    def updateGumTraceModeFields(self):
+        mode = self.cmbGumTraceMode.currentData()
+        self.txtGumTraceOffsets.setEnabled(mode == GumTraceUtil.MODE_OFFSET)
+        self.txtGumTraceExports.setEnabled(mode == GumTraceUtil.MODE_EXPORT)
+
+    def currentGumTraceConfig(self):
+        return {
+            "name": self.txtGumTraceName.text().strip() or self.trText("GumTrace 配置脚本", "GumTrace profile script"),
+            "fileName": self.txtGumTraceFileName.text().strip() or "gumtrace_script.js",
+            "mode": self.cmbGumTraceMode.currentData() or GumTraceUtil.MODE_MANUAL,
+            "traceModuleWhitelist": self.txtGumTraceTraceModules.text().strip(),
+            "triggerModuleName": self.txtGumTraceTriggerModule.text().strip() or "libtarget.so",
+            "triggerOffsets": self.txtGumTraceOffsets.text().strip(),
+            "triggerExports": self.txtGumTraceExports.text().strip(),
+            "traceOutputPath": self.txtGumTraceOutput.text().strip() or "/data/local/tmp/gumtrace.log",
+            "allowedThreadIds": self.txtGumTraceAllowedThreads.text().strip(),
+            "traceThreadId": self.txtGumTraceThreadId.text().strip() or "0",
+            "traceOptions": self.txtGumTraceOptions.text().strip() or "0",
+            "stopTraceOnLeave": self.chkGumTraceStopOnLeave.isChecked(),
+            "allowRepeatedTrace": self.chkGumTraceAllowRepeat.isChecked(),
+            "autoAddHook": self.chkGumTraceAutoAddHook.isChecked(),
+            "openDirAfterDownload": self.chkGumTraceOpenDir.isChecked(),
+        }
+
+    def loadGumTraceConfig(self):
+        config_data = conf.read_section("gumtrace")
+        if not hasattr(self, "gumTraceTab"):
+            return
+        self.txtGumTraceName.setText(config_data.get("name", "GumTrace Live Profile"))
+        self.txtGumTraceFileName.setText(config_data.get("filename", "gumtrace_live_profile.js"))
+        mode = config_data.get("mode", GumTraceUtil.MODE_MANUAL)
+        index = max(0, self.cmbGumTraceMode.findData(mode))
+        self.cmbGumTraceMode.setCurrentIndex(index)
+        self.txtGumTraceTraceModules.setText(config_data.get("tracemodulewhitelist", "libtarget.so"))
+        self.txtGumTraceTriggerModule.setText(config_data.get("triggermodulename", "libtarget.so"))
+        self.txtGumTraceOffsets.setText(config_data.get("triggeroffsets", "0x1234"))
+        self.txtGumTraceExports.setText(config_data.get("triggerexports", "SSL_read,SSL_write"))
+        self.txtGumTraceOutput.setText(config_data.get("traceoutputpath", "/data/local/tmp/gumtrace.log"))
+        self.txtGumTraceAllowedThreads.setText(config_data.get("allowedthreadids", ""))
+        self.txtGumTraceThreadId.setText(config_data.get("tracethreadid", "0"))
+        self.txtGumTraceOptions.setText(config_data.get("traceoptions", "0"))
+        self.chkGumTraceStopOnLeave.setChecked(config_data.get("stoptraceonleave", "True") != "False")
+        self.chkGumTraceAllowRepeat.setChecked(config_data.get("allowrepeatedtrace", "False") == "True")
+        self.chkGumTraceAutoAddHook.setChecked(config_data.get("autoaddhook", "True") != "False")
+        self.chkGumTraceOpenDir.setChecked(config_data.get("opendirafterdownload", "True") != "False")
+        self.updateGumTraceModeFields()
+        self.renderGumTracePreview()
+
+    def saveGumTraceConfig(self):
+        config_data = self.currentGumTraceConfig()
+        for key, value in config_data.items():
+            conf.write("gumtrace", key, value)
+        self.renderGumTracePreview()
+        QMessageBox().information(self, "hint", self.trText("GumTrace 配置已保存", "GumTrace settings saved"))
+
+    def renderGumTracePreview(self):
+        config_data = self.currentGumTraceConfig()
+        script = GumTraceUtil.build_gumtrace_script(config_data)
+        self.txtGumTracePreview.setPlainText(script)
+        summary = self.trText("模式：", "Mode: ") + str(config_data["mode"]) + "\n" + self.trText("模块白名单：", "Trace modules: ") + (config_data["traceModuleWhitelist"] or "-") + "\n" + self.trText("线程过滤：", "Thread filter: ") + (config_data["allowedThreadIds"] or self.trText("不限", "all"))
+        self.labGumTracePreviewSummary.setText(summary)
+        self.refreshOverviewCards()
+        return script
+
+    def syncCustomHooksToMain(self):
+        if len(self.customForm.customHooks) > 0:
+            self.hooksData["custom"] = []
+            for item in self.customForm.customHooks:
+                self.hooksData["custom"].append({"class": item["name"], "method": item["fileName"], "bak": item["bak"], "fileName": item["fileName"]})
+        elif "custom" in self.hooksData:
+            self.hooksData.pop("custom")
+        self.updateTabHooks()
+
+    def applyGumTraceScript(self):
+        script = self.renderGumTracePreview()
+        config_data = self.currentGumTraceConfig()
+        self.customForm.initData()
+        save_path = self.customForm.upsertCustomScript({"name": config_data["name"], "fileName": config_data["fileName"], "bak": self.trText("由 GumTrace 配置面板生成", "Generated by GumTrace workbench")}, script, add_to_hook=False)
+        self.customForm.openCustomScript(config_data["fileName"])
+        QMessageBox().information(self, "hint", self.trText("GumTrace 脚本已保存：", "GumTrace script saved: ") + save_path)
+        self.refreshOverviewCards()
+
+    def applyGumTraceScriptAndActivate(self):
+        script = self.renderGumTracePreview()
+        config_data = self.currentGumTraceConfig()
+        self.customForm.initData()
+        add_to_hook = self.chkGumTraceAutoAddHook.isChecked()
+        save_path = self.customForm.upsertCustomScript({"name": config_data["name"], "fileName": config_data["fileName"], "bak": self.trText("由 GumTrace 配置面板生成", "Generated by GumTrace workbench")}, script, add_to_hook=add_to_hook)
+        self.customForm.openCustomScript(config_data["fileName"])
+        if add_to_hook:
+            self.syncCustomHooksToMain()
+        QMessageBox().information(self, "hint", self.trText("GumTrace 脚本已生成并更新：", "GumTrace script generated and updated: ") + save_path)
+        self.refreshOverviewCards()
+
+    def openGumTraceWorkspace(self):
+        self.tabWidget.setCurrentWidget(self.gumTraceTab)
+
+    def openGumTraceLogDirectory(self):
+        local_dir = os.path.abspath("./logs/gumtrace")
+        if os.path.exists(local_dir) is False:
+            os.makedirs(local_dir)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(local_dir))
+
+    def refreshOverviewCards(self):
+        if hasattr(self, "connectionSummaryCard"):
+            connected = self.actionStop.isEnabled()
+            self.connectionSummaryCard.valueLabel.setText(self.trText("已连接，随时可停止附加", "Connected and ready to stop") if connected else self.trText("未连接，先选择附加方式", "Disconnected. Choose an attach mode first"))
+        if hasattr(self, "packageSummaryCard"):
+            package_name = self.labPackage.text().strip() or self.trText("尚未附加", "No package selected")
+            self.packageSummaryCard.valueLabel.setText(package_name)
+        if hasattr(self, "mainInsightHookCountValue"):
+            self.mainInsightHookCountValue.setText(str(len(self.hooksData)))
+        if hasattr(self, "mainInsightLogModeValue"):
+            self.mainInsightLogModeValue.setText(self.trText("实时输出", "Live output") if self.currentLogMode == "live" else (os.path.basename(self.loadedLogPath) or self.trText("文件日志", "File log")))
+        if hasattr(self, "mainInsightLastScriptValue"):
+            script_name = self.txtGumTraceFileName.text().strip() if hasattr(self, "txtGumTraceFileName") else ""
+            self.mainInsightLastScriptValue.setText(script_name or self.trText("尚未生成 GumTrace 脚本", "No GumTrace script generated yet"))
+        if hasattr(self, "gumTraceSummaryCard") and hasattr(self, "txtGumTraceFileName"):
+            mode_text = self.cmbGumTraceMode.currentData() or GumTraceUtil.MODE_MANUAL
+            file_name = self.txtGumTraceFileName.text().strip() or self.trText("未生成脚本", "No generated script")
+            self.gumTraceSummaryCard.valueLabel.setText(f"{mode_text} · {file_name}")
+        if hasattr(self, "labGumTraceScriptSummary") and hasattr(self, "txtGumTraceOutput"):
+            self.labGumTraceScriptSummary.setText(self.trText("输出路径：", "Output path: ") + (self.txtGumTraceOutput.text().strip() or "/data/local/tmp/gumtrace.log"))
+        if hasattr(self, "labGumTraceFilterSummary") and hasattr(self, "txtGumTraceTraceModules"):
+            self.labGumTraceFilterSummary.setText(self.trText("模块白名单 / 线程过滤：", "Modules / threads: ") + (self.txtGumTraceTraceModules.text().strip() or "-") + " / " + (self.txtGumTraceAllowedThreads.text().strip() or self.trText("不限", "all")))
+        if hasattr(self, "labAssistGumTraceRemote"):
+            self.labAssistGumTraceRemote.setText(self.trText("默认远端日志：", "Default remote log: ") + (self.txtGumTraceOutput.text().strip() if hasattr(self, "txtGumTraceOutput") else "/data/local/tmp/gumtrace.log"))
+            self.labAssistGumTraceLocal.setText(self.trText("本地下载目录：", "Local download dir: ") + os.path.abspath("./logs/gumtrace"))
+            self.labAssistGumTraceFilters.setText(self.trText("线程 / 模块过滤：", "Thread / module filters: ") + (self.txtGumTraceAllowedThreads.text().strip() or self.trText("不限", "all")) + " / " + (self.txtGumTraceTraceModules.text().strip() or "-"))
+
     def refreshAiState(self):
         available = self.aiService.is_available()
         missing_message = self.aiService.missing_message("English" if self.isEnglish() else "China")
@@ -894,8 +1428,11 @@ class kmainForm(QMainWindow, Ui_MainWindow):
                 self.labAiFeatureStatusMain.setText(self.trText("AI 能力：已配置，可在“自定义”模块生成 Hook，并在日志页签执行 AI 分析。", "AI ready: use the Custom module to generate hooks and the log tab to run AI analysis."))
             else:
                 self.labAiFeatureStatusMain.setText(self.trText("AI 能力：", "AI status: ") + missing_message)
+        if hasattr(self, "aiSummaryCard"):
+            self.aiSummaryCard.valueLabel.setText(self.trText("已配置，可写 Hook 与分析日志", "Configured for hook generation and log analysis") if available else missing_message)
         if hasattr(self, "txtAiAnalysis") and not available:
             self.txtAiAnalysis.setPlainText(missing_message)
+        self.refreshOverviewCards()
 
     def openAiSettings(self):
         self.aiSettingsForm.loadConfig()
@@ -921,6 +1458,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.groupLogs.setCurrentWidget(self.tab_5)
         self.labLogStatus.setText(self.trText("当前日志：", "Current log: ") + os.path.basename(filepath[0]))
         self.log(self.trText("已加载日志文件：", "Loaded log file: ") + filepath[0])
+        self.refreshOverviewCards()
 
     def restoreLiveLog(self):
         self.currentLogMode = "live"
@@ -928,6 +1466,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.loadedLogContent = ""
         self.txtoutLogs.setPlainText("\n".join(self.liveOutputLogBuffer))
         self.labLogStatus.setText(self.trText("当前日志：实时输出", "Current log: live output"))
+        self.refreshOverviewCards()
 
     def analyzeLogWithAi(self):
         if not self.aiService.is_available():
@@ -1247,6 +1786,10 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             if len(package_name) > 0 and package_name not in package_candidates:
                 package_candidates.append(package_name)
         remote_patterns = ["/data/local/tmp/gumtrace*.log", "/sdcard/gumtrace*.log"]
+        if hasattr(self, "txtGumTraceOutput"):
+            custom_output = self.txtGumTraceOutput.text().strip()
+            if len(custom_output) > 0 and custom_output not in remote_patterns:
+                remote_patterns.insert(0, custom_output)
         for package_name in package_candidates:
             remote_patterns.append(f"/data/data/{package_name}/files/gumtrace*.log")
             remote_patterns.append(f"/data/user/0/{package_name}/files/gumtrace*.log")
@@ -1280,7 +1823,11 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         if "does not exist" in pull_res or "error" in pull_res.lower() or "failed" in pull_res.lower():
             QMessageBox().information(self, "hint", self.trText("下载 GumTrace 日志失败：", "Failed to download GumTrace log: ") + pull_res)
             return
+        self.refreshOverviewCards()
         QMessageBox().information(self, "hint", self.trText("GumTrace 日志下载完成：", "GumTrace log downloaded: ") + local_path)
+        should_open_dir = hasattr(self, "chkGumTraceOpenDir") and self.chkGumTraceOpenDir.isChecked()
+        if should_open_dir:
+            self.openGumTraceLogDirectory()
 
     def PullApk(self):
         cmdtp = "grep"
@@ -1437,6 +1984,24 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.labQuickScriptHint.setText(self.trText("适合快速开关的高频 Frida 脚本，优先提供日志、监控与通用绕过能力。", "High-frequency Frida presets for quick toggling, focused on logging, monitoring and common bypass tasks."))
         self.advancedToolGroup.setTitle(self.trText("高级工具 / 自定义", "Advanced tools / Custom"))
         self.labAdvancedToolHint.setText(self.trText("需要额外参数或人工编排时，使用这些高级模块；AI 生成 Hook 位于自定义模块中。", "Use these modules when extra parameters or manual orchestration are needed; AI hook generation lives in the custom module."))
+        self.connectionSummaryCard.titleLabel.setText(self.trText("连接状态", "Connection"))
+        self.packageSummaryCard.titleLabel.setText(self.trText("目标包名", "Target package"))
+        self.aiSummaryCard.titleLabel.setText(self.trText("AI 能力", "AI status"))
+        self.gumTraceSummaryCard.titleLabel.setText(self.trText("GumTrace 工作台", "GumTrace workbench"))
+
+        self.btnGumTracePanel.setText(self.trText("GumTrace 面板", "GumTrace panel"))
+        self.labGumTraceQuickHint.setText(self.trText("把 GumTrace 上传、脚本生成、日志下载和线程/模块过滤汇总到主工作台，方便快速切换逆向场景。", "Keep GumTrace upload, script generation, log download and thread/module filters in one place for faster reverse-engineering workflows."))
+        self.labMainInsightHint.setText(self.trText("这里聚合当前 Hook 数量、日志来源和最近生成的 GumTrace 脚本，适合作为操作过程中的状态面板。", "This card summarizes current hook count, log source and the latest GumTrace script as a live operator dashboard."))
+        self.mainInsightHookCountTitle.setText(self.trText("当前 Hook 数", "Hook count"))
+        self.mainInsightLogModeTitle.setText(self.trText("日志来源", "Log source"))
+        self.mainInsightLastScriptTitle.setText(self.trText("最近 GumTrace 脚本", "Latest GumTrace script"))
+        self.btnOpenGumTraceTab.setText(self.trText("打开 GumTrace 面板", "Open GumTrace panel"))
+        self.btnGenerateGumTraceFromMain.setText(self.trText("生成并激活脚本", "Generate and activate"))
+        self.btnGumTraceUploadMain.setText(self.trText("上传 GumTrace 库", "Upload GumTrace library"))
+        self.btnGumTraceDownloadMain.setText(self.trText("下载 GumTrace 日志", "Download GumTrace log"))
+        self.btnMainRefreshAppInfo.setText(self.trText("刷新前台应用", "Refresh foreground app"))
+        self.btnMainOpenCustom.setText(self.trText("打开自定义模块", "Open Custom module"))
+        self.btnMainOpenGumTrace.setText(self.trText("切到 GumTrace 面板", "Go to GumTrace panel"))
         self.chkRootBypass.setText("root bypass")
         self.chkWebViewDebug.setText("webview debug")
         self.chkOkHttpLogger.setText("okhttp logger")
@@ -1444,10 +2009,13 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.chkSQLiteLogger.setText("sqlite logger")
         self.chkClipboardMonitor.setText("clipboard monitor")
         self.chkIntentMonitor.setText("intent monitor")
+        self.attachWorkbenchHeader.setText(self.trText("将 Native 与 Java 搜索流程拆分为上下两层，并把查询动作单独收纳为工具卡片，查模块、符号、类和函数时更聚焦。", "Native and Java exploration are split into two focused layers, with action buttons grouped into tool cards for cleaner module, symbol, class and method searches."))
         self.groupBox_7.setTitle(self.trText("附加进程逆向信息", "Attached process RE info"))
         self.labAttachedInfoHint.setText(self.trText("这里汇总 Frida 运行时、应用包信息、模块/类数量和调试属性，便于附加后快速判断分析切入点。", "This panel summarizes Frida runtime data, package metadata, module/class counts and debug-related flags to help pick an analysis entry point quickly."))
+        self.labAppWorkbenchHint.setText(self.trText("把前台应用基础信息和扩展元数据拆成左右两栏，适合边刷新边查看版本、ABI、数据目录与调试标记。", "Foreground app basics and extended metadata are split into two columns so version, ABI, data paths and debug flags stay readable during refreshes."))
         self.currentAppExtraGroup.setTitle(self.trText("当前前台应用补充信息", "Foreground app extra info"))
         self.labCurrentAppInfoHint.setText(self.trText("这里基于 dumpsys / pm 输出补充显示版本、ABI、调试标记、数据目录等信息。", "This panel augments dumpsys / pm results with version, ABI, debug flags and data-path details."))
+        self.assistWorkbenchHeader.setText(self.trText("辅助页拆分为“后处理工具”和“GumTrace 日志中心”，方便在脚本运行后直接做日志整理、下载与回放。", "The assist page is split into post-processing tools and a GumTrace log center for faster cleanup, download and replay after tracing."))
         self.groupLogs.setTabText(self.groupLogs.indexOf(self.aiAnalysisTab), self.trText("AI 分析", "AI Analysis"))
         self.labOutputLogView.setText(self.trText("输出日志视图", "Output log view"))
         self.txtLogs.setPlaceholderText(self.trText("日志将在这里滚动显示...", "Logs will stream here..."))
@@ -1465,6 +2033,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), self.trText("附加进程信息", "Attach process info"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_6), self.trText("应用信息", "App info"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_7), self.trText("辅助功能", "Assist work"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.gumTraceTab), self.trText("GumTrace 工作台", "GumTrace workbench"))
         self.btnDumpPtr.setText(self.trText("dump指定地址", "dump address"))
         self.btnDumpDex.setText(self.trText("dump_dex加载class后调用", "dump dex after class load"))
         self.btnCallFunction.setText(self.trText("函数重放", "function replay"))
@@ -1484,6 +2053,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.groupBox_4.setTitle(self.trText("java类列表", "Java class list"))
         self.groupBox_5.setTitle(self.trText("符号", "Symbols"))
         self.groupBox_6.setTitle(self.trText("java函数", "Java methods"))
+        self.nativeActionGroup.setTitle(self.trText("Native 查询动作", "Native query actions"))
+        self.javaActionGroup.setTitle(self.trText("Java 查询动作", "Java query actions"))
         self.btnSymbolClear.setText(self.trText("清空", "Clear"))
         self.btnMethod.setText(self.trText("查询函数", "Search methods"))
         self.btnMethodClear.setText(self.trText("清空", "Clear"))
@@ -1495,11 +2066,52 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.label_10.setText(self.trText("进程名：", "Process name:"))
         self.label_11.setText(self.trText("进程id：", "PID:"))
         self.label_13.setText(self.trText("base路径：", "Base path:"))
-        self.groupBox_9.setTitle(self.trText("功能", "Tools"))
+        self.groupBox_9.setTitle(self.trText("后处理工具", "Post-processing tools"))
+        self.groupBox_10.setTitle(self.trText("GumTrace 日志中心", "GumTrace log center"))
+        self.labAssistGumTraceHint.setText(self.trText("这里收纳 GumTrace 产物相关入口：上传动态库、下载日志、打开目录、跳转配置面板，减少在主界面和菜单间来回切换。", "This card keeps GumTrace artifacts together: upload the library, download logs, open the local folder and jump to the config workbench without bouncing between the main page and menus."))
         self.btnFartOpBin.setText(self.trText("fart处理bin数据", "process fart bin data"))
         self.btnOpStalkerLog.setText(self.trText("stalker输出整理", "format stalker output"))
         self.btnPullGumTraceLog.setText(self.trText("下载GumTrace日志", "download GumTrace log"))
-        self.groupBox_10.setTitle(self.trText("todo", "Reserved"))
+        self.btnOpenGumTraceDir.setText(self.trText("打开本地日志目录", "open local log directory"))
+        self.btnAssistUploadGumTrace.setText(self.trText("上传 GumTrace 库", "upload GumTrace library"))
+        self.btnOpenGumTraceWorkspace.setText(self.trText("打开 GumTrace 面板", "open GumTrace workbench"))
+        self.gumTraceConfigGroup.setTitle(self.trText("GumTrace 可视化配置", "Visual GumTrace configuration"))
+        self.gumTracePreviewGroup.setTitle(self.trText("脚本预览与产物摘要", "Script preview and artifact summary"))
+        self.labGumTraceWorkbenchHint.setText(self.trText("这里提供 GumTrace 专用配置面板：可视化设置触发模式、线程过滤、模块白名单、输出路径，并一键生成符合 custom 模块格式的脚本。", "This dedicated GumTrace workbench lets you configure trigger mode, thread filters, module whitelists and output paths visually, then generate scripts that match the custom-module format in one click."))
+        self.labGumTraceConfigHint.setText(self.trText("推荐流程：先选触发模式，再填写模块白名单与线程过滤；若是 offset/export 模式，补充触发模块和偏移/导出名，最后生成并加入当前 Hook 列表。", "Recommended flow: choose a trigger mode, fill module whitelist and thread filters, then add trigger module plus offsets/exports for offset/export modes before generating and activating the script."))
+        self.labGumTracePreviewHint.setText(self.trText("右侧会实时预览生成的脚本。保存配置只写入本地 conf.ini；生成脚本则写入 custom 仓库，可按需加入当前 Hook 列表。", "The right side previews the generated script. Saving settings only updates local conf.ini, while generating writes into the custom repository and can optionally add the script to the active hook list."))
+        self.gumTraceFormLayout.labelForField(self.txtGumTraceName).setText(self.trText("脚本别名：", "Alias:"))
+        self.gumTraceFormLayout.labelForField(self.txtGumTraceFileName).setText(self.trText("脚本文件：", "Filename:"))
+        self.gumTraceFormLayout.labelForField(self.cmbGumTraceMode).setText(self.trText("触发模式：", "Trigger mode:"))
+        self.gumTraceFormLayout.labelForField(self.txtGumTraceTraceModules).setText(self.trText("模块白名单：", "Module whitelist:"))
+        self.gumTraceFormLayout.labelForField(self.txtGumTraceTriggerModule).setText(self.trText("触发模块：", "Trigger module:"))
+        self.gumTraceFormLayout.labelForField(self.txtGumTraceOffsets).setText(self.trText("偏移列表：", "Offsets:"))
+        self.gumTraceFormLayout.labelForField(self.txtGumTraceExports).setText(self.trText("导出列表：", "Exports:"))
+        self.gumTraceFormLayout.labelForField(self.txtGumTraceOutput).setText(self.trText("日志输出：", "Output log:"))
+        self.gumTraceFormLayout.labelForField(self.txtGumTraceAllowedThreads).setText(self.trText("线程过滤：", "Allowed TIDs:"))
+        self.gumTraceFormLayout.labelForField(self.txtGumTraceThreadId).setText(self.trText("GumTrace 线程：", "GumTrace thread:"))
+        self.gumTraceFormLayout.labelForField(self.txtGumTraceOptions).setText(self.trText("运行选项：", "Trace options:"))
+        self.txtGumTraceName.setPlaceholderText(self.trText("例如：SSL 读写触发追踪", "Example: SSL read/write trace profile"))
+        self.txtGumTraceFileName.setPlaceholderText(self.trText("例如：gumtrace_ssl_profile.js", "Example: gumtrace_ssl_profile.js"))
+        self.txtGumTraceTraceModules.setPlaceholderText(self.trText("多个模块用逗号分隔，例如：libssl.so,libcrypto.so", "Comma-separated modules, e.g. libssl.so,libcrypto.so"))
+        self.txtGumTraceTriggerModule.setPlaceholderText(self.trText("例如：libssl.so", "Example: libssl.so"))
+        self.txtGumTraceOffsets.setPlaceholderText(self.trText("多个偏移用逗号分隔，例如：0x1234,0x1888", "Comma-separated offsets, e.g. 0x1234,0x1888"))
+        self.txtGumTraceExports.setPlaceholderText(self.trText("多个导出名用逗号分隔，例如：SSL_read,SSL_write", "Comma-separated exports, e.g. SSL_read,SSL_write"))
+        self.txtGumTraceOutput.setPlaceholderText(self.trText("例如：/data/local/tmp/gumtrace_ssl.log", "Example: /data/local/tmp/gumtrace_ssl.log"))
+        self.txtGumTraceAllowedThreads.setPlaceholderText(self.trText("可填线程ID列表，例如：1234,0x5678；留空则不过滤", "Optional TID list, e.g. 1234,0x5678; leave empty to disable filtering"))
+        self.txtGumTraceThreadId.setPlaceholderText(self.trText("默认 0 表示由 GumTrace 自行处理", "Default 0 lets GumTrace decide"))
+        self.txtGumTraceOptions.setPlaceholderText(self.trText("默认 0，可按 GumTrace 需要填写其他值", "Default 0; change only if your GumTrace build needs it"))
+        self.chkGumTraceStopOnLeave.setText(self.trText("函数返回后自动停止追踪", "Stop trace on leave"))
+        self.chkGumTraceAllowRepeat.setText(self.trText("允许重复触发追踪", "Allow repeated tracing"))
+        self.chkGumTraceAutoAddHook.setText(self.trText("生成后自动加入当前 Hook 列表", "Auto add to active hook list"))
+        self.chkGumTraceOpenDir.setText(self.trText("下载日志后自动打开目录", "Open directory after download"))
+        self.btnGumTraceSaveConfig.setText(self.trText("保存配置", "Save config"))
+        self.btnGumTracePreview.setText(self.trText("刷新预览", "Refresh preview"))
+        self.btnGumTraceSaveCustom.setText(self.trText("仅写入脚本仓库", "Save to script library"))
+        self.btnGumTraceActivate.setText(self.trText("生成并加入当前 Hook", "Generate and activate"))
+        self.btnGumTraceOpenCustom.setText(self.trText("打开自定义模块", "Open Custom module"))
+        self.btnGumTraceUpload.setText(self.trText("上传 GumTrace 库", "Upload GumTrace library"))
+        self.btnGumTraceDownload.setText(self.trText("下载 GumTrace 日志", "Download GumTrace log"))
         self.menufile.setTitle(self.trText("文件", "file"))
         self.menuedit.setTitle(self.trText("执行", "run"))
         self.menuAttach.setTitle(self.trText("附加进程", "attach"))
@@ -1544,6 +2156,9 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.actionattachF.setToolTip("attach current top app")
         self.actionspawn.setText("spawn")
         self.actionstop.setText("stop")
+        self.cmbGumTraceMode.setItemText(0, self.trText("手动启动", "Manual"))
+        self.cmbGumTraceMode.setItemText(1, self.trText("偏移触发", "Offset trigger"))
+        self.cmbGumTraceMode.setItemText(2, self.trText("导出触发", "Export trigger"))
         self.labStatus.setText(self.trText("当前状态:已连接", "Status: connected") if self.actionStop.isEnabled() else self.trText("当前状态:未连接", "Status: disconnected"))
         if self.currentLogMode == "file" and self.loadedLogPath:
             self.labLogStatus.setText(self.trText("当前日志：", "Current log: ") + os.path.basename(self.loadedLogPath))
@@ -1554,6 +2169,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.refreshAiState()
         self.refreshHookMetadataLanguage()
         self.updateTabHooks()
+        self.refreshOverviewCards()
         self.refreshChildTranslations()
 
     def switchLanguage(self, language):
@@ -1657,6 +2273,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             if name not in packageData:
                 packageFile.write(name + "\n")
         self.labPackage.setText(name)
+        self.refreshOverviewCards()
         # appinfo=self.th.default_api.loadappinfo()
         # self.loadAppInfo(appinfo)
 
@@ -1758,6 +2375,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.labPackage.setText("")
             self.attachedAppInfoSnapshot = {}
             self.updateAttachedInfoTable()
+        self.refreshOverviewCards()
 
     # 根据进程名进行附加进程
     def actionAttachNameStart(self):
@@ -2129,16 +2747,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.customForm.initData()
         self.customForm.refreshAiState()
         self.customForm.exec()
-        if len(self.customForm.customHooks) > 0:
-            self.hooksData["custom"] = []
-            for item in self.customForm.customHooks:
-                self.hooksData["custom"].append({"class": item["name"], "method": item["fileName"],
-                                                 "bak": item["bak"], "fileName": item["fileName"]})
-                self.updateTabHooks()
-        else:
-            if "custom" in self.hooksData:
-                self.hooksData.pop("custom")
-                self.updateTabHooks()
+        self.syncCustomHooksToMain()
+        self.refreshOverviewCards()
 
     def tuoke(self):
         tform = tuokeForm()
@@ -2283,6 +2893,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
                 self.tabHooks.setItem(line, 2, QTableWidgetItem(self.hooksData[item]["method"]))
                 self.tabHooks.setItem(line, 3, QTableWidgetItem(self.hooksData[item]["bak"]))
                 line += 1
+        self.refreshOverviewCards()
 
     def changeModule(self, data):
         if self.modules == None:
@@ -2421,6 +3032,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         snapshot["hookCount"] = len(self.hooksData)
         self.attachedAppInfoSnapshot = snapshot
         self.updateAttachedInfoTable()
+        self.refreshOverviewCards()
 
         with open("./tmp/" + packageName + ".classes.txt", "w+", encoding="utf-8") as packageTmpFile:
             for item in info["classes"]:
@@ -2495,6 +3107,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.txtBaseDir.setText(baseDir)
         self.currentAppInfoSnapshot = self.queryCurrentAppSnapshot(packageName, currentFocus, component, pid, baseDir)
         self.updateCurrentAppInfoTable()
+        self.refreshOverviewCards()
 
     def fartOpBin(self):
         self.fartBinForm.show()

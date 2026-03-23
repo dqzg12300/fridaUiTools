@@ -16,8 +16,52 @@ class aiSettingsForm(QDialog, Ui_AiSettingsDialog):
         self._translate = QtCore.QCoreApplication.translate
         self.btnSubmit.clicked.connect(self.submit)
         self.btnClear.clicked.connect(self.clearUi)
+        self.initSmartUi()
         self.loadConfig()
         self.refreshTranslations()
+
+    def initSmartUi(self):
+        self.resize(640, 320)
+        self.setMinimumSize(560, 280)
+        for button in [self.btnClear, self.btnSubmit]:
+            button.setMinimumHeight(40)
+        self.setStyleSheet("""
+        QDialog {
+            background: #f4f7fb;
+        }
+        QGroupBox {
+            background: #ffffff;
+            border: 1px solid #d7dfeb;
+            border-radius: 10px;
+            margin-top: 14px;
+            font-weight: 600;
+            color: #16324a;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            left: 12px;
+            padding: 0 4px;
+        }
+        QPushButton {
+            background: #eef4ff;
+            border: 1px solid #c8d7ee;
+            border-radius: 8px;
+            padding: 10px 12px;
+        }
+        QPushButton:hover {
+            background: #deebff;
+            border-color: #8fb2f0;
+        }
+        QLineEdit {
+            background: #fbfcff;
+            border: 1px solid #cfd8e5;
+            border-radius: 8px;
+            padding: 6px;
+        }
+        QLabel {
+            color: #60738a;
+        }
+        """)
 
     def isEnglish(self):
         return (self.config.read("kmain", "language") or "China") == "English"

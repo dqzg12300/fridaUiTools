@@ -327,6 +327,48 @@ class customForm(QDialog, Ui_CustomDialog):
         with open("./custom/customs.txt", "w", encoding="utf-8") as customFile:
             customFile.write(json.dumps(self.customs, ensure_ascii=False))
 
+    def ensureCustomHook(self, file_name):
+        for hook in self.customHooks:
+            if hook["fileName"] == file_name:
+                return
+        for item in self.customs:
+            if item["fileName"] == file_name:
+                self.customHooks.append(item)
+                break
+        self.updateTabCustomHook()
+
+    def openCustomScript(self, file_name):
+        for item in self.customs:
+            if item["fileName"] == file_name:
+                path = "./custom/" + file_name
+                if os.path.exists(path):
+                    with open(path, "r", encoding="utf-8") as jsfile:
+                        self.txtJsData.setPlainText(jsfile.read())
+                    self.txtJsName.setText(item["name"])
+                    self.txtJsFileName.setText(item["fileName"])
+                    self.txtBak.setText(item["bak"])
+                return
+
+    def upsertCustomScript(self, data, script_text, add_to_hook=False):
+        if len(data.get("fileName", "").strip()) <= 0:
+            data["fileName"] = data["name"] + ".js"
+        save_path = "./custom/" + data["fileName"]
+        with open(save_path, "w", encoding="utf-8") as save_file:
+            save_file.write(script_text)
+        updated = False
+        for idx in range(len(self.customs)):
+            if self.customs[idx]["fileName"] == data["fileName"]:
+                self.customs[idx] = data
+                updated = True
+                break
+        if updated is False:
+            self.customs.append(data)
+        self.save()
+        self.updateTabCustom()
+        if add_to_hook:
+            self.ensureCustomHook(data["fileName"])
+        return save_path
+
     def submit(self):
         if len(self.txtJsName.text().strip()) <= 0:
             QMessageBox().information(self, "hint", self._translate("customForm", "别名不能为空"))
