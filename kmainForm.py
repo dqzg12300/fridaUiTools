@@ -440,24 +440,23 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         if target_tab is not None:
             self.groupLogs.setCurrentWidget(target_tab)
         self.setLogPanelVisible(True)
+        if hasattr(self, "logDock"):
+            self.logDock.raise_()
+
+    def onLogDockVisibilityChanged(self, visible):
+        self.logPanelVisible = visible
+        if hasattr(self, "actionToggleLogDock"):
+            self.actionToggleLogDock.setText(self.trText("隐藏日志侧边栏", "Hide log sidebar") if visible else self.trText("显示日志侧边栏", "Show log sidebar"))
 
     def setLogPanelVisible(self, visible):
         self.logPanelVisible = visible
-        if not hasattr(self, "logSideContainer"):
+        if not hasattr(self, "logDock"):
             return
         if visible:
-            self.logSideContainer.show()
-            self.mainContentSplitter.setSizes(self.lastMainSplitterSizes)
+            self.logDock.show()
         else:
-            if hasattr(self, "mainContentSplitter"):
-                sizes = self.mainContentSplitter.sizes()
-                if len(sizes) == 2 and sizes[1] > 0:
-                    self.lastMainSplitterSizes = sizes
-            self.logSideContainer.hide()
-        if hasattr(self, "btnToggleLogPanel"):
-            self.btnToggleLogPanel.setText(self.trText("隐藏日志面板", "Hide log panel") if visible else self.trText("展开日志面板", "Show log panel"))
-        if hasattr(self, "actionToggleLogDock"):
-            self.actionToggleLogDock.setText(self.trText("隐藏日志面板", "Hide log panel") if visible else self.trText("展开日志面板", "Show log panel"))
+            self.logDock.hide()
+        self.onLogDockVisibilityChanged(self.logDock.isVisible())
 
 
 
@@ -681,42 +680,14 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.mainLeftLayout.setSpacing(10)
         self.mainLeftLayout.addWidget(self.groupBox)
         self.mainLeftLayout.addWidget(self.groupBox_2)
-
-        self.logSideContainer = QtWidgets.QWidget(self.tab_2)
-        self.logSideLayout = QtWidgets.QVBoxLayout(self.logSideContainer)
-        self.logSideLayout.setContentsMargins(0, 0, 0, 0)
-        self.logSideLayout.setSpacing(6)
-        self.logSideHeader = QtWidgets.QHBoxLayout()
-        self.logSideHeader.setContentsMargins(0, 0, 0, 0)
-        self.labLogPanelTitle = QLabel(self.logSideContainer)
-        self.logSideHeader.addWidget(self.labLogPanelTitle)
-        self.logSideHeader.addStretch(1)
-        self.btnToggleLogPanel = QtWidgets.QPushButton(self.logSideContainer)
-        self.btnToggleLogPanel.setMaximumWidth(120)
-        self.btnToggleLogPanel.setCursor(Qt.PointingHandCursor)
-        self.btnToggleLogPanel.clicked.connect(self.toggleLogDock)
-        self.logSideHeader.addWidget(self.btnToggleLogPanel)
-        self.logSideLayout.addLayout(self.logSideHeader)
-        self.logSideLayout.addWidget(self.groupLogs)
-
-        self.mainContentSplitter = QtWidgets.QSplitter(Qt.Horizontal, self.tab_2)
-        self.mainContentSplitter.setChildrenCollapsible(False)
-        self.mainContentSplitter.addWidget(self.mainLeftWidget)
-        self.mainContentSplitter.addWidget(self.logSideContainer)
-        self.mainContentSplitter.setStretchFactor(0, 7)
-        self.mainContentSplitter.setStretchFactor(1, 4)
-        self.mainContentSplitter.setSizes(self.lastMainSplitterSizes)
-        self.gridLayout_6.addWidget(self.mainContentSplitter, 0, 0, 1, 1)
-
-        self.actionToggleLogDock = QAction(self)
-        self.actionToggleLogDock.triggered.connect(self.toggleLogDock)
-        self.toolBar.addAction(self.actionToggleLogDock)
+        self.gridLayout_6.addWidget(self.mainLeftWidget, 0, 0, 1, 1)
 
         self.configureClassicMainPanels()
         self.configureInfoTabs()
         self.configureAttachExplorerTab()
         self.configureAssistTab()
         self.configureLogWidgets()
+        self.initLogDock()
         self.setLogPanelVisible(True)
 
     def configureClassicMainPanels(self):
@@ -1051,7 +1022,24 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         return button
 
     def initLogDock(self):
-        return
+        if hasattr(self, "logDock"):
+            return
+        self.logDock = QtWidgets.QDockWidget(self)
+        self.logDock.setObjectName("logDock")
+        self.logDock.setAllowedAreas(Qt.RightDockWidgetArea)
+        self.logDock.setFeatures(
+            QtWidgets.QDockWidget.DockWidgetClosable |
+            QtWidgets.QDockWidget.DockWidgetMovable |
+            QtWidgets.QDockWidget.DockWidgetFloatable
+        )
+        self.logDock.setMinimumWidth(360)
+        self.logDock.setWidget(self.groupLogs)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.logDock)
+        self.logDock.visibilityChanged.connect(self.onLogDockVisibilityChanged)
+        self.actionToggleLogDock = QAction(self)
+        self.actionToggleLogDock.triggered.connect(self.toggleLogDock)
+        self.toolBar.addAction(self.actionToggleLogDock)
+        self.onLogDockVisibilityChanged(True)
 
 
     def configureLogWidgets(self):
@@ -2069,7 +2057,6 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.btnRefreshDevices.setText(self.trText("刷新设备", "Refresh devices")) if hasattr(self, "btnRefreshDevices") else None
         self.groupLogs.setTabText(self.groupLogs.indexOf(self.aiAnalysisTab), self.trText("AI 分析", "AI Analysis"))
         self.labOutputLogView.setText(self.trText("输出日志视图", "Output log view"))
-        self.labLogPanelTitle.setText(self.trText("日志 / Hook / AI 面板", "Logs / Hooks / AI panel")) if hasattr(self, "labLogPanelTitle") else None
         self.txtLogs.setPlaceholderText(self.trText("日志将在这里滚动显示...", "Logs will stream here..."))
         self.txtoutLogs.setPlaceholderText(self.trText("日志将在这里滚动显示...", "Logs will stream here..."))
         self.txtAiAnalysis.setPlaceholderText(self.trText("AI 分析结果会显示在这里", "AI analysis output will appear here"))
@@ -2077,8 +2064,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.btnRestoreLiveLog.setText(self.trText("恢复实时日志", "Restore live log"))
         self.btnAnalyzeLog.setText(self.trText("AI 分析日志", "AI analyze log"))
         self.actionAiSettings.setText(self.trText("AI 设置", "AI Settings"))
-        self.btnToggleLogPanel.setText(self.trText("隐藏日志面板", "Hide log panel")) if hasattr(self, "btnToggleLogPanel") else None
-        self.actionToggleLogDock.setText(self.trText("隐藏日志面板", "Hide log panel")) if hasattr(self, "actionToggleLogDock") else None
+        self.logDock.setWindowTitle(self.trText("日志 / Hook / AI 侧边栏", "Logs / Hooks / AI sidebar")) if hasattr(self, "logDock") else None
+        self.actionToggleLogDock.setText(self.trText("隐藏日志侧边栏", "Hide log sidebar")) if hasattr(self, "actionToggleLogDock") else None
         self.menuSettings.setTitle(self.trText("设置", "Settings"))
         self.groupLogs.setTabText(self.groupLogs.indexOf(self.tab_3), self.trText("操作日志", "Operation log"))
         self.groupLogs.setTabText(self.groupLogs.indexOf(self.tab_5), self.trText("输出日志", "Output log"))
@@ -2216,7 +2203,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         else:
             self.labLogStatus.setText(self.trText("当前日志：实时输出", "Current log: live output"))
         self.onDeviceChanged() if hasattr(self, "cmbDevices") else None
-        self.setLogPanelVisible(self.logPanelVisible) if hasattr(self, "logSideContainer") else None
+        self.onLogDockVisibilityChanged(self.logDock.isVisible()) if hasattr(self, "logDock") else None
         self.updateCurrentAppInfoTable()
         self.updateAttachedInfoTable()
         self.refreshAiState()
