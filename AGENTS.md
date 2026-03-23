@@ -40,4 +40,7 @@
 - Main window default size is intentionally larger (`1440x960`, min `1240x860`) and common-tool cards also reflow responsively via `rebuildResponsiveCards()` to avoid clipped/overlapping buttons.
 - GumTrace integration uses the upstream release asset `exec/libGumTrace.so` (currently from `lidongyooo/GumTrace` release `1.2.0`), uploaded through the dynamic `actionPushGumTrace` menu item to `/data/local/tmp/libGumTrace.so`.
 - The custom-script catalog now includes `custom/GumTrace_trace_sample.js`, which exposes `call_funs.gumtrace_start/gumtrace_stop/gumtrace_help` and keeps auto-trace disabled by default for safety.
+- Assist-work tab now includes `btnPullGumTraceLog`, which searches common remote locations (`/data/local/tmp`, `/sdcard`, current package `files/`) for `gumtrace*.log`, copies private-app logs to `/sdcard/gumtrace_export/` when needed, then pulls them into `./logs/gumtrace/`.
+- Beyond the base GumTrace sample, the custom-script catalog now also ships `GumTrace_offset_auto_trace.js` (offset trigger) and `GumTrace_export_trigger_trace.js` (export/symbol trigger) for more realistic native-analysis workflows.
+
 

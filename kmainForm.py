@@ -261,6 +261,11 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.btnFlush.clicked.connect(self.appInfoFlush)
         self.btnFartOpBin.clicked.connect(self.fartOpBin)
         self.btnOpStalkerLog.clicked.connect(self.stalkerOpLog)
+        self.btnPullGumTraceLog = QtWidgets.QPushButton(self.groupBox_9)
+        self.btnPullGumTraceLog.setObjectName("btnPullGumTraceLog")
+        self.btnPullGumTraceLog.setMaximumSize(QtCore.QSize(180, 60))
+        self.gridLayout_15.addWidget(self.btnPullGumTraceLog, 0, 2, 1, 1)
+        self.btnPullGumTraceLog.clicked.connect(self.pullGumTraceLog)
         # self.btnOpFartLog.clicked.connect(self.fartOpLog)
         self.btnMemSearch.clicked.connect(self.searchMem)
         self.btnAntiFrida.clicked.connect(self.antiFrida)
@@ -1236,6 +1241,47 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             return
         QMessageBox().information(self, "hint", self._translate("kmainForm",  "下载完成.输出结果在目录./fartdump/%s/") % pname)
 
+    def pullGumTraceLog(self):
+        package_candidates = []
+        for package_name in [self.labPackage.text().strip(), self.txtProcessName.text().strip()]:
+            if len(package_name) > 0 and package_name not in package_candidates:
+                package_candidates.append(package_name)
+        remote_patterns = ["/data/local/tmp/gumtrace*.log", "/sdcard/gumtrace*.log"]
+        for package_name in package_candidates:
+            remote_patterns.append(f"/data/data/{package_name}/files/gumtrace*.log")
+            remote_patterns.append(f"/data/user/0/{package_name}/files/gumtrace*.log")
+        search_cmd = "for p in %s; do if [ -f \"$p\" ]; then echo \"$p\"; fi; done | head -n 1" % " ".join(remote_patterns)
+        search_res = CmdUtil.adbshellCmd(search_cmd)
+        self.log(search_res)
+        remote_path = self.firstShellOutputLine(search_res)
+        if len(remote_path) <= 0:
+            QMessageBox().information(self, "hint", self.trText("未找到 GumTrace 日志。默认会搜索 /data/local/tmp、/sdcard 以及当前包名的 files 目录。", "No GumTrace log was found. Searched /data/local/tmp, /sdcard and the current package files directories."))
+            return
+
+        export_path = remote_path
+        if not (remote_path.startswith("/sdcard/") or remote_path.startswith("/data/local/tmp/")):
+            export_dir = "/sdcard/gumtrace_export"
+            export_path = export_dir + "/" + os.path.basename(remote_path)
+            export_res = CmdUtil.adbshellCmd("mkdir -p %s && cp %s %s && chmod 0666 %s" % (export_dir, remote_path, export_path, export_path))
+            self.log(export_res)
+            if "No such file" in export_res or "not found" in export_res:
+                QMessageBox().information(self, "hint", self.trText("复制 GumTrace 日志到 /sdcard 失败：", "Failed to copy GumTrace log to /sdcard: ") + export_res)
+                return
+
+        local_dir = "./logs/gumtrace"
+        if os.path.exists(local_dir) is False:
+            os.makedirs(local_dir)
+        base_name = os.path.basename(export_path)
+        name_root, name_ext = os.path.splitext(base_name)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        local_path = os.path.join(local_dir, "%s_%s%s" % (name_root, timestamp, name_ext or ".log"))
+        pull_res = CmdUtil.execCmd("adb pull %s %s" % (export_path, local_path))
+        self.log(pull_res)
+        if "does not exist" in pull_res or "error" in pull_res.lower() or "failed" in pull_res.lower():
+            QMessageBox().information(self, "hint", self.trText("下载 GumTrace 日志失败：", "Failed to download GumTrace log: ") + pull_res)
+            return
+        QMessageBox().information(self, "hint", self.trText("GumTrace 日志下载完成：", "GumTrace log downloaded: ") + local_path)
+
     def PullApk(self):
         cmdtp = "grep"
         if platform.system() == "Windows":
@@ -1452,6 +1498,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.groupBox_9.setTitle(self.trText("功能", "Tools"))
         self.btnFartOpBin.setText(self.trText("fart处理bin数据", "process fart bin data"))
         self.btnOpStalkerLog.setText(self.trText("stalker输出整理", "format stalker output"))
+        self.btnPullGumTraceLog.setText(self.trText("下载GumTrace日志", "download GumTrace log"))
         self.groupBox_10.setTitle(self.trText("todo", "Reserved"))
         self.menufile.setTitle(self.trText("文件", "file"))
         self.menuedit.setTitle(self.trText("执行", "run"))
@@ -2297,6 +2344,13 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         if match is None:
             return ""
         return match.group(group).strip()
+
+    def firstShellOutputLine(self, text):
+        for line in (text or "").splitlines():
+            line = line.strip()
+            if len(line) > 0 and not line.startswith("cmd命令执行"):
+                return line
+        return ""
 
     def queryCurrentAppSnapshot(self, packageName, currentFocus, component, pid, baseDir):
         snapshot = {
