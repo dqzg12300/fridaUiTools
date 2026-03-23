@@ -50,6 +50,7 @@ class Runthread(QThread):
         self.port=""
         self.attachType=""
         self.customPort=None
+        self.usb_device_id=""
         self.default_api=None
 
     def quit(self):
@@ -489,7 +490,14 @@ class Runthread(QThread):
                 manager = frida.get_device_manager()
                 self.device = manager.add_remote_device(str_host)
             else:
-                self.device = frida.get_usb_device()
+                if self.usb_device_id:
+                    manager = frida.get_device_manager()
+                    try:
+                        self.device = manager.get_device(self.usb_device_id, timeout=5)
+                    except Exception:
+                        self.device = frida.get_usb_device()
+                else:
+                    self.device = frida.get_usb_device()
         elif self.connType=="wifi":
             str_host = "%s:%s"%(self.address,self.port)
             manager = frida.get_device_manager()

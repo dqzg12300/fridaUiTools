@@ -62,6 +62,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.hooksData = {}
         self.initUi()
         self.th = TraceThread.Runthread(self.hooksData, "", False, self.connType)
+        self.th.usb_device_id = self.selectedDeviceSerial()
         self.updateCmbHooks()
         self.outlogger = LogUtil.Logger('all.txt', level='debug')
 
@@ -314,6 +315,9 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.chkClipboardMonitor.tag = "clipboard_monitor"
         self.chkIntentMonitor.tag = "intent_monitor"
         self.connType = "usb"
+        self.selectedDeviceId = ""
+        self.logPanelVisible = True
+        self.lastMainSplitterSizes = [760, 420]
 
         self.actionattach = QtWidgets.QAction(self)
         self.actionattach.setText("attach")
@@ -360,6 +364,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.initGumTraceWorkspace()
         self.loadGumTraceConfig()
         self.retranslateDynamicUi()
+        self.refreshDeviceList()
         self.refreshOverviewCards()
 
     def isEnglish(self):
@@ -367,6 +372,94 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
     def trText(self, zh_text, en_text):
         return en_text if self.isEnglish() else zh_text
+
+    def selectedDeviceSerial(self):
+        if hasattr(self, "cmbDevices"):
+            return (self.cmbDevices.currentData() or "").strip()
+        return (self.selectedDeviceId or "").strip()
+
+    def selectedDeviceLabel(self):
+        if hasattr(self, "cmbDevices") and self.cmbDevices.currentIndex() >= 0:
+            return self.cmbDevices.currentText().strip()
+        return self.selectedDeviceSerial()
+
+    def updateSelectedDevice(self, serial):
+        self.selectedDeviceId = (serial or "").strip()
+        if self.selectedDeviceId:
+            os.environ["ANDROID_SERIAL"] = self.selectedDeviceId
+        elif "ANDROID_SERIAL" in os.environ:
+            os.environ.pop("ANDROID_SERIAL")
+
+    def refreshDeviceList(self):
+        if not hasattr(self, "cmbDevices"):
+            return
+        previous = self.selectedDeviceSerial()
+        previous_env = os.environ.pop("ANDROID_SERIAL", None)
+        try:
+            devices_output = CmdUtil.exec("adb devices")
+        finally:
+            if previous_env is not None:
+                os.environ["ANDROID_SERIAL"] = previous_env
+        devices = []
+        for line in devices_output.splitlines()[1:]:
+            line = line.strip()
+            if not line:
+                continue
+            parts = re.split(r"\s+", line)
+            if len(parts) >= 2 and parts[1] == "device":
+                devices.append(parts[0])
+        self.cmbDevices.blockSignals(True)
+        self.cmbDevices.clear()
+        for serial in devices:
+            self.cmbDevices.addItem(serial, serial)
+        target = previous if previous in devices else (devices[0] if devices else "")
+        if target:
+            self.cmbDevices.setCurrentIndex(devices.index(target))
+        self.cmbDevices.blockSignals(False)
+        self.updateSelectedDevice(target)
+        if hasattr(self, "labDeviceStatus"):
+            if target:
+                self.labDeviceStatus.setText(self.trText("当前设备：", "Current device: ") + target)
+            else:
+                self.labDeviceStatus.setText(self.trText("当前设备：未检测到已连接设备", "Current device: no connected device detected"))
+        self.updateCurrentAppInfoTable()
+        self.refreshOverviewCards()
+
+    def onDeviceChanged(self):
+        self.updateSelectedDevice(self.selectedDeviceSerial())
+        if hasattr(self, "labDeviceStatus"):
+            current = self.selectedDeviceSerial()
+            self.labDeviceStatus.setText((self.trText("当前设备：", "Current device: ") + current) if current else self.trText("当前设备：未检测到已连接设备", "Current device: no connected device detected"))
+        self.updateCurrentAppInfoTable()
+        self.refreshOverviewCards()
+
+    def toggleLogDock(self):
+        self.setLogPanelVisible(not self.logPanelVisible)
+
+    def showLogDock(self, target_tab=None):
+        if target_tab is not None:
+            self.groupLogs.setCurrentWidget(target_tab)
+        self.setLogPanelVisible(True)
+
+    def setLogPanelVisible(self, visible):
+        self.logPanelVisible = visible
+        if not hasattr(self, "logSideContainer"):
+            return
+        if visible:
+            self.logSideContainer.show()
+            self.mainContentSplitter.setSizes(self.lastMainSplitterSizes)
+        else:
+            if hasattr(self, "mainContentSplitter"):
+                sizes = self.mainContentSplitter.sizes()
+                if len(sizes) == 2 and sizes[1] > 0:
+                    self.lastMainSplitterSizes = sizes
+            self.logSideContainer.hide()
+        if hasattr(self, "btnToggleLogPanel"):
+            self.btnToggleLogPanel.setText(self.trText("隐藏日志面板", "Hide log panel") if visible else self.trText("展开日志面板", "Show log panel"))
+        if hasattr(self, "actionToggleLogDock"):
+            self.actionToggleLogDock.setText(self.trText("隐藏日志面板", "Hide log panel") if visible else self.trText("展开日志面板", "Show log panel"))
+
+
 
     def loadTypeData(self):
         typePath = "./config/type_en.json" if self.isEnglish() else "./config/type.json"
@@ -426,6 +519,28 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.tab6Layout.addWidget(self.labAppWorkbenchHint)
         self.groupBox_8.setParent(self.tab_6)
 
+        self.deviceBarWidget = QtWidgets.QWidget(self.groupBox_8)
+        self.deviceBarLayout = QtWidgets.QHBoxLayout(self.deviceBarWidget)
+        self.deviceBarLayout.setContentsMargins(0, 0, 0, 0)
+        self.deviceBarLayout.setSpacing(8)
+        self.labDeviceSelector = QLabel(self.deviceBarWidget)
+        self.cmbDevices = QtWidgets.QComboBox(self.deviceBarWidget)
+        self.cmbDevices.setMinimumWidth(260)
+        self.cmbDevices.currentIndexChanged.connect(self.onDeviceChanged)
+        self.btnRefreshDevices = QtWidgets.QPushButton(self.deviceBarWidget)
+        self.btnRefreshDevices.setCursor(Qt.PointingHandCursor)
+        self.btnRefreshDevices.clicked.connect(self.refreshDeviceList)
+        self.labDeviceStatus = QLabel(self.deviceBarWidget)
+        self.labDeviceStatus.setObjectName("summaryCaption")
+        self.labDeviceStatus.setWordWrap(True)
+        self.deviceBarLayout.addWidget(self.labDeviceSelector)
+        self.deviceBarLayout.addWidget(self.cmbDevices, 1)
+        self.deviceBarLayout.addWidget(self.btnRefreshDevices)
+        self.deviceBarLayout.addWidget(self.labDeviceStatus, 2)
+        self.gridLayout_17.removeWidget(self.frame_3)
+        self.gridLayout_17.addWidget(self.deviceBarWidget, 0, 0, 1, 1)
+        self.gridLayout_17.addWidget(self.frame_3, 1, 0, 1, 1)
+
         self.currentAppExtraGroup = QtWidgets.QGroupBox(self.tab_6)
         self.currentAppExtraGroup.setObjectName("currentAppExtraGroup")
         self.currentAppExtraLayout = QtWidgets.QVBoxLayout(self.currentAppExtraGroup)
@@ -464,6 +579,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         if len(data) <= 0:
             return []
         return [
+            (self.trText("连接设备", "Selected device"), self.selectedDeviceLabel()),
             (self.trText("包名", "Package"), data.get("packageName")),
             (self.trText("进程名", "Process"), data.get("processName")),
             ("PID", data.get("pid")),
@@ -539,8 +655,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.setInfoTableRows(self.attachInfoTable, self.buildAttachedInfoRows())
 
     def initSmartLayout(self):
-        self.resize(1180, 860)
-        self.setMinimumSize(980, 760)
+        self.resize(1320, 860)
+        self.setMinimumSize(1080, 760)
         self.tabWidget.setDocumentMode(False)
         self.groupLogs.setDocumentMode(False)
         self.groupLogs.setTabPosition(QtWidgets.QTabWidget.North)
@@ -555,11 +671,53 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             button.setMinimumHeight(40)
             button.setCursor(Qt.PointingHandCursor)
 
+        self.gridLayout_6.removeWidget(self.groupBox)
+        self.gridLayout_6.removeWidget(self.groupBox_2)
+        self.gridLayout_6.removeWidget(self.groupLogs)
+
+        self.mainLeftWidget = QtWidgets.QWidget(self.tab_2)
+        self.mainLeftLayout = QtWidgets.QVBoxLayout(self.mainLeftWidget)
+        self.mainLeftLayout.setContentsMargins(0, 0, 0, 0)
+        self.mainLeftLayout.setSpacing(10)
+        self.mainLeftLayout.addWidget(self.groupBox)
+        self.mainLeftLayout.addWidget(self.groupBox_2)
+
+        self.logSideContainer = QtWidgets.QWidget(self.tab_2)
+        self.logSideLayout = QtWidgets.QVBoxLayout(self.logSideContainer)
+        self.logSideLayout.setContentsMargins(0, 0, 0, 0)
+        self.logSideLayout.setSpacing(6)
+        self.logSideHeader = QtWidgets.QHBoxLayout()
+        self.logSideHeader.setContentsMargins(0, 0, 0, 0)
+        self.labLogPanelTitle = QLabel(self.logSideContainer)
+        self.logSideHeader.addWidget(self.labLogPanelTitle)
+        self.logSideHeader.addStretch(1)
+        self.btnToggleLogPanel = QtWidgets.QPushButton(self.logSideContainer)
+        self.btnToggleLogPanel.setMaximumWidth(120)
+        self.btnToggleLogPanel.setCursor(Qt.PointingHandCursor)
+        self.btnToggleLogPanel.clicked.connect(self.toggleLogDock)
+        self.logSideHeader.addWidget(self.btnToggleLogPanel)
+        self.logSideLayout.addLayout(self.logSideHeader)
+        self.logSideLayout.addWidget(self.groupLogs)
+
+        self.mainContentSplitter = QtWidgets.QSplitter(Qt.Horizontal, self.tab_2)
+        self.mainContentSplitter.setChildrenCollapsible(False)
+        self.mainContentSplitter.addWidget(self.mainLeftWidget)
+        self.mainContentSplitter.addWidget(self.logSideContainer)
+        self.mainContentSplitter.setStretchFactor(0, 7)
+        self.mainContentSplitter.setStretchFactor(1, 4)
+        self.mainContentSplitter.setSizes(self.lastMainSplitterSizes)
+        self.gridLayout_6.addWidget(self.mainContentSplitter, 0, 0, 1, 1)
+
+        self.actionToggleLogDock = QAction(self)
+        self.actionToggleLogDock.triggered.connect(self.toggleLogDock)
+        self.toolBar.addAction(self.actionToggleLogDock)
+
         self.configureClassicMainPanels()
         self.configureInfoTabs()
         self.configureAttachExplorerTab()
         self.configureAssistTab()
         self.configureLogWidgets()
+        self.setLogPanelVisible(True)
 
     def configureClassicMainPanels(self):
         self.gridLayout_4.setContentsMargins(9, 9, 9, 9)
@@ -663,14 +821,9 @@ class kmainForm(QMainWindow, Ui_MainWindow):
     def configureAssistTab(self):
         self.gridLayout_19.removeWidget(self.groupBox_9)
         self.gridLayout_19.removeWidget(self.groupBox_10)
-
-        self.assistWorkbenchHeader = QLabel(self.tab_7)
-        self.assistWorkbenchHeader.setObjectName("sectionHint")
-        self.assistWorkbenchHeader.setWordWrap(True)
-        self.gridLayout_19.addWidget(self.assistWorkbenchHeader, 0, 0, 1, 1)
-
-        self.groupBox_9.setObjectName("panelCard")
+        self.groupBox_9.hide()
         self.groupBox_10.setObjectName("panelCard")
+
         self.btnOpenGumTraceDir = QtWidgets.QPushButton(self.groupBox_10)
         self.btnOpenGumTraceDir.clicked.connect(self.openGumTraceLogDirectory)
         self.btnOpenGumTraceDir.setMinimumHeight(40)
@@ -681,16 +834,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.btnAssistUploadGumTrace.clicked.connect(self.PushGumTraceLib)
         self.btnAssistUploadGumTrace.setMinimumHeight(40)
 
-        self.assistSplitter = QtWidgets.QSplitter(Qt.Horizontal, self.tab_7)
-        self.assistSplitter.setChildrenCollapsible(False)
-        self.assistSplitter.addWidget(self.groupBox_9)
-        self.assistSplitter.addWidget(self.groupBox_10)
-        self.assistSplitter.setStretchFactor(0, 5)
-        self.assistSplitter.setStretchFactor(1, 6)
-        self.gridLayout_19.addWidget(self.assistSplitter, 1, 0, 1, 1)
-
         self.groupBox10Layout = QtWidgets.QVBoxLayout(self.groupBox_10)
-        self.groupBox10Layout.setContentsMargins(12, 14, 12, 12)
+        self.groupBox10Layout.setContentsMargins(16, 18, 16, 16)
         self.groupBox10Layout.setSpacing(10)
         self.labAssistGumTraceHint = QLabel(self.groupBox_10)
         self.labAssistGumTraceHint.setWordWrap(True)
@@ -713,6 +858,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             button.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
             self.groupBox10Layout.addWidget(button)
         self.groupBox10Layout.addStretch(1)
+        self.gridLayout_19.addWidget(self.groupBox_10, 0, 0, 1, 1)
 
 
     def buildButtonCard(self, title, description, buttons, columns=2):
@@ -905,36 +1051,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         return button
 
     def initLogDock(self):
-        self.logDock = QtWidgets.QDockWidget(self)
-        self.logDock.setObjectName("logDock")
-        self.logDock.setAllowedAreas(Qt.BottomDockWidgetArea)
-        self.logDock.setFeatures(
-            QtWidgets.QDockWidget.DockWidgetClosable |
-            QtWidgets.QDockWidget.DockWidgetMovable |
-            QtWidgets.QDockWidget.DockWidgetFloatable
-        )
-        self.logDock.setWidget(self.groupLogs)
-        self.addDockWidget(Qt.BottomDockWidgetArea, self.logDock)
-        self.logDock.hide()
-        self.actionToggleLogDock = QAction(self)
-        self.actionToggleLogDock.triggered.connect(self.toggleLogDock)
-        self.toolBar.addAction(self.actionToggleLogDock)
-
-    def toggleLogDock(self):
-        if not hasattr(self, "logDock"):
-            return
-        if self.logDock.isVisible():
-            self.logDock.hide()
-        else:
-            self.showLogDock()
-
-    def showLogDock(self, target_tab=None):
-        if not hasattr(self, "logDock"):
-            return
-        if target_tab is not None:
-            self.groupLogs.setCurrentWidget(target_tab)
-        self.logDock.show()
-        self.logDock.raise_()
+        return
 
 
     def configureLogWidgets(self):
@@ -1406,7 +1523,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.loadedLogPath = filepath[0]
         self.currentLogMode = "file"
         self.txtoutLogs.setPlainText(self.loadedLogContent)
-        self.groupLogs.setCurrentWidget(self.tab_5)
+        self.showLogDock(self.tab_5)
         self.labLogStatus.setText(self.trText("当前日志：", "Current log: ") + os.path.basename(filepath[0]))
         self.log(self.trText("已加载日志文件：", "Loaded log file: ") + filepath[0])
         self.refreshOverviewCards()
@@ -1417,7 +1534,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.loadedLogContent = ""
         self.txtoutLogs.setPlainText("\n".join(self.liveOutputLogBuffer))
         self.labLogStatus.setText(self.trText("当前日志：实时输出", "Current log: live output"))
-        self.groupLogs.setCurrentWidget(self.tab_5)
+        self.showLogDock(self.tab_5)
         self.refreshOverviewCards()
 
     def analyzeLogWithAi(self):
@@ -1432,7 +1549,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.btnAnalyzeLog.setEnabled(False)
         self.btnAnalyzeLog.setText(self.trText("分析中...", "Analyzing..."))
         self.txtAiAnalysis.setPlainText(self.trText("AI 正在分析日志，请稍候...", "AI is analyzing the log, please wait..."))
-        self.groupLogs.setCurrentWidget(self.aiAnalysisTab)
+        self.showLogDock(self.aiAnalysisTab)
         self.aiWorker = AiWorker(self.aiService.analyze_log, content)
         self.aiWorker.success.connect(self.onAiAnalysisSuccess)
         self.aiWorker.error.connect(self.onAiAnalysisFailed)
@@ -1442,13 +1559,13 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.btnAnalyzeLog.setEnabled(self.aiService.is_available())
         self.btnAnalyzeLog.setText(self.trText("AI 分析日志", "AI analyze log"))
         self.txtAiAnalysis.setPlainText(result)
-        self.groupLogs.setCurrentWidget(self.aiAnalysisTab)
+        self.showLogDock(self.aiAnalysisTab)
 
     def onAiAnalysisFailed(self, message):
         self.btnAnalyzeLog.setEnabled(self.aiService.is_available())
         self.btnAnalyzeLog.setText(self.trText("AI 分析日志", "AI analyze log"))
         self.txtAiAnalysis.setPlainText(message)
-        self.groupLogs.setCurrentWidget(self.aiAnalysisTab)
+        self.showLogDock(self.aiAnalysisTab)
         QMessageBox().information(self, "hint", message)
 
     def clearSymbol(self):
@@ -1945,12 +2062,14 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.attachWorkbenchHeader.setText(self.trText("将 Native 与 Java 搜索流程拆分为上下两层，并把查询动作单独收纳为工具卡片，查模块、符号、类和函数时更聚焦。", "Native and Java exploration are split into two focused layers, with action buttons grouped into tool cards for cleaner module, symbol, class and method searches."))
         self.groupBox_7.setTitle(self.trText("附加进程逆向信息", "Attached process RE info"))
         self.labAttachedInfoHint.setText(self.trText("这里汇总 Frida 运行时、应用包信息、模块/类数量和调试属性，便于附加后快速判断分析切入点。", "This panel summarizes Frida runtime data, package metadata, module/class counts and debug-related flags to help pick an analysis entry point quickly."))
-        self.labAppWorkbenchHint.setText(self.trText("把前台应用基础信息和扩展元数据拆成左右两栏，适合边刷新边查看版本、ABI、数据目录与调试标记。", "Foreground app basics and extended metadata are split into two columns so version, ABI, data paths and debug flags stay readable during refreshes."))
+        self.labAppWorkbenchHint.setText(self.trText("支持先选择目标手机，再刷新前台应用与扩展元数据。默认会选中第一个已连接设备。", "Choose the target device first, then refresh the foreground app and extended metadata. The first connected device is selected by default."))
         self.currentAppExtraGroup.setTitle(self.trText("当前前台应用补充信息", "Foreground app extra info"))
         self.labCurrentAppInfoHint.setText(self.trText("这里基于 dumpsys / pm 输出补充显示版本、ABI、调试标记、数据目录等信息。", "This panel augments dumpsys / pm results with version, ABI, debug flags and data-path details."))
-        self.assistWorkbenchHeader.setText(self.trText("辅助页拆分为“后处理工具”和“GumTrace 日志中心”，方便在脚本运行后直接做日志整理、下载与回放。", "The assist page is split into post-processing tools and a GumTrace log center for faster cleanup, download and replay after tracing."))
+        self.labDeviceSelector.setText(self.trText("连接手机：", "Device:")) if hasattr(self, "labDeviceSelector") else None
+        self.btnRefreshDevices.setText(self.trText("刷新设备", "Refresh devices")) if hasattr(self, "btnRefreshDevices") else None
         self.groupLogs.setTabText(self.groupLogs.indexOf(self.aiAnalysisTab), self.trText("AI 分析", "AI Analysis"))
         self.labOutputLogView.setText(self.trText("输出日志视图", "Output log view"))
+        self.labLogPanelTitle.setText(self.trText("日志 / Hook / AI 面板", "Logs / Hooks / AI panel")) if hasattr(self, "labLogPanelTitle") else None
         self.txtLogs.setPlaceholderText(self.trText("日志将在这里滚动显示...", "Logs will stream here..."))
         self.txtoutLogs.setPlaceholderText(self.trText("日志将在这里滚动显示...", "Logs will stream here..."))
         self.txtAiAnalysis.setPlaceholderText(self.trText("AI 分析结果会显示在这里", "AI analysis output will appear here"))
@@ -1958,8 +2077,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.btnRestoreLiveLog.setText(self.trText("恢复实时日志", "Restore live log"))
         self.btnAnalyzeLog.setText(self.trText("AI 分析日志", "AI analyze log"))
         self.actionAiSettings.setText(self.trText("AI 设置", "AI Settings"))
-        self.actionToggleLogDock.setText(self.trText("执行日志", "Execution logs")) if hasattr(self, "actionToggleLogDock") else None
-        self.logDock.setWindowTitle(self.trText("执行日志面板", "Execution log panel")) if hasattr(self, "logDock") else None
+        self.btnToggleLogPanel.setText(self.trText("隐藏日志面板", "Hide log panel")) if hasattr(self, "btnToggleLogPanel") else None
+        self.actionToggleLogDock.setText(self.trText("隐藏日志面板", "Hide log panel")) if hasattr(self, "actionToggleLogDock") else None
         self.menuSettings.setTitle(self.trText("设置", "Settings"))
         self.groupLogs.setTabText(self.groupLogs.indexOf(self.tab_3), self.trText("操作日志", "Operation log"))
         self.groupLogs.setTabText(self.groupLogs.indexOf(self.tab_5), self.trText("输出日志", "Output log"))
@@ -2001,11 +2120,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.label_10.setText(self.trText("进程名：", "Process name:"))
         self.label_11.setText(self.trText("进程id：", "PID:"))
         self.label_13.setText(self.trText("base路径：", "Base path:"))
-        self.groupBox_9.setTitle(self.trText("后处理工具", "Post-processing tools"))
-        self.groupBox_10.setTitle(self.trText("GumTrace 日志中心", "GumTrace log center"))
-        self.labAssistGumTraceHint.setText(self.trText("这里收纳 GumTrace 产物相关入口：上传动态库、下载日志、打开目录、跳转配置面板，减少在主界面和菜单间来回切换。", "This card keeps GumTrace artifacts together: upload the library, download logs, open the local folder and jump to the config workbench without bouncing between the main page and menus."))
-        self.btnFartOpBin.setText(self.trText("fart处理bin数据", "process fart bin data"))
-        self.btnOpStalkerLog.setText(self.trText("stalker输出整理", "format stalker output"))
+        self.groupBox_10.setTitle(self.trText("GumTrace 与日志工具", "GumTrace and log tools"))
+        self.labAssistGumTraceHint.setText(self.trText("辅助页只保留 GumTrace 相关能力：上传动态库、下载日志、打开本地目录，以及跳转到 GumTrace 工作台。", "The assist page now keeps only GumTrace-related actions: upload the library, download logs, open the local directory and jump to the GumTrace workbench."))
         self.btnPullGumTraceLog.setText(self.trText("下载GumTrace日志", "download GumTrace log"))
         self.btnOpenGumTraceDir.setText(self.trText("打开本地日志目录", "open local log directory"))
         self.btnAssistUploadGumTrace.setText(self.trText("上传 GumTrace 库", "upload GumTrace library"))
@@ -2099,6 +2215,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.labLogStatus.setText(self.trText("当前日志：", "Current log: ") + os.path.basename(self.loadedLogPath))
         else:
             self.labLogStatus.setText(self.trText("当前日志：实时输出", "Current log: live output"))
+        self.onDeviceChanged() if hasattr(self, "cmbDevices") else None
+        self.setLogPanelVisible(self.logPanelVisible) if hasattr(self, "logSideContainer") else None
         self.updateCurrentAppInfoTable()
         self.updateAttachedInfoTable()
         self.refreshAiState()
@@ -2219,8 +2337,14 @@ class kmainForm(QMainWindow, Ui_MainWindow):
                 manager = frida.get_device_manager()
                 device = manager.add_remote_device(str_host)
                 return device
-            else:
-                return frida.get_usb_device()
+            selected_serial = self.selectedDeviceSerial()
+            if len(selected_serial) > 0:
+                manager = frida.get_device_manager()
+                try:
+                    return manager.get_device(selected_serial, timeout=5)
+                except Exception:
+                    pass
+            return frida.get_usb_device()
         elif self.connType=="wifi":
             str_host = "%s:%s" % (self.address, self.wifi_port)
             manager = frida.get_device_manager()
@@ -2244,6 +2368,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.th.address=self.address
             self.th.port=self.wifi_port
             self.th.customPort=self.customPort
+            self.th.usb_device_id = self.selectedDeviceSerial()
             self.th.taskOverSignel.connect(self.taskOver)
             self.th.loggerSignel.connect(self.log)
             self.th.outloggerSignel.connect(self.outlog)
@@ -2280,6 +2405,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.th.address=self.address
             self.th.port=self.wifi_port
             self.th.customPort = self.customPort
+            self.th.usb_device_id = self.selectedDeviceSerial()
             self.th.taskOverSignel.connect(self.taskOver)
             self.th.loggerSignel.connect(self.log)
             self.th.outloggerSignel.connect(self.outlog)
@@ -2330,6 +2456,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.th = TraceThread.Runthread(self.hooksData, selectPackageForm.packageName, False,self.connType)
             self.th.address=self.address
             self.th.port=self.wifi_port
+            self.th.customPort = self.customPort
+            self.th.usb_device_id = self.selectedDeviceSerial()
             self.th.taskOverSignel.connect(self.taskOver)
             self.th.loggerSignel.connect(self.log)
             self.th.outloggerSignel.connect(self.outlog)
@@ -2999,6 +3127,9 @@ class kmainForm(QMainWindow, Ui_MainWindow):
                             self._translate("kmainForm","\nfridaUiTools: 缝合怪,常用脚本整合的界面化工具 \nAuthor: https://github.com/dqzg12300"))
 
     def appInfoFlush(self):
+        if len(self.selectedDeviceSerial()) <= 0:
+            QMessageBox().information(self, "hint", self.trText("请先选择已连接的手机", "Please select a connected device first"))
+            return
         res = CmdUtil.exec("adb shell dumpsys window")
         m1 = re.search("mCurrentFocus=Window\\{(.+?)\\}", res)
         if m1 == None:

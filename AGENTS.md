@@ -37,14 +37,16 @@
 - Release automation is defined by `.github/workflows/build-release.yml`; it uses `tools/build_release.py` (PyInstaller) and `tools/package_release.py` (zip archive) to publish per-platform artifacts on tag pushes.
 
 - English runtime switching now has a manual fallback layer in `kmainForm.py`, `forms/Custom.py`, and `forms/AiSettings.py`; an offscreen CJK-text scan is a useful regression check after UI changes.
-- Main window default size is intentionally larger (`1440x960`, min `1240x860`) and common-tool cards also reflow responsively via `rebuildResponsiveCards()` to avoid clipped/overlapping buttons.
+- Main window now keeps the classic `main` visual style, but the log container (`groupLogs`) has been moved into a right-side splitter panel controlled by `toggleLogDock()` / `setLogPanelVisible()`; use the toolbar action to re-open it after hiding.
+- The app-info tab now owns the device selector (`cmbDevices`), defaults to the first connected `adb devices` entry, and sets `ANDROID_SERIAL` so all adb-based actions follow the chosen phone.
+- Frida USB attach also follows the selected phone: `kmainForm.getFridaDevice()` and `TraceThread.Runthread.usb_device_id` must stay aligned when multi-device support changes.
+- Assist-work tab was simplified to a single GumTrace/log tool card; the old post-processing buttons remain hidden rather than removed from generated UI.
 - GumTrace integration uses the upstream release asset `exec/libGumTrace.so` (currently from `lidongyooo/GumTrace` release `1.2.0`), uploaded through the dynamic `actionPushGumTrace` menu item to `/data/local/tmp/libGumTrace.so`.
 - The custom-script catalog now includes `custom/GumTrace_trace_sample.js`, which exposes `call_funs.gumtrace_start/gumtrace_stop/gumtrace_help` and keeps auto-trace disabled by default for safety.
 - Assist-work tab now includes `btnPullGumTraceLog`, which searches common remote locations (`/data/local/tmp`, `/sdcard`, current package `files/`) for `gumtrace*.log`, copies private-app logs to `/sdcard/gumtrace_export/` when needed, then pulls them into `./logs/gumtrace/`.
 - Beyond the base GumTrace sample, the custom-script catalog now also ships `GumTrace_offset_auto_trace.js` (offset trigger) and `GumTrace_export_trigger_trace.js` (export/symbol trigger) for more realistic native-analysis workflows.
 
-- Main window was further redesigned into a dashboard/workbench layout: top summary cards + left operation panels + right log/status workspace. Keep future layout tweaks inside `kmainForm.py` dynamic builders instead of editing `ui/kmain.py` directly.
-- Attach-process tab is now organized as `Native explorer -> Java explorer -> attached RE info`; app-info tab uses a horizontal splitter for base info vs extended metadata; assist tab uses a dedicated GumTrace log center.
+- Attach-process tab is now organized as `Native explorer -> Java explorer -> attached RE info`; app-info tab uses a horizontal splitter for base info vs extended metadata plus the device selector; assist tab keeps a dedicated GumTrace/log tool card.
 - A dedicated GumTrace workbench tab now lives in `kmainForm.py` and persists settings in the `[gumtrace]` section of `config/conf.ini`. It generates custom-module-compatible scripts via `utils/GumTraceUtil.py` and can auto-add them to the active custom hook list.
 - `forms/Custom.py` now exposes `upsertCustomScript()`, `ensureCustomHook()`, and `openCustomScript()` so other UI panels can generate/update scripts without duplicating custom-module persistence logic.
 - GumTrace templates (`GumTrace_trace_sample.js`, `GumTrace_offset_auto_trace.js`, `GumTrace_export_trigger_trace.js`) now all support module whitelists and thread-ID filtering; `pullGumTraceLog()` should also honor the workbench-configured output path and auto-open the local directory when enabled.
