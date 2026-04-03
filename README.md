@@ -87,7 +87,6 @@ model = gpt-5.4
 - 未配置 `host`、`apikey`、`model` 时，AI 写脚本和 AI 日志分析会自动禁用
 - `config/ai.local.ini` 建议加入个人忽略列表，不要提交到仓库
 - `host` 支持 OpenAI 兼容接口地址
-
 ## 致谢
 
 * [jnitrace](https://github.com/chame1eon/jnitrace)
