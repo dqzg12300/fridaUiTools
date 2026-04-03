@@ -11,7 +11,6 @@ class fartBinForm(QDialog,Ui_FartBinDialog):
     def __init__(self, parent=None):
         super(fartBinForm, self).__init__(parent)
         self.setupUi(self)
-        self.setWindowOpacity(0.93)
         self.btnSubmit.clicked.connect(self.submit)
         self.btnSelectBinPath.clicked.connect(self.selectBinPath)
         self.btnSelectDexPath.clicked.connect(self.selectDexPath)

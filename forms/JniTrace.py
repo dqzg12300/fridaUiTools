@@ -9,7 +9,6 @@ class jnitraceForm(QDialog,Ui_JniTraceDialog):
     def __init__(self, parent=None):
         super(jnitraceForm, self).__init__(parent)
         self.setupUi(self)
-        self.setWindowOpacity(0.93)
         self.btnSubmit.clicked.connect(self.submit)
         self.moduleName = ""
         self.methodName = ""

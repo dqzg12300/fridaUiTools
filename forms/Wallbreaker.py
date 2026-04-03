@@ -1,29 +1,24 @@
 import json
 
 import click
-from PyQt5 import uic
-from PyQt5.QtWidgets import QDialog, QMessageBox
-
+from PyQt5.QtWidgets import QDialog, QMessageBox, QInputDialog
 from ui.wallBreaker import Ui_Wallbreaker
 from PyQt5 import QtCore
+
 
 class DvmDescConverter:
     def __init__(self, desc):
         self.dvm_desc = desc
 
     def to_java(self):
-        result = str(self.dvm_desc)
-        result = result.strip()
+        result = str(self.dvm_desc).strip()
         dim = 0
         while result.startswith('['):
             result = result[1:]
             dim += 1
-
         if result.startswith('L') and result.endswith(';'):
             result = result[1: -1]
-
         result = result.replace('/', '')
-
         result += "[]" * dim
         return result
 
@@ -34,25 +29,27 @@ class DvmDescConverter:
         return result
 
 
-class wallBreakerForm(QDialog,Ui_Wallbreaker):
+class wallBreakerForm(QDialog, Ui_Wallbreaker):
     def __init__(self, parent=None):
         super(wallBreakerForm, self).__init__(parent)
         self.setupUi(self)
-        self.setWindowOpacity(0.93)
         self.btnClassSearch.clicked.connect(self.classSearch)
         self.btnClassDump.clicked.connect(self.classDump)
         self.btnObjectSearch.clicked.connect(self.objectSearch)
         self.btnObjectDump.clicked.connect(self.objectDump)
+        self.btnFieldRead.clicked.connect(self.fieldRead)
         self.btnClearUI.clicked.connect(self.clearUi)
-        self.clearUi()
         self.listClasses.itemClicked.connect(self.ClassItemClick)
         self.txtClassName.textChanged.connect(self.changeClass)
         self.classes = None
-        self.api=None
+        self.api = None
+        self._mainForm = None
         self._translate = QtCore.QCoreApplication.translate
 
     def initData(self):
         self.listClasses.clear()
+        if not self.classes:
+            return
         for item in self.classes:
             self.listClasses.addItem(item)
 
@@ -60,7 +57,7 @@ class wallBreakerForm(QDialog,Ui_Wallbreaker):
         self.txtClassName.setText(item.text())
 
     def changeClass(self, data):
-        if self.classes==None or len(self.classes)<=0:
+        if not self.classes:
             return
         self.listClasses.clear()
         if len(data) > 0:
@@ -73,9 +70,50 @@ class wallBreakerForm(QDialog,Ui_Wallbreaker):
 
     def clearUi(self):
         self.txtClassName.setText("")
-        self.txtSearchData.setPlainText("")
+        self.setResultText("")
         self.txtAddress.setText("")
 
+    # --- 结果显示 ---
+    def setResultText(self, text):
+        """设置结果文本（清空旧内容后写入）"""
+        if hasattr(self.txtSearchData, 'setReadOnly'):
+            try:
+                self.txtSearchData.setReadOnly(False)
+            except Exception:
+                pass
+        if hasattr(self.txtSearchData, 'setText'):
+            self.txtSearchData.setText(text)
+        elif hasattr(self.txtSearchData, 'setPlainText'):
+            self.txtSearchData.setPlainText(text)
+        if hasattr(self.txtSearchData, 'setReadOnly'):
+            try:
+                self.txtSearchData.setReadOnly(True)
+            except Exception:
+                pass
+
+    def appendLog(self, logstr):
+        """兼容旧调用，追加文本"""
+        if hasattr(self.txtSearchData, 'append'):
+            self.txtSearchData.setReadOnly(False)
+            self.txtSearchData.append(logstr)
+            self.txtSearchData.setReadOnly(True)
+        elif hasattr(self.txtSearchData, 'appendPlainText'):
+            self.txtSearchData.appendPlainText(logstr)
+
+    # --- API 检查 ---
+    def _checkApi(self):
+        if self.api is None:
+            QMessageBox().information(self, "hint", self._translate("wallBreakerForm", "未设置api,可能附加失败"))
+            return False
+        return True
+
+    def _checkClassName(self):
+        if len(self.txtClassName.text()) <= 0:
+            QMessageBox().information(self, "hint", self._translate("wallBreakerForm", "未填写类名"))
+            return False
+        return True
+
+    # --- RPC 封装 ---
     def class_match(self, pattern):
         return self.api.class_match(pattern)
 
@@ -85,45 +123,28 @@ class wallBreakerForm(QDialog,Ui_Wallbreaker):
     def object_get_classname(self, handle):
         return self.api.object_get_class(handle)
 
-    def map_dump(self, handle, pretty_print=False, **kwargs):
-        result = "{}'s Map Entries {{".format(handle)
-        if pretty_print:
-            click.secho("{}'s Map Entries ".format(handle), fg='blue', nl=False)
-            click.secho("{", fg='red', nl=False)
-        pairs = self.api.map_dump(handle)
-        for key in pairs:
-            result += "\n\t{} => {}".format(key, pairs[key])
-            if pretty_print:
-                click.secho("\n\t{}".format(key), fg='blue', nl=False)
-                click.secho(" => ", nl=False)
-                click.secho(pairs[key], fg='bright_cyan', nl=False)
-
-        result += "\n}\n"
-        if pretty_print: click.secho("\n}\n", fg='red', nl=False)
-        return result
-
-    def collection_dump(self, handle, pretty_print=False, **kwargs):
-        result = "{}'s Collection Entries {{".format(handle)
-        if pretty_print:
-            click.secho("{}'s Collection Entries ".format(handle), fg='blue', nl=False)
-            click.secho("{", fg='red', nl=False)
-        array = self.api.collection_dump(handle)
-        for i in range(0, len(array)):
-            result += "\n\t{} => {}".format(i, array[i])
-            if pretty_print:
-                click.secho("\n\t{}".format(i), fg='blue', nl=False)
-                click.secho(" => ", nl=False)
-                click.secho(array[i], fg='bright_cyan', nl=False)
-
-        result += "\n}\n"
-        if pretty_print: click.secho("\n}\n", fg='red', nl=False)
-        return result
-
     def object_get_field(self, handle, field, as_class=None):
         return self.api.object_get_field(handle, field, as_class)
 
     def object_search(self, clazz, stop=False):
         return self.api.object_search(clazz, stop)
+
+    # --- 核心功能 ---
+    def map_dump(self, handle, pretty_print=False, **kwargs):
+        result = "{}'s Map Entries {{".format(handle)
+        pairs = self.api.map_dump(handle)
+        for key in pairs:
+            result += "\n\t{} => {}".format(key, pairs[key])
+        result += "\n}\n"
+        return result
+
+    def collection_dump(self, handle, pretty_print=False, **kwargs):
+        result = "{}'s Collection Entries {{".format(handle)
+        array = self.api.collection_dump(handle)
+        for i in range(0, len(array)):
+            result += "\n\t{} => {}".format(i, array[i])
+        result += "\n}\n"
+        return result
 
     def object_dump(self, handle, as_class=None, **kwargs):
         special_render = {
@@ -131,36 +152,25 @@ class wallBreakerForm(QDialog,Ui_Wallbreaker):
             "java.util.Collection": self.collection_dump
         }
         handle = str(handle)
-        if as_class is None: as_class = self.object_get_classname(handle)
+        if as_class is None:
+            as_class = self.object_get_classname(handle)
         result = self.class_dump(as_class, handle=handle, **kwargs)
         for clazz in special_render:
             if not self.api.instance_of(handle, clazz):
                 continue
-            if "pretty_print" in kwargs and kwargs["pretty_print"]:
-                click.secho("\n/* special type dump - {} */".format(clazz), fg="bright_black")
             result += special_render[clazz](handle, **kwargs)
-            # fbreak
         return result
 
     def class_dump(self, name, handle=None, pretty_print=False, short_name=True):
         target = self.class_use(name)
         result = ""
-        if pretty_print:
-            click.secho("")
         class_name = str(target['name'])
         if '.' in class_name:
             pkg = class_name[:class_name.rindex('.')]
             class_name = class_name[class_name.rindex('.') + 1:]
             result += "package {};\n\n".format(pkg)
-            if pretty_print:
-                click.secho("package ", fg="blue", nl=False)
-                click.secho(pkg + "\n\n", nl=False)
 
         result += "class {}".format(class_name) + " {\n\n"
-        if pretty_print:
-            click.secho("class ", fg="blue", nl=False)
-            click.secho(class_name, nl=False)
-            click.secho(" {\n\n", fg='red', nl=False)
 
         def handle_fields(fields, can_preview=None):
             _handle = handle
@@ -176,49 +186,25 @@ class wallBreakerForm(QDialog,Ui_Wallbreaker):
                     t = DvmDescConverter(field['type'])
                     t = t.short_name() if short_name else t.to_java()
                     append += '\t'
-                    if pretty_print:
-                        click.secho("\t", nl=False)
                     append += "static " if field['isStatic'] else ""
-                    if pretty_print:
-                        click.secho("static " if field['isStatic'] else "", fg='blue', nl=False)
                     append += t + " "
-                    if pretty_print:
-                        click.secho(t + " ", fg='blue', nl=False)
-
                     value = None
                     if can_preview:
                         value = self.object_get_field(handle=_handle,
                                                       field=field['name'],
                                                       as_class=name if original_class and original_class != name else None)
                     append += '{};{}\n'.format(field["name"], " => {}".format(value) if value is not None else "")
-                    if pretty_print:
-                        click.secho(field['name'], fg='red', nl=False)
-                        click.secho(";", nl=False)
-                        if value is not None:
-                            click.secho(" => ", nl=False)
-                            click.secho(value, fg='bright_cyan', nl=False)
-                        click.secho("")
                 except:
                     append += "<unknown error>\n"
-                    if pretty_print:
-                        click.secho("<unknown error>", fg="red", nl=False)
-                        click.secho()
-
             append += '\n'
-            if pretty_print: click.secho("\n", nl=False)
             return append
 
         static_fields = target['staticFields']
         instance_fields = target['instanceFields']
 
         result += "\t/* static fields */\n"
-        if pretty_print:
-            click.secho("\t/* static fields */", fg="black")
         result += handle_fields(static_fields.values(), can_preview=True)
-
         result += "\t/* instance fields */\n"
-        if pretty_print:
-            click.secho("\t/* instance fields */", fg="black")
         result += handle_fields(instance_fields.values())
 
         def handle_methods(methods):
@@ -231,33 +217,14 @@ class wallBreakerForm(QDialog,Ui_Wallbreaker):
                         args_s = [DvmDescConverter(arg).to_java() for arg in method['arguments']]
                     args = ", ".join(args_s)
                     append += '\t'
-                    if pretty_print:
-                        click.secho("\t", nl=False)
                     append += "static " if method['isStatic'] else ""
-                    if pretty_print:
-                        click.secho("static " if method['isStatic'] else "", fg='blue', nl=False)
                     retType = DvmDescConverter(method['retType'])
                     retType = retType.short_name() if short_name else retType.to_java()
                     retType = retType + " " if not method['isConstructor'] else ""
                     append += retType
-                    if pretty_print:
-                        click.secho(retType, fg='blue', nl=False)
-                    append += method['name'] + '('
-                    if pretty_print:
-                        click.secho(method['name'], fg='red', nl=False)
-                        click.secho("(", nl=False)
-                    append += args + ");\n"
-                    if pretty_print:
-                        for index in range(len(args_s)):
-                            click.secho(args_s[index], fg='green', nl=False)
-                            if index is not len(args_s) - 1:
-                                click.secho(", ", nl=False)
-                        click.secho(");\n", nl=False)
+                    append += method['name'] + '(' + args + ");\n"
                 except:
                     append += "<unknown error>({})\n".format(method)
-                    if pretty_print:
-                        click.secho("<unknown error>({})".format(method), fg="red", nl=False)
-                        click.secho("")
             return append
 
         constructors = target['constructors']
@@ -265,76 +232,83 @@ class wallBreakerForm(QDialog,Ui_Wallbreaker):
         static_methods = target['staticMethods']
 
         result += "\t/* constructor methods */\n"
-        if pretty_print:
-            click.secho("\t/* constructor methods */", fg="black")
-        result += handle_methods(constructors)
-        result += "\n"
-        if pretty_print: click.secho("")
-
+        result += handle_methods(constructors) + "\n"
         result += "\t/* static methods */\n"
-        if pretty_print:
-            click.secho("\t/* static methods */", fg="black")
         for name in static_methods:
             result += handle_methods(static_methods[name])
         result += "\n"
-        if pretty_print: click.secho("")
-
         result += "\t/* instance methods */\n"
-        if pretty_print:
-            click.secho("\t/* instance methods */", fg="black")
         for name in instance_methods:
             result += handle_methods(instance_methods[name])
         result += "\n}\n"
-        if pretty_print: click.secho("\n}\n", fg='red', nl=False)
         return result
 
-
-    def appendLog(self,logstr):
-        self.txtSearchData.appendPlainText(logstr)
-
+    # --- 按钮动作 ---
     def classSearch(self):
-        className=self.txtClassName.text()
-        if len(className)<=0:
-            QMessageBox().information(self, "hint",self._translate("wallBreakerForm","未填写类名"))
+        if not self._checkClassName() or not self._checkApi():
             return
-        if self.api==None:
-            QMessageBox().information(self, "hint",self._translate("wallBreakerForm","未设置api,可能附加失败"))
-            return
-        instances = self.api.class_match(className)
-        self.appendLog("\n".join(instances))
+        try:
+            instances = self.api.class_match(self.txtClassName.text())
+            self.setResultText("// Class Search: {}\n// Found: {} classes\n\n{}".format(
+                self.txtClassName.text(), len(instances), "\n".join(instances)))
+        except Exception as ex:
+            self.setResultText("// Error: " + str(ex))
 
     def classDump(self):
-        className = self.txtClassName.text()
-        if len(className) <= 0:
-            QMessageBox().information(self, "hint", self._translate("wallBreakerForm","未填写类名"))
+        if not self._checkClassName() or not self._checkApi():
             return
-        if self.api==None:
-            QMessageBox().information(self, "hint", self._translate("wallBreakerForm","未设置api,可能附加失败"))
-            return
-        result= self.class_dump(className, pretty_print=False, short_name=True)
-        self.appendLog(result)
+        try:
+            result = self.class_dump(self.txtClassName.text(), pretty_print=False, short_name=True)
+            self.setResultText(result)
+        except Exception as ex:
+            self.setResultText("// Error: " + str(ex))
 
     def objectSearch(self):
-        className = self.txtClassName.text()
-        if len(className) <= 0:
-            QMessageBox().information(self, "hint",self._translate("wallBreakerForm", "未填写类名"))
+        if not self._checkClassName() or not self._checkApi():
             return
-        if self.api==None:
-            QMessageBox().information(self, "hint", self._translate("wallBreakerForm","未设置api,可能附加失败"))
-            return
-        instances = self.object_search(className, stop=False)
-        for handle in instances:
-            self.appendLog("[{}]: {}".format(handle, instances[handle]))
-
+        try:
+            instances = self.object_search(self.txtClassName.text(), stop=False)
+            lines = ["// Object Search: {}".format(self.txtClassName.text()),
+                     "// Found: {} instances\n".format(len(instances))]
+            for handle in instances:
+                lines.append("[{}]: {}".format(handle, instances[handle]))
+            self.setResultText("\n".join(lines))
+        except Exception as ex:
+            self.setResultText("// Error: " + str(ex))
 
     def objectDump(self):
-        className = self.txtClassName.text()
+        if not self._checkClassName() or not self._checkApi():
+            return
         address = self.txtAddress.text()
         if len(address) <= 0:
-            QMessageBox().information(self, "hint", self._translate("wallBreakerForm","未填写地址"))
+            QMessageBox().information(self, "hint", self._translate("wallBreakerForm", "未填写地址"))
             return
-        if self.api==None:
-            QMessageBox().information(self, "hint",self._translate("wallBreakerForm", "未设置api,可能附加失败"))
+        try:
+            res = self.object_dump(int(address, 16), as_class=self.txtClassName.text(),
+                                   pretty_print=False, short_name=True)
+            self.setResultText(res)
+        except Exception as ex:
+            self.setResultText("// Error: " + str(ex))
+
+    def fieldRead(self):
+        """读取指定对象实例的某个字段值"""
+        if not self._checkApi():
             return
-        res=self.object_dump(int(address,16), as_class=className, pretty_print=False, short_name=True)
-        self.appendLog(res)
+        address = self.txtAddress.text()
+        className = self.txtClassName.text()
+        if not address:
+            QMessageBox().information(self, "hint", self._translate("wallBreakerForm", "未填写地址"))
+            return
+        field_name, ok = QInputDialog.getText(self, "Field Read",
+                                              self._translate("wallBreakerForm", "输入字段名："))
+        if not ok or not field_name:
+            return
+        try:
+            value = self.object_get_field(
+                handle=str(int(address, 16)),
+                field=field_name,
+                as_class=className if className else None)
+            self.setResultText("// Field Read\n// Object: {}\n// Field: {}\n\n{}".format(
+                address, field_name, value))
+        except Exception as ex:
+            self.setResultText("// Error: " + str(ex))

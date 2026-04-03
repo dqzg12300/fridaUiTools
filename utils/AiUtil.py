@@ -1,5 +1,9 @@
 import json
+import lzma
+import os
 import re
+import subprocess
+import tempfile
 import urllib.error
 import urllib.request
 
@@ -22,9 +26,21 @@ HOOK_SYSTEM_PROMPT = """你是一名资深 Frida/Android 逆向工程师。
 2. 代码必须兼容 Frida Java.perform 风格，尽量保证异常安全。
 3. 必须包含清晰的日志输出，方便在 fridaUiTools 输出日志中查看。
 4. 如果需要导出主动调用函数，请使用全局对象 call_funs，例如：call_funs.demo = function(args) { ... }。
-5. 如果需求不明确，请给出一个安全、通用、可运行的最小实现，并在日志中标记 TODO。
-6. 自定义模块保存的脚本会被工具直接拼接执行，因此不要再次包裹额外的模块系统，不要输出 import/require。
-7. 尽量使用如下日志格式：console.log('[custom] ...')。
+5. 如果用户没有明确要求其他名字，请默认保留一个可运行的 call_funs.demo 示例入口，便于在 UI 中直接验证脚本是否工作。
+6. 如果需求不明确，请给出一个安全、通用、可运行的最小实现，并在日志中标记 TODO。
+7. 自定义模块保存的脚本会被工具直接拼接执行，因此不要再次包裹额外的模块系统，不要输出 import/require。
+8. 不要使用 console.log，统一使用 klog 输出日志。
+9. 如果脚本里还没有 klog，请先定义：
+function klog(data,...args){
+    for (let item of args){
+        data += "\t" + item;
+    }
+    var message = {};
+    message["jsname"] = "custom";
+    message["data"] = data;
+    send(message);
+}
+10. 日志内容尽量使用 [custom] 前缀，例如：klog('[custom] hook installed')。
 """
 
 HOOK_USER_TEMPLATE = """请根据下面信息生成 fridaUiTools custom 模块脚本：
@@ -34,10 +50,11 @@ HOOK_USER_TEMPLATE = """请根据下面信息生成 fridaUiTools custom 模块�
 {requirement}
 
 请优先按以下结构组织：
+- 如未提供 klog，请先定义与 custom 模块兼容的 klog(data,...args)
 - 先定义需要的辅助函数
 - 再在 Java.perform(function() {{ ... }}) 中完成 hook
 - 如需主动调用函数，定义 call_funs.xxx = function(...) {{ ... }}
-- 日志统一以 [custom] 前缀输出
+- 日志统一用 klog 输出，并以 [custom] 前缀输出
 """
 
 LOG_ANALYSIS_SYSTEM_PROMPT = """你是一名 Android 动态分析与 Frida 调试专家。
@@ -94,6 +111,15 @@ class AiService:
         return host + "/v1/chat/completions"
 
     def chat(self, messages, temperature=0.2, timeout=120):
+        chunks = []
+
+        def on_chunk(text):
+            chunks.append(text)
+
+        self.chat_stream(messages, on_chunk=on_chunk, temperature=temperature, timeout=timeout)
+        return "".join(chunks).strip()
+
+    def chat_stream(self, messages, on_chunk=None, temperature=0.2, timeout=120):
         config = self.get_config()
         missing = self.missing_fields()
         if missing:
@@ -102,6 +128,7 @@ class AiService:
             "model": config["model"],
             "messages": messages,
             "temperature": temperature,
+            "stream": True,
         }).encode("utf-8")
         request = urllib.request.Request(
             self._build_endpoint(config["host"]),
@@ -109,12 +136,20 @@ class AiService:
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {config['apikey']}",
+                "Accept": "text/event-stream",
             },
             method="POST",
         )
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
+                content_type = response.headers.get("Content-Type", "")
+                if "text/event-stream" in content_type.lower():
+                    return self._read_stream_response(response, on_chunk=on_chunk)
                 data = json.loads(response.read().decode("utf-8"))
+                content = self._extract_content_from_response(data)
+                if on_chunk and content:
+                    on_chunk(content)
+                return content.strip()
         except urllib.error.HTTPError as error:
             body = error.read().decode("utf-8", errors="ignore")
             raise RuntimeError(f"AI 请求失败: HTTP {error.code} {body}")
@@ -122,12 +157,6 @@ class AiService:
             raise RuntimeError(f"AI 连接失败: {error}")
         except Exception as error:
             raise RuntimeError(f"AI 请求异常: {error}")
-
-        try:
-            content = data["choices"][0]["message"]["content"]
-        except Exception:
-            raise RuntimeError(f"AI 返回格式异常: {data}")
-        return content.strip()
 
     def generate_hook_script(self, requirement, name="", remark=""):
         requirement = (requirement or "").strip()
@@ -144,7 +173,31 @@ class AiService:
                 ),
             },
         ])
-        return self.extract_code(result)
+        return self.normalize_hook_script(self.extract_code(result))
+
+    def generate_hook_script_stream(self, requirement, name="", remark="", on_chunk=None):
+        requirement = (requirement or "").strip()
+        if not requirement:
+            raise ValueError("AI 生成脚本前请先填写需求说明")
+        chunks = []
+
+        def handle_chunk(text):
+            chunks.append(text)
+            if on_chunk:
+                on_chunk(text)
+
+        self.chat_stream([
+            {"role": "system", "content": HOOK_SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": HOOK_USER_TEMPLATE.format(
+                    name=name or "未命名脚本",
+                    remark=remark or "无",
+                    requirement=requirement,
+                ),
+            },
+        ], on_chunk=handle_chunk)
+        return self.normalize_hook_script(self.extract_code("".join(chunks)))
 
     def analyze_log(self, content, focus="定位异常、识别关键 hook 点"):
         content = (content or "").strip()
@@ -163,6 +216,97 @@ class AiService:
             },
         ], temperature=0.1)
 
+    def analyze_log_stream(self, content, focus="定位异常、识别关键 hook 点", on_chunk=None):
+        content = (content or "").strip()
+        if not content:
+            raise ValueError("没有可供分析的日志内容")
+        if len(content) > 16000:
+            content = content[-16000:]
+        return self.chat_stream([
+            {"role": "system", "content": LOG_ANALYSIS_SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": LOG_ANALYSIS_USER_TEMPLATE.format(
+                    focus=focus or "定位异常、识别关键 hook 点",
+                    content=content,
+                ),
+            },
+        ], on_chunk=on_chunk, temperature=0.1)
+
+    @staticmethod
+    def _extract_content_from_response(data):
+        try:
+            content = data["choices"][0]["message"]["content"]
+        except Exception:
+            raise RuntimeError(f"AI 返回格式异常: {data}")
+        if isinstance(content, list):
+            text_parts = []
+            for item in content:
+                if isinstance(item, dict) and item.get("type") == "text":
+                    text_parts.append(item.get("text", ""))
+            return "".join(text_parts)
+        return content
+
+    @staticmethod
+    def _extract_stream_delta(data):
+        try:
+            choice = data.get("choices", [{}])[0]
+            delta = choice.get("delta", {})
+        except Exception:
+            return ""
+        content = delta.get("content")
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            text_parts = []
+            for item in content:
+                if isinstance(item, dict) and item.get("type") == "text":
+                    text_parts.append(item.get("text", ""))
+            return "".join(text_parts)
+        if isinstance(delta.get("text"), str):
+            return delta.get("text", "")
+        return ""
+
+    def _read_stream_response(self, response, on_chunk=None):
+        full_text = []
+        event_lines = []
+        for raw_line in response:
+            line = raw_line.decode("utf-8", errors="ignore").strip()
+            if not line:
+                text = self._consume_stream_event(event_lines, on_chunk=on_chunk)
+                if text:
+                    full_text.append(text)
+                event_lines = []
+                continue
+            event_lines.append(line)
+        text = self._consume_stream_event(event_lines, on_chunk=on_chunk)
+        if text:
+            full_text.append(text)
+        return "".join(full_text).strip()
+
+    def _consume_stream_event(self, lines, on_chunk=None):
+        if not lines:
+            return ""
+        data_lines = [line[5:].strip() for line in lines if line.startswith("data:")]
+        payload = "\n".join(data_lines).strip()
+        if not payload or payload == "[DONE]":
+            return ""
+        try:
+            data = json.loads(payload)
+        except Exception:
+            return ""
+        chunk = self._extract_stream_delta(data)
+        if chunk and on_chunk:
+            on_chunk(chunk)
+        return chunk
+
+    @staticmethod
+    def normalize_hook_script(text):
+        text = (text or "").strip()
+        if not text:
+            return text
+        return text.replace("console.log(", "klog(")
+
     @staticmethod
     def extract_code(text):
         text = (text or "").strip()
@@ -176,16 +320,196 @@ class AiService:
 class AiWorker(QThread):
     success = pyqtSignal(str)
     error = pyqtSignal(str)
+    chunk = pyqtSignal(str)
 
     def __init__(self, handler, *args, **kwargs):
         super().__init__()
         self.handler = handler
         self.args = args
         self.kwargs = kwargs
+        self.stream_handler = kwargs.pop("stream_handler", None)
 
     def run(self):
         try:
-            result = self.handler(*self.args, **self.kwargs)
+            if self.stream_handler:
+                result = self.stream_handler(*self.args, on_chunk=self.chunk.emit, **self.kwargs)
+            else:
+                result = self.handler(*self.args, **self.kwargs)
             self.success.emit(result)
         except Exception as error:
             self.error.emit(str(error))
+
+
+class FileDownloadWorker(QThread):
+    CHUNK_SIZE = 64 * 1024
+
+    progress = pyqtSignal(int, int)
+    status = pyqtSignal(str)
+    success = pyqtSignal(str)
+    error = pyqtSignal(str)
+
+    def __init__(self, url, target_path, parent=None):
+        super().__init__(parent)
+        self.url = url
+        self.target_path = target_path
+        self._cancelled = False
+
+    def cancel(self):
+        self._cancelled = True
+
+    def ensureNotCancelled(self):
+        if self._cancelled:
+            raise RuntimeError("cancelled")
+
+    def copyStream(self, source, target, total=0, emit_progress=False):
+        copied = 0
+        while True:
+            self.ensureNotCancelled()
+            chunk = source.read(self.CHUNK_SIZE)
+            if not chunk:
+                break
+            target.write(chunk)
+            copied += len(chunk)
+            if emit_progress:
+                self.progress.emit(copied, total)
+        return copied
+
+    def run(self):
+        binary_temp_path = None
+        archive_temp_path = None
+        try:
+            self.status.emit("connecting")
+            request = urllib.request.Request(self.url, headers={"User-Agent": "fridaUiTools/1.0"})
+            with urllib.request.urlopen(request, timeout=120) as response:
+                self.ensureNotCancelled()
+                total = int(response.headers.get("Content-Length") or 0)
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".xz") as temp_handle:
+                    archive_temp_path = temp_handle.name
+                    self.copyStream(response, temp_handle, total=total, emit_progress=True)
+            self.status.emit("extracting")
+            target_dir = os.path.dirname(self.target_path)
+            if target_dir:
+                os.makedirs(target_dir, exist_ok=True)
+            with lzma.open(archive_temp_path, "rb") as source, tempfile.NamedTemporaryFile(delete=False, dir=target_dir or None) as output:
+                binary_temp_path = output.name
+                self.copyStream(source, output)
+            self.ensureNotCancelled()
+            if os.path.getsize(binary_temp_path) <= 0:
+                raise RuntimeError("downloaded file is empty after extraction")
+            os.replace(binary_temp_path, self.target_path)
+            binary_temp_path = None
+            self.success.emit(self.target_path)
+        except urllib.error.HTTPError as error:
+            body = error.read().decode("utf-8", errors="ignore")
+            self.error.emit(f"HTTP {error.code} {body}\nURL: {self.url}\nTarget: {self.target_path}")
+        except urllib.error.URLError as error:
+            self.error.emit(f"{error}\nURL: {self.url}\nTarget: {self.target_path}")
+        except lzma.LZMAError as error:
+            self.error.emit(f"extract failed: {error}\nURL: {self.url}\nTarget: {self.target_path}")
+        except OSError as error:
+            self.error.emit(f"save failed: {error}\nURL: {self.url}\nTarget: {self.target_path}")
+        except Exception as error:
+            self.error.emit(f"unexpected download error: {error}\nURL: {self.url}\nTarget: {self.target_path}")
+        finally:
+            if binary_temp_path and os.path.exists(binary_temp_path):
+                os.remove(binary_temp_path)
+            if archive_temp_path and os.path.exists(archive_temp_path):
+                os.remove(archive_temp_path)
+
+
+class AdbPushWorker(QThread):
+    progress = pyqtSignal(int, int)
+    status = pyqtSignal(str)
+    success = pyqtSignal(str)
+    error = pyqtSignal(str)
+
+    def __init__(self, command_args, remote_path, parent=None):
+        super().__init__(parent)
+        self.command_args = command_args
+        self.remote_path = remote_path
+
+    def run(self):
+        try:
+            self.status.emit(f"Uploading to {self.remote_path}...")
+            process = subprocess.Popen(
+                self.command_args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+            )
+            output_lines = []
+            percent_re = re.compile(r"(\d+)%")
+            if process.stdout is not None:
+                for line in process.stdout:
+                    text = (line or "").strip()
+                    if text:
+                        output_lines.append(text)
+                        match = percent_re.search(text)
+                        if match:
+                            percent = max(0, min(100, int(match.group(1))))
+                            self.progress.emit(percent, 100)
+                        else:
+                            self.status.emit(text)
+            return_code = process.wait()
+            output = "\n".join(output_lines).strip()
+            if return_code != 0:
+                raise RuntimeError(output or f"adb push failed with code {return_code}")
+            self.progress.emit(100, 100)
+            self.success.emit(self.remote_path)
+        except FileNotFoundError as error:
+            self.error.emit(f"adb not found: {error}\nCommand: {' '.join(self.command_args)}\nRemote: {self.remote_path}")
+        except OSError as error:
+            self.error.emit(f"failed to start adb push: {error}\nCommand: {' '.join(self.command_args)}\nRemote: {self.remote_path}")
+        except Exception as error:
+            self.error.emit(f"unexpected adb push error: {error}\nCommand: {' '.join(self.command_args)}\nRemote: {self.remote_path}")
+
+
+class CommandWorker(QThread):
+    started = pyqtSignal(str)
+    output = pyqtSignal(str)
+    success = pyqtSignal(str)
+    error = pyqtSignal(str)
+
+    def __init__(self, command_args, parent=None):
+        super().__init__(parent)
+        self.command_args = command_args
+
+    def commandText(self):
+        return " ".join(self.command_args)
+
+    def collectOutput(self, process):
+        output_lines = []
+        if process.stdout is None:
+            return output_lines
+        for line in process.stdout:
+            text = (line or "").rstrip()
+            if not text:
+                continue
+            output_lines.append(text)
+            self.output.emit(text)
+        return output_lines
+
+    def run(self):
+        command_text = self.commandText()
+        try:
+            self.started.emit(command_text)
+            process = subprocess.Popen(
+                self.command_args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+            )
+            output_lines = self.collectOutput(process)
+            return_code = process.wait()
+            output = "\n".join(output_lines).strip()
+            if return_code != 0:
+                raise RuntimeError(output or f"command failed with code {return_code}")
+            self.success.emit(output)
+        except FileNotFoundError as error:
+            self.error.emit(f"command not found: {error}\nCommand: {command_text}")
+        except OSError as error:
+            self.error.emit(f"failed to start command: {error}\nCommand: {command_text}")
+        except Exception as error:
+            self.error.emit(f"{error}\nCommand: {command_text}")

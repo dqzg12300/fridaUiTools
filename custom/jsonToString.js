@@ -12,18 +12,18 @@ function klog(data,...args){
 klog("init","%customFileName% init hook success");
 
 function hook_java(){
-    Java.perform(function(){
-        var jsonObj=Java.use("org.json.JSONObject");
-        jsonObj.toString.overload().implementation=function(){
-            var res=this.toString();
-            klog(res);
-            return res;
-        }
-    })
+    var jsonObj = Java.use("org.json.JSONObject");
+    jsonObj.toString.overload().implementation=function(){
+        var res=this.toString();
+        klog(res);
+        return res;
+    }
 }
 
 function main(){
-    hook_java();
+    Java.perform(function(){
+        hook_java();
+    });
 }
 
 setImmediate(main)

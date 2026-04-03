@@ -1,6 +1,8 @@
 PyQt5
-frida==16.0.8
+QScintilla
+frida==16.7.19
 hexdump==3.3
 capstone==4.0.2
 keystone-engine
 click
+qt-material

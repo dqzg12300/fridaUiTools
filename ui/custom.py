@@ -4,37 +4,15 @@ from PyQt5 import QtCore, QtWidgets
 class Ui_CustomDialog(object):
     def setupUi(self, Dialog):
         Dialog.setObjectName("Dialog")
-        Dialog.resize(1180, 820)
+        Dialog.resize(1320, 820)
         self.verticalLayout = QtWidgets.QVBoxLayout(Dialog)
         self.verticalLayout.setObjectName("verticalLayout")
 
-        self.topSplitter = QtWidgets.QSplitter(Dialog)
-        self.topSplitter.setOrientation(QtCore.Qt.Horizontal)
-        self.topSplitter.setObjectName("topSplitter")
+        self.mainSplitter = QtWidgets.QSplitter(Dialog)
+        self.mainSplitter.setOrientation(QtCore.Qt.Horizontal)
+        self.mainSplitter.setObjectName("mainSplitter")
 
-        self.groupBox = QtWidgets.QGroupBox(self.topSplitter)
-        self.groupBox.setObjectName("groupBox")
-        self.groupBoxLayout = QtWidgets.QVBoxLayout(self.groupBox)
-        self.groupBoxLayout.setObjectName("groupBoxLayout")
-        self.tabCustomList = QtWidgets.QTableWidget(self.groupBox)
-        self.tabCustomList.setObjectName("tabCustomList")
-        self.tabCustomList.setColumnCount(0)
-        self.tabCustomList.setRowCount(0)
-        self.groupBoxLayout.addWidget(self.tabCustomList)
-
-        self.groupBox_3 = QtWidgets.QGroupBox(self.topSplitter)
-        self.groupBox_3.setObjectName("groupBox_3")
-        self.groupBox3Layout = QtWidgets.QVBoxLayout(self.groupBox_3)
-        self.groupBox3Layout.setObjectName("groupBox3Layout")
-        self.tabCustomHookList = QtWidgets.QTableWidget(self.groupBox_3)
-        self.tabCustomHookList.setObjectName("tabCustomHookList")
-        self.tabCustomHookList.setColumnCount(0)
-        self.tabCustomHookList.setRowCount(0)
-        self.groupBox3Layout.addWidget(self.tabCustomHookList)
-
-        self.verticalLayout.addWidget(self.topSplitter)
-
-        self.groupBox_2 = QtWidgets.QGroupBox(Dialog)
+        self.groupBox_2 = QtWidgets.QGroupBox(self.mainSplitter)
         self.groupBox_2.setObjectName("groupBox_2")
         self.editorLayout = QtWidgets.QVBoxLayout(self.groupBox_2)
         self.editorLayout.setObjectName("editorLayout")
@@ -102,9 +80,39 @@ class Ui_CustomDialog(object):
         self.actionLayout.addWidget(self.btnSubmit)
         self.editorLayout.addLayout(self.actionLayout)
 
-        self.verticalLayout.addWidget(self.groupBox_2)
+        self.sidebarWidget = QtWidgets.QWidget(self.mainSplitter)
+        self.sidebarWidget.setObjectName("sidebarWidget")
+        self.sidebarLayout = QtWidgets.QVBoxLayout(self.sidebarWidget)
+        self.sidebarLayout.setObjectName("sidebarLayout")
+        self.sidebarLayout.setContentsMargins(0, 0, 0, 0)
 
-        self.groupBox_4 = QtWidgets.QGroupBox(Dialog)
+        self.topSplitter = QtWidgets.QSplitter(self.sidebarWidget)
+        self.topSplitter.setOrientation(QtCore.Qt.Vertical)
+        self.topSplitter.setObjectName("topSplitter")
+
+        self.groupBox = QtWidgets.QGroupBox(self.topSplitter)
+        self.groupBox.setObjectName("groupBox")
+        self.groupBoxLayout = QtWidgets.QVBoxLayout(self.groupBox)
+        self.groupBoxLayout.setObjectName("groupBoxLayout")
+        self.tabCustomList = QtWidgets.QTableWidget(self.groupBox)
+        self.tabCustomList.setObjectName("tabCustomList")
+        self.tabCustomList.setColumnCount(0)
+        self.tabCustomList.setRowCount(0)
+        self.groupBoxLayout.addWidget(self.tabCustomList)
+
+        self.groupBox_3 = QtWidgets.QGroupBox(self.topSplitter)
+        self.groupBox_3.setObjectName("groupBox_3")
+        self.groupBox3Layout = QtWidgets.QVBoxLayout(self.groupBox_3)
+        self.groupBox3Layout.setObjectName("groupBox3Layout")
+        self.tabCustomHookList = QtWidgets.QTableWidget(self.groupBox_3)
+        self.tabCustomHookList.setObjectName("tabCustomHookList")
+        self.tabCustomHookList.setColumnCount(0)
+        self.tabCustomHookList.setRowCount(0)
+        self.groupBox3Layout.addWidget(self.tabCustomHookList)
+
+        self.sidebarLayout.addWidget(self.topSplitter)
+
+        self.groupBox_4 = QtWidgets.QGroupBox(self.sidebarWidget)
         self.groupBox_4.setObjectName("groupBox_4")
         self.tipLayout = QtWidgets.QVBoxLayout(self.groupBox_4)
         self.tipLayout.setObjectName("tipLayout")
@@ -116,10 +124,13 @@ class Ui_CustomDialog(object):
         self.label_4.setWordWrap(True)
         self.label_4.setObjectName("label_4")
         self.tipLayout.addWidget(self.label_4)
-        self.verticalLayout.addWidget(self.groupBox_4)
+        self.sidebarLayout.addWidget(self.groupBox_4)
+
+        self.verticalLayout.addWidget(self.mainSplitter)
 
         self.retranslateUi(Dialog)
-        self.topSplitter.setSizes([560, 420])
+        self.mainSplitter.setSizes([860, 440])
+        self.topSplitter.setSizes([320, 240])
         QtCore.QMetaObject.connectSlotsByName(Dialog)
 
     def retranslateUi(self, Dialog):
@@ -140,6 +151,5 @@ class Ui_CustomDialog(object):
         self.btnClear.setText(_translate("Dialog", "清空"))
         self.btnSubmit.setText(_translate("Dialog", "保存脚本"))
         self.groupBox_4.setTitle(_translate("Dialog", "操作提示"))
-        self.label_3.setText(_translate("Dialog", "双击左侧脚本可进入编辑；右键可删除或加入当前 Hook 列表。关闭窗口后，右侧列表会同步到主界面的 Hook 列表。"))
+        self.label_3.setText(_translate("Dialog", "双击脚本仓库中的脚本可进入编辑；右键可删除或加入当前 Hook 列表。关闭窗口后，当前使用脚本会同步到主界面的 Hook 列表。"))
         self.label_4.setText(_translate("Dialog", "AI 功能会按照 fridaUiTools custom 模块格式生成脚本；未配置 API Key / Host / 模型时，将自动禁用 AI 按钮。"))
-

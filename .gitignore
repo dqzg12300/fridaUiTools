@@ -108,6 +108,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+config/ai.local.ini
 
 # Spyder project settings
 .spyderproject

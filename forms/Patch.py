@@ -10,7 +10,6 @@ class patchForm(QDialog,Ui_PatchDialog):
     def __init__(self, parent=None):
         super(patchForm, self).__init__(parent)
         self.setupUi(self)
-        self.setWindowOpacity(0.93)
         self.btnSubmit.clicked.connect(self.submit)
         self.moduleName = ""
         self.address=""

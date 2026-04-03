@@ -9,11 +9,11 @@ class wifiForm(QDialog,Ui_WifiDialog):
     def __init__(self, parent=None):
         super(wifiForm, self).__init__(parent)
         self.setupUi(self)
-        self.setWindowOpacity(0.93)
         self.btnSubmit.clicked.connect(self.submit)
         self.btnClear.clicked.connect(self.clearUi)
         self.address=""
         self.wifi_port=""
+        self.port=""
 
 
     def clearUi(self):
@@ -21,8 +21,8 @@ class wifiForm(QDialog,Ui_WifiDialog):
         self.txtPort.setText("")
 
     def submit(self):
-        address = self.txtAddress.text()
-        port = self.txtPort.text()
+        address = self.txtAddress.text().strip()
+        port = self.txtPort.text().strip()
         if len(address) <= 0:
             QMessageBox().information(self, "hint", "missing address")
             return

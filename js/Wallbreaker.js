@@ -282,9 +282,10 @@ var struct_1 = require("./struct");
 
 exports.match = function (name) {
   var result = [];
-
   try {
+    console.log("111");
     Java.perform(function () {
+      console.log("Java.enumerateLoadedClassesSync",Java.enumerateLoadedClassesSync);
       Java.enumerateLoadedClassesSync().forEach(function (p1) {
         if (p1.startsWith("[")) {
           return;
@@ -295,14 +296,16 @@ exports.match = function (name) {
         }
       });
     });
-  } catch (e) {}
+  } catch (e) {
+    console.log("Wallbreaker classMatch error: " + e);
+  }
 
   return result;
 };
 
 exports.use = function (name) {
   var result = struct_1.ClassWrapper.NONE;
-  Java.perform(function () {
+  Java.performNow(function () {
     result = struct_1.ClassWrapper.byWrapper(Java.use(name));
   });
   return result;
@@ -445,13 +448,13 @@ exports.searchHandles = function (clazz) {
     });
   };
 
-  Java.perform(f);
+  Java.performNow(f);
   return result;
 };
 
 exports.getRealClassNameByHandle = function (handle) {
   var result = null;
-  Java.perform(function () {
+  Java.performNow(function () {
     try {
       var obj = Java.use("java.lang.Object");
       var jObject = Java.cast(ptr(handle), obj);
@@ -481,7 +484,7 @@ var getObjectByHandle = function getObjectByHandle(handle) {
 
 exports.getObjectFieldValue = function (handle, field, clazz) {
   var result = "null";
-  Java.perform(function () {
+  Java.performNow(function () {
     var origObject = getObjectByHandle(handle);
 
     if (clazz) {
@@ -518,7 +521,7 @@ exports.getObjectFieldValue = function (handle, field, clazz) {
 
 exports.instanceOf = function (handle, className) {
   var result = false;
-  Java.perform(function () {
+  Java.performNow(function () {
     try {
       var targetClass = Java.use(className);
       var newObject = Java.cast(getObjectByHandle(handle), targetClass);
@@ -532,7 +535,7 @@ exports.instanceOf = function (handle, className) {
 
 exports.mapDump = function (handle) {
   var result = {};
-  Java.perform(function () {
+  Java.performNow(function () {
     try {
       var mapClass = Java.use("java.util.Map");
       var entryClass = Java.use("java.util.Map$Entry");
@@ -566,7 +569,7 @@ exports.mapDump = function (handle) {
 
 exports.collectionDump = function (handle) {
   var result = [];
-  Java.perform(function () {
+  Java.performNow(function () {
     try {
       var collectionClass = Java.use("java.util.Collection");
       var collectionObject = getObjectByHandle(handle);

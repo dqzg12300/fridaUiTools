@@ -1,14 +1,19 @@
 # coding=utf-8
 import datetime
 import re
+import shlex
 import sys
+import time
 from time import sleep
 
 from PyQt5 import uic, QtWidgets,QtCore
 from PyQt5.QtCore import Qt, QPoint, QTranslator, QUrl
-from PyQt5.QtGui import QStandardItemModel, QStandardItem, QCursor, QDesktopServices
+from PyQt5.QtGui import QStandardItemModel, QStandardItem, QCursor, QDesktopServices, QIcon, QPixmap, QPainter, QColor, QPen, QPolygon, QDrag
 from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog, QStatusBar, QLabel, QMessageBox, QHeaderView, \
-    QTableWidgetItem, QMenu, QAction, QActionGroup, qApp, QLineEdit
+    QTableWidgetItem, QMenu, QAction, QActionGroup, qApp, QLineEdit, QProgressDialog, QDialog, QVBoxLayout, QPlainTextEdit, QPushButton
+from urllib.parse import urlparse
+import urllib.error
+import urllib.request
 
 from forms import SelectPackage
 from forms.AntiFrida import antiFridaForm
@@ -33,15 +38,118 @@ from forms.Wifi import wifiForm
 from forms.ZenTracer import zenTracerForm
 from ui.kmain import Ui_MainWindow
 from utils import LogUtil, CmdUtil, FileUtil, GumTraceUtil
-from utils.AiUtil import AiService, AiWorker
+from utils.AiUtil import AiService, AiWorker, FileDownloadWorker, AdbPushWorker, CommandWorker
 import json, os, threading, frida
 import platform
+import shutil
+import subprocess
+import tempfile
 
 import TraceThread
 from utils.IniUtil import IniConfig
 
+FRIDA_ARCH_FAMILIES = {
+    "arm64": ["arm", "arm64"],
+    "x64": ["x86", "x86_64"],
+}
+FRIDA_MENU_FAMILIES = ("arm64", "x64")
+FRIDA_LOCAL_ARCH_TO_FAMILY = {
+    "arm": "arm64",
+    "arm64": "arm64",
+    "x86": "x64",
+    "x86_64": "x64",
+}
+FRIDA_SUPPORTED_MAJORS = [14, 15, 16]
+FRIDA_MENU_VERSION_LIMIT = 3
+FRIDA_RELEASE_CACHE_PATH = os.path.join(".", "config", "frida_versions.json")
+FRIDA_RELEASE_TAGS_API_URL = "https://api.github.com/repos/frida/frida/tags?per_page=100&page={page}"
+FRIDA_RELEASE_TAGS_PAGES = 4
+FRIDA_EMPTY_RELEASE_CATALOG = {major: [] for major in FRIDA_SUPPORTED_MAJORS}
+FRIDA_FALLBACK_VERSION_CATALOG = {
+    14: ["14.2.18", "14.2.17", "14.2.16"],
+    15: ["15.2.2", "15.2.1", "15.2.0"],
+    16: ["16.7.19", "16.7.18", "16.7.17"],
+}
+
 conf=IniConfig()
 ACTIVE_TRANSLATORS = []
+
+
+class PinnedTemplateCheckBox(QtWidgets.QCheckBox):
+    reorderRequested = QtCore.pyqtSignal(str, str, bool)
+    MIME_TYPE = "application/x-fridaui-pinned-template"
+
+    def __init__(self, text, file_name, parent=None):
+        super(PinnedTemplateCheckBox, self).__init__(text, parent)
+        self.fileName = file_name
+        self._dragStartPos = QPoint()
+        self._dragActive = False
+        self.setAcceptDrops(True)
+
+    def _draggedFileName(self, event):
+        mime = event.mimeData()
+        if mime is None or not mime.hasFormat(self.MIME_TYPE):
+            return ""
+        try:
+            return bytes(mime.data(self.MIME_TYPE)).decode("utf-8")
+        except Exception:
+            return ""
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self._dragStartPos = event.pos()
+            self._dragActive = False
+        super(PinnedTemplateCheckBox, self).mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if not (event.buttons() & Qt.LeftButton):
+            super(PinnedTemplateCheckBox, self).mouseMoveEvent(event)
+            return
+        if (event.pos() - self._dragStartPos).manhattanLength() < QApplication.startDragDistance():
+            super(PinnedTemplateCheckBox, self).mouseMoveEvent(event)
+            return
+        if not self.fileName:
+            return
+        self._dragActive = True
+        self.setDown(False)
+        drag = QDrag(self)
+        mime = QtCore.QMimeData()
+        mime.setData(self.MIME_TYPE, self.fileName.encode("utf-8"))
+        drag.setMimeData(mime)
+        drag.setPixmap(self.grab())
+        drag.setHotSpot(event.pos())
+        drag.exec_(Qt.MoveAction)
+
+    def mouseReleaseEvent(self, event):
+        if self._dragActive:
+            self._dragActive = False
+            self.setDown(False)
+            event.accept()
+            return
+        super(PinnedTemplateCheckBox, self).mouseReleaseEvent(event)
+
+    def dragEnterEvent(self, event):
+        dragged_file_name = self._draggedFileName(event)
+        if dragged_file_name and dragged_file_name != self.fileName:
+            event.acceptProposedAction()
+            return
+        event.ignore()
+
+    def dragMoveEvent(self, event):
+        dragged_file_name = self._draggedFileName(event)
+        if dragged_file_name and dragged_file_name != self.fileName:
+            event.acceptProposedAction()
+            return
+        event.ignore()
+
+    def dropEvent(self, event):
+        dragged_file_name = self._draggedFileName(event)
+        if not dragged_file_name or dragged_file_name == self.fileName:
+            event.ignore()
+            return
+        insert_after = event.pos().x() >= (self.width() / 2)
+        self.reorderRequested.emit(dragged_file_name, self.fileName, insert_after)
+        event.acceptProposedAction()
 
 def restart_real_live():
     qApp.exit(1207)
@@ -52,6 +160,22 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.aiService = AiService(conf)
         self.aiWorker = None
+        self.fridaDownloadWorker = None
+        self.fridaDownloadDialog = None
+        self.fridaUploadWorker = None
+        self.fridaUploadDialog = None
+        self.fridaVersionWorker = None
+        self.fridaVersionDialog = None
+        self.fridaVersionOutput = None
+        self.fridaVersionCloseButton = None
+        self.fridaUploadMenu = None
+        self.fridaArm64Menu = None
+        self.fridaX64Menu = None
+        self.fridaReleaseCatalog = self.loadCachedFridaReleaseCatalog()
+        self.fridaReleaseCatalogError = ""
+        self.fridaVersionMenuActions = []
+        self.fridaDownloadCancelled = False
+        self.curFridaVer = "14.2.18"
         self.liveOutputLogBuffer = []
         self.currentLogMode = "live"
         self.loadedLogPath = ""
@@ -66,10 +190,47 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.updateCmbHooks()
         self.outlogger = LogUtil.Logger('all.txt', level='debug')
 
+    def createColoredPlayIcon(self, color, size=20):
+        """创建彩色播放图标"""
+        pixmap = QPixmap(size, size)
+        pixmap.fill(Qt.transparent)
+        
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+        
+        # 设置颜色
+        painter.setBrush(QColor(color))
+        painter.setPen(QPen(QColor(color), 2))
+        
+        # 绘制播放三角形
+        triangle = QPolygon([
+            QPoint(int(size * 0.25), int(size * 0.15)),
+            QPoint(int(size * 0.25), int(size * 0.85)),
+            QPoint(int(size * 0.80), int(size * 0.50))
+        ])
+        painter.drawPolygon(triangle)
+        
+        painter.end()
+        return QIcon(pixmap)
+
+    def createColoredStopIcon(self, color, size=20):
+        """创建彩色停止图标"""
+        pixmap = QPixmap(size, size)
+        pixmap.fill(Qt.transparent)
+
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setBrush(QColor(color))
+        painter.setPen(QPen(QColor(color), 1))
+        margin = int(size * 0.2)
+        side = size - (margin * 2)
+        painter.drawRoundedRect(margin, margin, side, side, 3, 3)
+        painter.end()
+        return QIcon(pixmap)
+
     def initUi(self):
-        self.setWindowOpacity(0.93)
-        self.resize(1480, 980)
-        self.setMinimumSize(1280, 880)
+        self.resize(980, 720)
+        self.setMinimumSize(920, 660)
         # 日志目录
         if os.path.exists("./logs") == False:
             os.makedirs("./logs")
@@ -103,6 +264,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.statusBar.addPermanentWidget(self.labPackage, stretch=2)
 
         self.languageGroup = QActionGroup(self)
+        self.languageGroup.setExclusive(True)
         self.languageGroup.addAction(self.actionChina)
         self.languageGroup.addAction(self.actionEnglish)
 
@@ -110,10 +272,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.customPort = conf.read("kmain", "usb_port")
         self.address=conf.read("kmain", "wifi_addr")
         self.wifi_port = conf.read("kmain", "wifi_port")
-        if self.language == "China":
-            self.actionChina.setChecked(True)
-        else:
-            self.actionEnglish.setChecked(True)
+        self.updateLanguageSelectionUi()
         self.loadTypeData()
 
         self.actionAttach.triggered.connect(self.actionAttachStart)
@@ -131,37 +290,36 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.actionPushFridaServer.triggered.connect(self.PushFridaServer)
         self.actionPushFridaServerX86.triggered.connect(self.PushFridaServerX86)
         self.actionPullFartRes.triggered.connect(self.PullFartRes)
-        self.actionFrida32Start.triggered.connect(self.Frida32Start)
-        self.actionFrida64Start.triggered.connect(self.Frida64Start)
-        self.actionSuC.triggered.connect(self.ChangeSuC)
-        self.actionSu0.triggered.connect(self.ChangeSu0)
-        self.actionMks0.triggered.connect(self.ChangeMks0)
-        self.adbHeadGroup = QActionGroup(self)
-        self.adbHeadGroup.addAction(self.actionMks0)
-        self.adbHeadGroup.addAction(self.actionSuC)
-        self.adbHeadGroup.addAction(self.actionSu0)
-
-        self.actionFridax86Start.triggered.connect(self.FridaX86Start)
-        self.actionFridax64Start.triggered.connect(self.FridaX64Start)
+        self.actionFrida32Start.triggered.connect(self.StartFridaServer)
+        self.actionFrida64Start.setVisible(False)
+        self.actionFridax86Start.setVisible(False)
+        self.actionFridax64Start.setVisible(False)
         self.actionPullApk.triggered.connect(self.PullApk)
         self.actionPushGumTrace = QAction(self)
         self.actionPushGumTrace.setObjectName("actionPushGumTrace")
         self.actionPushGumTrace.triggered.connect(self.PushGumTraceLib)
         self.menu.insertAction(self.actionPullDumpDexRes, self.actionPushGumTrace)
+        self.actionPullGumTraceLog = QtWidgets.QAction(self)
+        self.actionPullGumTraceLog.setObjectName("actionPullGumTraceLog")
+        self.actionPullGumTraceLog.triggered.connect(self.pullGumTraceLog)
+        self.menu.insertAction(self.actionPullDumpDexRes, self.actionPullGumTraceLog)
+        self.initFridaUploadMenu()
+
+        self.menufrida.aboutToShow.connect(self.ensureFridaVersionMenuReady)
+        self.rebuildFridaVersionMenu()
 
         self.connectHeadGroup = QActionGroup(self)
+        self.connectHeadGroup.setExclusive(True)
         self.connectHeadGroup.addAction(self.actionWifi)
         self.connectHeadGroup.addAction(self.actionUsb)
         self.actionWifi.triggered.connect(self.WifiConn)
         self.actionUsb.triggered.connect(self.UsbConn)
-        self.actionVer14.triggered.connect(self.ChangeVer14)
-        self.actionVer15.triggered.connect(self.ChangeVer15)
-        self.actionVer16.triggered.connect(self.ChangeVer16)
         self.actionEnglish.triggered.connect(self.ChangeEnglish)
         self.actionChina.triggered.connect(self.ChangeChina)
 
         self.actionChangePort.triggered.connect(self.ChangePort)
         self.verGroup = QActionGroup(self)
+        self.verGroup.setExclusive(True)
         self.verGroup.addAction(self.actionVer14)
         self.verGroup.addAction(self.actionVer15)
         self.verGroup.addAction(self.actionVer16)
@@ -173,59 +331,11 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.btnWallbreaker.clicked.connect(self.wallBreaker)
         self.btnCallFunction.clicked.connect(self.callFunction)
 
-        self.chkNetwork.toggled.connect(self.hookNetwork)
-        self.chkJni.toggled.connect(self.hookJNI)
-        self.chkJavaEnc.toggled.connect(self.hookJavaEnc)
-        self.chkHookEvent.toggled.connect(self.hookEvent)
-        self.chkRegisterNative.toggled.connect(self.hookRegisterNative)
-        self.chkArtMethod.toggled.connect(self.hookArtMethod)
-        self.chkLibArt.toggled.connect(self.hookLibArm)
-        self.chkSslPining.toggled.connect(self.hookSslPining)
+        # r0capture moved to Custom Templates
+        # plain jnitrace moved out of main pre-attach UI
+        # FCAnd_jnitrace moved to lower tool button
 
-        self.chkAntiDebug.toggled.connect(self.hookAntiDebug)
-        self.chkNewJnitrace.toggled.connect(self.hookNewJnitrace)
-
-        self.chkRootBypass = QtWidgets.QCheckBox(self.groupBox_2)
-        self.chkRootBypass.setObjectName("chkRootBypass")
-        self.chkRootBypass.setText(self._translate("kmainForm", "root bypass"))
-        self.gridLayout_5.addWidget(self.chkRootBypass, 2, 2, 1, 1)
-        self.chkRootBypass.toggled.connect(self.hookRootBypass)
-
-        self.chkWebViewDebug = QtWidgets.QCheckBox(self.groupBox_2)
-        self.chkWebViewDebug.setObjectName("chkWebViewDebug")
-        self.chkWebViewDebug.setText(self._translate("kmainForm", "webview debug"))
-        self.gridLayout_5.addWidget(self.chkWebViewDebug, 2, 3, 1, 1)
-        self.chkWebViewDebug.toggled.connect(self.hookWebViewDebug)
-
-        self.chkOkHttpLogger = QtWidgets.QCheckBox(self.groupBox_2)
-        self.chkOkHttpLogger.setObjectName("chkOkHttpLogger")
-        self.chkOkHttpLogger.setText(self._translate("kmainForm", "okhttp logger"))
-        self.gridLayout_5.addWidget(self.chkOkHttpLogger, 3, 0, 1, 2)
-        self.chkOkHttpLogger.toggled.connect(self.hookOkHttpLogger)
-
-        self.chkSharedPrefsWatch = QtWidgets.QCheckBox(self.groupBox_2)
-        self.chkSharedPrefsWatch.setObjectName("chkSharedPrefsWatch")
-        self.chkSharedPrefsWatch.setText(self._translate("kmainForm", "shared prefs"))
-        self.gridLayout_5.addWidget(self.chkSharedPrefsWatch, 3, 2, 1, 1)
-        self.chkSharedPrefsWatch.toggled.connect(self.hookSharedPrefsWatch)
-
-        self.chkSQLiteLogger = QtWidgets.QCheckBox(self.groupBox_2)
-        self.chkSQLiteLogger.setObjectName("chkSQLiteLogger")
-        self.chkSQLiteLogger.setText(self._translate("kmainForm", "sqlite logger"))
-        self.gridLayout_5.addWidget(self.chkSQLiteLogger, 3, 3, 1, 1)
-        self.chkSQLiteLogger.toggled.connect(self.hookSQLiteLogger)
-
-        self.chkClipboardMonitor = QtWidgets.QCheckBox(self.groupBox_2)
-        self.chkClipboardMonitor.setObjectName("chkClipboardMonitor")
-        self.chkClipboardMonitor.setText(self._translate("kmainForm", "clipboard monitor"))
-        self.gridLayout_5.addWidget(self.chkClipboardMonitor, 4, 0, 1, 2)
-        self.chkClipboardMonitor.toggled.connect(self.hookClipboardMonitor)
-
-        self.chkIntentMonitor = QtWidgets.QCheckBox(self.groupBox_2)
-        self.chkIntentMonitor.setObjectName("chkIntentMonitor")
-        self.chkIntentMonitor.setText(self._translate("kmainForm", "intent monitor"))
-        self.gridLayout_5.addWidget(self.chkIntentMonitor, 4, 2, 1, 2)
-        self.chkIntentMonitor.toggled.connect(self.hookIntentMonitor)
+        # simple presets moved to Custom Templates
 
         self.btnMatchMethod.clicked.connect(self.matchMethod)
 
@@ -298,51 +408,85 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.classes = None
         self.symbols = None
         self.methods = None
+        self.dexes = []
+        self.filteredModules = []
+        self.currentSelectedModule = None
+        self.currentSelectedDex = None
+        self.currentAttachResourceType = "module"
+        self.moduleExportCache = {}
+        self.moduleSymbolCache = {}
+        self.lastSearchModuleKey = None
 
-        self.chkNetwork.tag = "r0capture"
-        self.chkJni.tag = "jnitrace"
-        self.chkJavaEnc.tag = "javaEnc"
-        self.chkSslPining.tag = "sslpining"
-        self.chkRegisterNative.tag = "RegisterNative"
-        self.chkArtMethod.tag = "ArtMethod"
-        self.chkLibArt.tag = "libArm"
-        self.chkHookEvent.tag = "hookEvent"
-        self.chkRootBypass.tag = "root_bypass"
-        self.chkWebViewDebug.tag = "webview_debug"
-        self.chkOkHttpLogger.tag = "okhttp_logger"
-        self.chkSharedPrefsWatch.tag = "shared_prefs_watch"
-        self.chkSQLiteLogger.tag = "sqlite_logger"
-        self.chkClipboardMonitor.tag = "clipboard_monitor"
-        self.chkIntentMonitor.tag = "intent_monitor"
+        # legacy pre-attach checkbox tags removed; r0capture/plain jnitrace now handled elsewhere
         self.connType = "usb"
+        self.updateConnectionSelectionUi()
         self.selectedDeviceId = ""
-        self.logPanelVisible = True
         self.lastMainSplitterSizes = [760, 420]
 
         self.actionattach = QtWidgets.QAction(self)
         self.actionattach.setText("attach")
         self.actionattach.setToolTip("attach by packageName")
+        self.actionattach.setIcon(self.createColoredPlayIcon("#FF6B6B"))  # 红色
         self.actionattach.triggered.connect(self.actionAttachNameStart)
         self.toolBar.addAction(self.actionattach)
 
         self.actionattachF = QtWidgets.QAction(self)
         self.actionattachF.setText("attachF")
         self.actionattachF.setToolTip("attach current top app")
+        self.actionattachF.setIcon(self.createColoredPlayIcon("#4ECDC4"))  # 青色
         self.actionattachF.triggered.connect(self.actionAttachStart)
         self.toolBar.addAction(self.actionattachF)
 
         self.actionspawn = QtWidgets.QAction(self)
         self.actionspawn.setText("spawn")
+        self.actionspawn.setIcon(self.createColoredPlayIcon("#95E1D3"))  # 浅绿色
         self.actionspawn.triggered.connect(self.actionSpawnStart)
         self.toolBar.addAction(self.actionspawn)
 
         self.actionstop = QtWidgets.QAction(self)
         self.actionstop.setText("stop")
+        self.actionstop.setIcon(self.createColoredStopIcon("#94a3b8"))
         self.actionstop.triggered.connect(self.StopAttach)
         self.toolBar.addAction(self.actionstop)
+        self.updateAttachActionStates(False)
 
-        self.curFridaVer = "14.2.18"
+        self.toolBar.addSeparator()
+
+        self.actionCustomModule = QtWidgets.QAction(self)
+        self.actionCustomModule.setText(self.trText("自定义", "Custom"))
+        self.actionCustomModule.setToolTip(self.trText("打开自定义模块", "Open Custom module"))
+        self.actionCustomModule.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogDetailedView))
+        self.actionCustomModule.triggered.connect(self.custom)
+        self.toolBar.addAction(self.actionCustomModule)
+
+        self.actionGumTracePanel = QtWidgets.QAction(self)
+        self.actionGumTracePanel.setText("GumTrace")
+        self.actionGumTracePanel.setToolTip(self.trText("打开 GumTrace 工作台", "Open GumTrace workbench"))
+        self.actionGumTracePanel.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogListView))
+        self.actionGumTracePanel.triggered.connect(self.openGumTraceWorkspace)
+        self.toolBar.addAction(self.actionGumTracePanel)
+
+        # 设置工具栏按钮样式：图标在上，文字在下
+        self.toolBar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+        self.toolBar.setIconSize(QtCore.QSize(20, 20))  # 设置图标大小
+        self.toolBar.setMinimumHeight(52)  # 工具栏高度
+        self.toolBar.setStyleSheet("""
+            QToolBar {
+                spacing: 5px;
+            }
+            QToolBar QToolButton {
+                padding: 4px 8px 6px 8px;
+                min-width: 65px;
+                min-height: 46px;
+            }
+        """)
+
         self.actionVer14.setChecked(True)
+        self.menu_frida_server.menuAction().setVisible(False)
+        self.setCmdMenuVisible(False)
+        self.actionFrida32Start.setText(self.trText("启动 frida-server", "Start frida-server"))
+        self.menuedit.insertAction(self.actionChangePort, self.actionFrida32Start)
+        self.actionChangePort.setVisible(True)
         # 16.0.8  15.1.9  14.2.18
         # res=CmdUtil.execCmdData("frida --version")
         # if "15." in res:
@@ -359,10 +503,17 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         #     self.actionVer15.setChecked(True)
 
         self.initSmartLayout()
+        self.migrateLegacySimpleHooksToCustom()
+        self.syncCustomHooksFromHooksData()
+        self.refreshPinnedCustomTemplates()
         self.initLogTools()
         self.initSettingsMenu()
         self.initGumTraceWorkspace()
         self.loadGumTraceConfig()
+        self.applyWorkbenchTheme()
+        if self.styleSheet():
+            self.customForm.setStyleSheet(self.styleSheet())
+        self.customForm.setWindowFlags(self.customForm.windowFlags() | Qt.WindowMinMaxButtonsHint)
         self.retranslateDynamicUi()
         self.refreshDeviceList()
         self.refreshOverviewCards()
@@ -373,10 +524,409 @@ class kmainForm(QMainWindow, Ui_MainWindow):
     def trText(self, zh_text, en_text):
         return en_text if self.isEnglish() else zh_text
 
+    def languageDisplayName(self, language):
+        return self.trText("中文", "Chinese") if language == "China" else "English"
+
+    def updateLanguageSelectionUi(self):
+        current_language = self.language if self.language in ("China", "English") else "China"
+        current_label = self.languageDisplayName(current_language)
+        self.menu_3.setTitle("{} [{}]".format(self.trText("语言", "language"), current_label))
+
+        selected_icon = self.style().standardIcon(QtWidgets.QStyle.SP_DialogApplyButton)
+        for action, language in ((self.actionChina, "China"), (self.actionEnglish, "English")):
+            is_current = language == current_language
+            label = self.languageDisplayName(language)
+            if is_current:
+                label += self.trText("（当前）", " (Current)")
+            action.setText(label)
+            action.setChecked(is_current)
+            action.setIcon(selected_icon if is_current else QIcon())
+            action.setIconVisibleInMenu(True)
+
+    def connectionDisplayName(self, conn_type):
+        return "WiFi" if conn_type == "wifi" else "USB"
+
+    def currentConnectionPortDisplay(self):
+        current_conn_type = getattr(self, "connType", "usb")
+        if current_conn_type == "wifi":
+            address = (self.address or "").strip()
+            port = (self.wifi_port or "").strip()
+            if len(address) > 0 and len(port) > 0:
+                return "%s:%s" % (address, port)
+            if len(port) > 0:
+                return port
+            return self.trText("未设置", "Not set")
+        custom_port = (self.customPort or "").strip()
+        if len(custom_port) > 0:
+            return custom_port
+        return "27042 / 27043"
+
+    def currentConnectionSettingsActionText(self):
+        current_conn_type = getattr(self, "connType", "usb")
+        return self.trText("连接设置", "Connection settings") if current_conn_type == "wifi" else self.trText("修改端口", "Change port")
+
+    def openCurrentConnectionSettings(self):
+        if getattr(self, "connType", "usb") == "wifi":
+            self.WifiConn()
+            return
+        self.ChangePort()
+
+    def updateToolbarContextPanel(self):
+        current_serial = self.selectedDeviceSerial()
+        port_text = self.currentConnectionPortDisplay()
+        if hasattr(self, "labMainContextDeviceTitle"):
+            self.labMainContextDeviceTitle.setText(self.trText("设备", "Device"))
+        if hasattr(self, "labMainContextPortTitle"):
+            self.labMainContextPortTitle.setText(self.trText("端口", "Port"))
+        if hasattr(self, "cmbMainContextDevices"):
+            self.cmbMainContextDevices.setToolTip(current_serial if len(current_serial) > 0 else self.trText("当前没有已选设备", "No device selected"))
+        if hasattr(self, "txtMainContextPortValue"):
+            self.txtMainContextPortValue.setText(port_text)
+            self.txtMainContextPortValue.setToolTip(port_text)
+            self.txtMainContextPortValue.setCursorPosition(0)
+        if hasattr(self, "btnMainContextRefreshDevices"):
+            self.btnMainContextRefreshDevices.setText(self.trText("刷新设备", "Refresh devices"))
+            self.fitButtonTextWidth(self.btnMainContextRefreshDevices)
+        if hasattr(self, "btnMainContextPortSettings"):
+            self.btnMainContextPortSettings.setText(self.currentConnectionSettingsActionText())
+            self.fitButtonTextWidth(self.btnMainContextPortSettings)
+
+    def updateConnectionSelectionUi(self):
+        current_conn_type = getattr(self, "connType", "usb")
+        if current_conn_type not in ("usb", "wifi"):
+            current_conn_type = "usb"
+        current_label = self.connectionDisplayName(current_conn_type)
+        self.menu_2.setTitle("{} [{}]".format(self.trText("连接方式", "connect type"), current_label))
+
+        selected_icon = self.style().standardIcon(QtWidgets.QStyle.SP_DialogApplyButton)
+        for action, conn_type, label in (
+            (self.actionUsb, "usb", self.trText("usb连接", "USB")),
+            (self.actionWifi, "wifi", self.trText("wifi连接", "WiFi")),
+        ):
+            is_current = conn_type == current_conn_type
+            action_label = label
+            if is_current:
+                action_label += self.trText("（当前）", " (Current)")
+            action.setText(action_label)
+            action.setChecked(is_current)
+            action.setIcon(selected_icon if is_current else QIcon())
+            action.setIconVisibleInMenu(True)
+        self.updateToolbarContextPanel()
+
+    def currentFridaVersionDisplay(self):
+        for action in getattr(self, "fridaVersionMenuActions", []):
+            version = str(action.data() or "").strip()
+            if action.isChecked() and version:
+                return version
+        current_version = str(getattr(self, "curFridaVer", "") or "").strip()
+        if current_version:
+            return current_version
+        return self.getInstalledPythonFridaVersion().strip()
+
+    def updateFridaVersionSelectionUi(self, current_version=""):
+        current_version = (current_version or self.currentFridaVersionDisplay()).strip()
+        if current_version:
+            self.menufrida.setTitle("{} [{}]".format(self.trText("frida切换", "frida ver"), current_version))
+        else:
+            self.menufrida.setTitle(self.trText("frida切换", "frida ver"))
+
+        selected_icon = self.style().standardIcon(QtWidgets.QStyle.SP_DialogApplyButton)
+        for action in getattr(self, "fridaVersionMenuActions", []):
+            version = str(action.data() or "").strip()
+            if not version:
+                continue
+            is_current = version == current_version
+            label = version
+            if is_current:
+                label += self.trText("（当前）", " (Current)")
+            action.setText(label)
+            action.setChecked(is_current)
+            action.setIcon(selected_icon if is_current else QIcon())
+            action.setIconVisibleInMenu(True)
+        self.updateToolbarContextPanel()
+
+    def currentPythonVersionDisplay(self):
+        return "{}.{}".format(sys.version_info.major, sys.version_info.minor)
+
+    def isFridaVersionSupportedOnCurrentPython(self, version):
+        return True, ""
+
+    def setCmdMenuVisible(self, visible):
+        self.menucmd.menuAction().setVisible(visible)
+
+    def getFridaReleaseCatalogOrEmpty(self):
+        return self.fridaReleaseCatalog or self.loadCachedFridaReleaseCatalog() or FRIDA_EMPTY_RELEASE_CATALOG
+
+    def initFridaUploadMenu(self):
+        self.actionPushFridaServer.setVisible(False)
+        self.actionPushFridaServerX86.setVisible(False)
+        self.fridaUploadMenu = QMenu(self.menu)
+        self.fridaUploadMenu.setObjectName("fridaUploadMenu")
+        self.fridaUploadMenu.aboutToShow.connect(self.refreshFridaUploadMenu)
+        self.fridaArm64Menu = QMenu(self.fridaUploadMenu)
+        self.fridaX64Menu = QMenu(self.fridaUploadMenu)
+        self.menu.insertMenu(self.actionPushFartSo, self.fridaUploadMenu)
+
+    def clearFridaUploadMenuActions(self):
+        if self.fridaUploadMenu is None:
+            return
+        self.fridaUploadMenu.clear()
+        self.fridaArm64Menu = QMenu(self.fridaUploadMenu)
+        self.fridaX64Menu = QMenu(self.fridaUploadMenu)
+
+    def fridaFamilyText(self, family_key):
+        return self.trText("arm64", "arm64") if family_key == "arm64" else self.trText("x64", "x64")
+
+    def createDisabledMenuAction(self, text):
+        action = QAction(text, self)
+        action.setEnabled(False)
+        return action
+
+    def sortVersionsDescending(self, versions):
+        return sorted(versions, key=lambda item: tuple(int(part) for part in item.split(".")), reverse=True)
+
+    def listLocalFridaInventory(self):
+        inventory = {}
+        exec_dir = os.path.abspath("./exec")
+        if os.path.exists(exec_dir) is False:
+            return inventory
+
+        pattern = re.compile(r"^frida-server-(\d+\.\d+\.\d+)-android-(arm|arm64|x86|x86_64)$")
+        preferred_arch_by_family = {
+            "arm64": "arm64",
+            "x64": "x86_64",
+        }
+        for file_name in os.listdir(exec_dir):
+            match = pattern.match(file_name)
+            if match is None:
+                continue
+
+            version, arch = match.groups()
+            family_key = FRIDA_LOCAL_ARCH_TO_FAMILY.get(arch)
+            if family_key is None:
+                continue
+
+            local_path = os.path.join(exec_dir, file_name)
+            if os.path.isfile(local_path) is False or os.path.getsize(local_path) <= 0:
+                continue
+
+            version_inventory = inventory.setdefault(version, {})
+            current_entry = version_inventory.get(family_key)
+            should_replace = current_entry is None or arch == preferred_arch_by_family.get(family_key)
+            if should_replace:
+                version_inventory[family_key] = {arch: local_path}
+        return inventory
+
+    def buildLatestPatchVersionMap(self, versions):
+        catalog = {major: [] for major in FRIDA_SUPPORTED_MAJORS}
+        grouped = {major: [] for major in FRIDA_SUPPORTED_MAJORS}
+        for version in versions:
+            try:
+                major = int(version.split(".", 1)[0])
+            except Exception:
+                continue
+            if major not in grouped:
+                continue
+            grouped[major].append(version)
+        for major in FRIDA_SUPPORTED_MAJORS:
+            catalog[major] = self.sortVersionsDescending(list(set(grouped[major])))[:FRIDA_MENU_VERSION_LIMIT]
+        return catalog
+
+    def loadCachedFridaReleaseCatalog(self):
+        if os.path.exists(FRIDA_RELEASE_CACHE_PATH) is False:
+            return None
+        try:
+            with open(FRIDA_RELEASE_CACHE_PATH, "r", encoding="utf-8") as cache_file:
+                data = json.loads(cache_file.read())
+            if not isinstance(data, dict):
+                return None
+            catalog = {major: list(data.get(str(major), data.get(major, []))) for major in FRIDA_SUPPORTED_MAJORS}
+            if not any(catalog.values()):
+                return None
+            return catalog
+        except Exception:
+            return None
+
+    def saveFridaReleaseCatalogCache(self, catalog):
+        with open(FRIDA_RELEASE_CACHE_PATH, "w", encoding="utf-8") as cache_file:
+            json.dump({str(key): value for key, value in catalog.items()}, cache_file, ensure_ascii=False, indent=2)
+
+    def rebuildFridaVersionMenu(self):
+        self.menufrida.clear()
+        self.fridaVersionMenuActions = []
+        installed_version = self.getInstalledPythonFridaVersion()
+        if installed_version:
+            self.curFridaVer = installed_version
+        inventory = self.listLocalFridaInventory()
+        local_versions = self.sortVersionsDescending(list(inventory.keys()))
+        if not local_versions:
+            placeholder = QAction(self.trText("请先下载并上传 frida", "Download and upload frida first"), self)
+            placeholder.setEnabled(False)
+            self.menufrida.addAction(placeholder)
+            self.updateFridaVersionSelectionUi(installed_version)
+            return
+        self.verGroup = QActionGroup(self)
+        self.verGroup.setExclusive(True)
+        for version in local_versions:
+            action = QAction(version, self)
+            action.setCheckable(True)
+            action.setData(version)
+            supported, unsupported_reason = self.isFridaVersionSupportedOnCurrentPython(version)
+            action.setChecked(bool(installed_version) and version == installed_version)
+            action.setEnabled(supported)
+            if not supported:
+                action.setToolTip(unsupported_reason)
+                action.setStatusTip(unsupported_reason)
+            action.triggered.connect(lambda checked, current_version=version: self.changeFridaClientVersion(current_version, checked))
+            self.verGroup.addAction(action)
+            self.menufrida.addAction(action)
+            self.fridaVersionMenuActions.append(action)
+        self.updateFridaVersionSelectionUi(installed_version or self.curFridaVer)
+
+    def fetchFridaReleaseCatalog(self):
+        versions = []
+        version_re = re.compile(r"^\d+\.\d+\.\d+$")
+        for page in range(1, FRIDA_RELEASE_TAGS_PAGES + 1):
+            request = urllib.request.Request(
+                FRIDA_RELEASE_TAGS_API_URL.format(page=page),
+                headers={"User-Agent": "fridaUiTools/1.0"},
+            )
+            with urllib.request.urlopen(request, timeout=20) as response:
+                tag_data = json.loads(response.read().decode("utf-8"))
+            if not isinstance(tag_data, list) or len(tag_data) <= 0:
+                break
+            page_versions = []
+            for item in tag_data:
+                tag_name = str(item.get("name", "")).strip()
+                if version_re.match(tag_name):
+                    page_versions.append(tag_name)
+            versions.extend(page_versions)
+            if len(page_versions) <= 0:
+                break
+        if len(versions) <= 0:
+            raise RuntimeError("empty tag list")
+        return self.buildLatestPatchVersionMap(versions)
+
+    def ensureFridaReleaseCatalog(self):
+        if self.fridaReleaseCatalog is not None:
+            return self.fridaReleaseCatalog
+        cached_catalog = self.loadCachedFridaReleaseCatalog()
+        if cached_catalog is not None:
+            self.fridaReleaseCatalog = cached_catalog
+            self.fridaReleaseCatalogError = ""
+            return self.fridaReleaseCatalog
+        try:
+            self.fridaReleaseCatalog = self.fetchFridaReleaseCatalog()
+            self.saveFridaReleaseCatalogCache(self.fridaReleaseCatalog)
+            self.fridaReleaseCatalogError = ""
+            return self.fridaReleaseCatalog
+        except Exception as error:
+            self.fridaReleaseCatalogError = str(error)
+            fallback_catalog = {major: list(FRIDA_FALLBACK_VERSION_CATALOG.get(major, [])) for major in FRIDA_SUPPORTED_MAJORS}
+            self.fridaReleaseCatalog = fallback_catalog
+            try:
+                self.saveFridaReleaseCatalogCache(fallback_catalog)
+            except Exception:
+                pass
+            return fallback_catalog
+
+    def ensureFridaVersionMenuReady(self):
+        if self.fridaReleaseCatalog is None:
+            self.ensureFridaReleaseCatalog()
+        self.rebuildFridaVersionMenu()
+
+    def addFridaMenuAction(self, menu, text, version, family_key, source, arch, checked=False):
+        action = QAction(text, self)
+        action.setCheckable(checked)
+        action.setChecked(checked)
+        action.setData({"version": version, "family": family_key, "source": source, "arch": arch})
+        action.triggered.connect(self.handleFridaMenuAction)
+        menu.addAction(action)
+        return action
+
+    def populateFridaFamilyMenu(self, menu, family_key, catalog, inventory):
+        menu.setTitle(self.fridaFamilyText(family_key))
+        has_item = False
+        target_arch = "arm64" if family_key == "arm64" else "x86_64"
+        for major in FRIDA_SUPPORTED_MAJORS:
+            versions = catalog.get(major, [])
+            if not versions:
+                continue
+            if has_item:
+                menu.addSeparator()
+            for version in versions:
+                checked = family_key in inventory.get(version, {})
+                self.addFridaMenuAction(menu, version, version, family_key, "remote", target_arch, checked=checked)
+                has_item = True
+        if has_item is False:
+            menu.addAction(self.createDisabledMenuAction(self.trText("版本列表加载失败", "Failed to load versions")))
+
+    def refreshFridaUploadMenu(self):
+        self.clearFridaUploadMenuActions()
+        self.fridaUploadMenu.setTitle(self.trText("上传 frida", "Upload frida"))
+        if self.fridaReleaseCatalog is None:
+            self.ensureFridaReleaseCatalog()
+        inventory = self.listLocalFridaInventory()
+        has_local = False
+        for version in self.sortVersionsDescending(list(inventory.keys())):
+            version_inventory = inventory.get(version, {})
+            for family_key in FRIDA_MENU_FAMILIES:
+                entry = version_inventory.get(family_key)
+                if entry:
+                    local_arch = next(iter(entry.keys()))
+                    text = f"{version} [{self.fridaFamilyText(family_key)}]"
+                    self.addFridaMenuAction(self.fridaUploadMenu, text, version, family_key, "local", local_arch)
+                    has_local = True
+        if has_local is False:
+            self.fridaUploadMenu.addAction(self.createDisabledMenuAction(self.trText("没有已下载的 frida 版本", "No downloaded frida versions")))
+        self.fridaUploadMenu.addSeparator()
+        catalog = self.fridaReleaseCatalog or FRIDA_EMPTY_RELEASE_CATALOG
+        self.populateFridaFamilyMenu(self.fridaArm64Menu, "arm64", catalog, inventory)
+        self.populateFridaFamilyMenu(self.fridaX64Menu, "x64", catalog, inventory)
+        self.fridaUploadMenu.addMenu(self.fridaArm64Menu)
+        self.fridaUploadMenu.addMenu(self.fridaX64Menu)
+
+    def handleFridaMenuAction(self):
+        action = self.sender()
+        if action is None:
+            return
+        data = action.data() or {}
+        version = data.get("version", "")
+        family_key = data.get("family", "")
+        source = data.get("source", "")
+        arch = data.get("arch", "")
+        if not version or not family_key:
+            return
+        upload_only = source == "local"
+        self.handleFridaVersionUpload(version, family_key, arch=arch, upload_only=upload_only)
+
+    def handleFridaVersionUpload(self, version, family_key, arch="", upload_only=False):
+        try:
+            self.setFridaUploadActionsEnabled(False)
+            self.uploadFridaFamily(version, family_key, preferred_arch=arch, upload_only=upload_only)
+            self.curFridaVer = version
+            QMessageBox().information(self, "hint", self.trText("上传完成.", "Upload completed."))
+        except Exception as error:
+            message = f"{self.trText('上传异常：', 'Upload failed: ')}{error}\nVersion: {version}\nFamily: {family_key}"
+            if arch:
+                message += f"\nArch: {arch}"
+            if self.fridaReleaseCatalogError:
+                message += f"\nCatalog error: {self.fridaReleaseCatalogError}"
+            QMessageBox.critical(self, "error", message)
+        finally:
+            self.setFridaUploadActionsEnabled(True)
+
+
     def selectedDeviceSerial(self):
         if hasattr(self, "cmbDevices"):
-            return (self.cmbDevices.currentData() or "").strip()
-        return (self.selectedDeviceId or "").strip()
+            current_serial = (self.cmbDevices.currentData() or self.cmbDevices.currentText() or "").strip()
+            if len(current_serial) > 0:
+                return current_serial
+        if hasattr(self, "cmbMainContextDevices"):
+            current_serial = (self.cmbMainContextDevices.currentData() or self.cmbMainContextDevices.currentText() or "").strip()
+            if len(current_serial) > 0:
+                return current_serial
+        return (getattr(self, "selectedDeviceId", "") or "").strip()
 
     def selectedDeviceLabel(self):
         if hasattr(self, "cmbDevices") and self.cmbDevices.currentIndex() >= 0:
@@ -389,6 +939,20 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             os.environ["ANDROID_SERIAL"] = self.selectedDeviceId
         elif "ANDROID_SERIAL" in os.environ:
             os.environ.pop("ANDROID_SERIAL")
+
+    def populateDeviceCombo(self, combo, devices, target):
+        if combo is None:
+            return
+        combo.blockSignals(True)
+        combo.clear()
+        for serial in devices:
+            combo.addItem(serial, serial)
+        combo.setEnabled(len(devices) > 0)
+        if target:
+            index = combo.findData(target)
+            if index >= 0:
+                combo.setCurrentIndex(index)
+        combo.blockSignals(False)
 
     def refreshDeviceList(self):
         if not hasattr(self, "cmbDevices"):
@@ -408,57 +972,51 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             parts = re.split(r"\s+", line)
             if len(parts) >= 2 and parts[1] == "device":
                 devices.append(parts[0])
-        self.cmbDevices.blockSignals(True)
-        self.cmbDevices.clear()
-        for serial in devices:
-            self.cmbDevices.addItem(serial, serial)
         target = previous if previous in devices else (devices[0] if devices else "")
-        if target:
-            self.cmbDevices.setCurrentIndex(devices.index(target))
-        self.cmbDevices.blockSignals(False)
+        self.populateDeviceCombo(self.cmbDevices, devices, target)
+        if hasattr(self, "cmbMainContextDevices"):
+            self.populateDeviceCombo(self.cmbMainContextDevices, devices, target)
         self.updateSelectedDevice(target)
         if hasattr(self, "labDeviceStatus"):
             if target:
                 self.labDeviceStatus.setText(self.trText("当前设备：", "Current device: ") + target)
             else:
                 self.labDeviceStatus.setText(self.trText("当前设备：未检测到已连接设备", "Current device: no connected device detected"))
+        self.updateToolbarContextPanel()
         self.updateCurrentAppInfoTable()
         self.refreshOverviewCards()
 
     def onDeviceChanged(self):
-        self.updateSelectedDevice(self.selectedDeviceSerial())
-        if hasattr(self, "labDeviceStatus"):
+        sender = self.sender()
+        current = ""
+        if isinstance(sender, QtWidgets.QComboBox):
+            current = (sender.currentData() or sender.currentText() or "").strip()
+        else:
             current = self.selectedDeviceSerial()
+        for combo_name in ("cmbDevices", "cmbMainContextDevices"):
+            combo = getattr(self, combo_name, None)
+            if combo is None or combo is sender:
+                continue
+            index = combo.findData(current)
+            combo.blockSignals(True)
+            if index >= 0:
+                combo.setCurrentIndex(index)
+            combo.blockSignals(False)
+        self.updateSelectedDevice(current)
+        if hasattr(self, "labDeviceStatus"):
             self.labDeviceStatus.setText((self.trText("当前设备：", "Current device: ") + current) if current else self.trText("当前设备：未检测到已连接设备", "Current device: no connected device detected"))
+        self.updateToolbarContextPanel()
         self.updateCurrentAppInfoTable()
         self.refreshOverviewCards()
 
     def toggleLogDock(self):
-        self.setLogPanelVisible(not self.logPanelVisible)
+        self.showLogDock(self.tab_3)
 
     def showLogDock(self, target_tab=None):
-        if target_tab is not None:
-            self.groupLogs.setCurrentWidget(target_tab)
-        self.setLogPanelVisible(True)
-        if hasattr(self, "logDock"):
-            self.logDock.raise_()
-
-    def onLogDockVisibilityChanged(self, visible):
-        self.logPanelVisible = visible
-        if hasattr(self, "actionToggleLogDock"):
-            self.actionToggleLogDock.setText(self.trText("隐藏日志侧边栏", "Hide log sidebar") if visible else self.trText("显示日志侧边栏", "Show log sidebar"))
-
-    def setLogPanelVisible(self, visible):
-        self.logPanelVisible = visible
-        if not hasattr(self, "logDock"):
-            return
-        if visible:
-            self.logDock.show()
-        else:
-            self.logDock.hide()
-        self.onLogDockVisibilityChanged(self.logDock.isVisible())
-
-
+        if target_tab is not None and self.tabWidget.indexOf(target_tab) >= 0:
+            self.tabWidget.setCurrentWidget(target_tab)
+        self.raise_()
+        self.activateWindow()
 
     def loadTypeData(self):
         typePath = "./config/type_en.json" if self.isEnglish() else "./config/type.json"
@@ -611,6 +1169,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         package = data.get("package", {})
         module_count = runtime.get("moduleCount") or len(data.get("modules", []))
         class_count = runtime.get("classCount") or len(data.get("classes", []))
+        dex_count = runtime.get("dexCount") or len(data.get("dexes", []))
         return [
             (self.trText("附加包名", "Attached package"), data.get("packageName") or package.get("packageName") or self.labPackage.text()),
             (self.trText("附加方式", "Attach mode"), data.get("attachType")),
@@ -622,6 +1181,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             (self.trText("指针大小", "Pointer size"), runtime.get("pointerSize")),
             (self.trText("页面大小", "Page size"), runtime.get("pageSize")),
             (self.trText("模块数量", "Module count"), module_count),
+            (self.trText("DEX 数量", "DEX count"), dex_count),
             (self.trText("Java 类数量", "Java class count"), class_count),
             (self.trText("已附加调试器", "Debugger attached"), self.boolText(runtime.get("debuggerAttached"))),
             (self.trText("当前目录", "Current dir"), runtime.get("currentDir")),
@@ -645,6 +1205,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             (self.trText("设备信息", "Device"), " / ".join([item for item in [self.valueText(package.get("brand"), ""), self.valueText(package.get("model"), ""), self.valueText(package.get("device"), "")] if len(item) > 0])),
             (self.trText("支持 ABI", "Supported ABIs"), package.get("supportedAbis")),
             (self.trText("代码签名策略", "Code-signing policy"), runtime.get("codeSigningPolicy")),
+            (self.trText("DEX 信息异常", "DEX info error"), data.get("dexError")),
             (self.trText("附加信息异常", "Attach info error"), data.get("packageError")),
         ]
 
@@ -654,8 +1215,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.setInfoTableRows(self.attachInfoTable, self.buildAttachedInfoRows())
 
     def initSmartLayout(self):
-        self.resize(1320, 860)
-        self.setMinimumSize(1080, 760)
+        self.resize(980, 720)
+        self.setMinimumSize(920, 660)
         self.tabWidget.setDocumentMode(False)
         self.groupLogs.setDocumentMode(False)
         self.groupLogs.setTabPosition(QtWidgets.QTabWidget.North)
@@ -663,43 +1224,132 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
         self.groupBox.setMinimumWidth(0)
         self.groupBox_2.setMinimumWidth(0)
-        for button in [self.btnDumpSo, self.btnDumpPtr, self.btnDumpDex, self.btnFart,
-                       self.btnWallbreaker, self.btnCallFunction, self.btnMemSearch,
-                       self.btnMatchMethod, self.btnNatives, self.btnStalker, self.btnTuoke,
-                       self.btnCustom, self.btnPatch, self.btnAntiFrida]:
+        self.groupBox.setMinimumHeight(0)
+        self.groupBox_2.setMinimumHeight(0)
+
+        main_buttons = [
+            self.btnDumpSo,
+            self.btnDumpPtr,
+            self.btnDumpDex,
+            self.btnFart,
+            self.btnWallbreaker,
+            self.btnCallFunction,
+            self.btnMemSearch,
+            self.btnMatchMethod,
+            self.btnNatives,
+            self.btnStalker,
+            self.btnTuoke,
+            self.btnCustom,
+            self.btnPatch,
+            self.btnAntiFrida,
+        ]
+        for button in main_buttons:
             button.setMinimumHeight(40)
             button.setCursor(Qt.PointingHandCursor)
 
         self.gridLayout_6.removeWidget(self.groupBox)
         self.gridLayout_6.removeWidget(self.groupBox_2)
         self.gridLayout_6.removeWidget(self.groupLogs)
+        self.groupLogs.setVisible(False)
 
         self.mainLeftWidget = QtWidgets.QWidget(self.tab_2)
+        self.mainLeftWidget.setMaximumWidth(16777215)
+        self.mainLeftWidget.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         self.mainLeftLayout = QtWidgets.QVBoxLayout(self.mainLeftWidget)
         self.mainLeftLayout.setContentsMargins(0, 0, 0, 0)
-        self.mainLeftLayout.setSpacing(8)
-        self.groupBox.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
-        self.groupBox_2.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
+        self.mainLeftLayout.setSpacing(4)
+        self.initMainContextPanel()
+        self.groupBox.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Maximum)
+        self.groupBox_2.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Maximum)
+        self.mainLeftLayout.addWidget(self.mainContextGroup)
         self.mainLeftLayout.addWidget(self.groupBox)
         self.mainLeftLayout.addWidget(self.groupBox_2)
-        self.mainLeftLayout.addStretch(1)
-        self.gridLayout_6.addWidget(self.mainLeftWidget, 0, 0, 1, 1)
+
+        self.customTemplateGroup = QtWidgets.QGroupBox(self.trText("自定义模板", "Custom Templates"), self.tab_2)
+        self.customTemplateGroup.setObjectName("panelCard")
+        self.customTemplateGroup.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.customTemplateLayout = QtWidgets.QVBoxLayout(self.customTemplateGroup)
+        self.customTemplateLayout.setContentsMargins(10, 12, 10, 8)
+        self.customTemplateLayout.setSpacing(6)
+        self.labCustomTemplateHint = QLabel(
+            self.trText("将常用脚本固定到主界面，一键启用/禁用；管理与编辑请进入“自定义”。", "Pin frequently used scripts here for one-click enable/disable. Use 'Custom' to manage and edit templates."),
+            self.customTemplateGroup,
+        )
+        self.labCustomTemplateHint.setWordWrap(True)
+        self.labCustomTemplateHint.setObjectName("panelHint")
+        self.customTemplateLayout.addWidget(self.labCustomTemplateHint)
+        self.customTemplateScroll = QtWidgets.QScrollArea(self.customTemplateGroup)
+        self.customTemplateScroll.setObjectName("customTemplateScroll")
+        self.customTemplateScroll.setWidgetResizable(True)
+        self.customTemplateScroll.setFrameShape(QtWidgets.QFrame.NoFrame)
+        self.customTemplateScroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.customTemplateScroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.customTemplateScroll.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.customTemplateContainer = QtWidgets.QWidget(self.customTemplateScroll)
+        self.customTemplateContainer.setObjectName("customTemplateContainer")
+        self.customTemplateGrid = QtWidgets.QGridLayout(self.customTemplateContainer)
+        self.customTemplateGrid.setContentsMargins(0, 0, 0, 0)
+        self.customTemplateGrid.setHorizontalSpacing(4)
+        self.customTemplateGrid.setVerticalSpacing(4)
+        self.customTemplateScroll.setWidget(self.customTemplateContainer)
+        self.customTemplateLayout.addWidget(self.customTemplateScroll, 1)
+        self.customTemplateTiles = []
+        QtCore.QTimer.singleShot(0, self.rebuildPinnedCustomTemplateGrid)
+        self.mainLeftLayout.addWidget(self.customTemplateGroup, 1)
+
+        self.mainLeftLayout.setAlignment(Qt.AlignTop)
+        self.mainLeftLayout.setStretch(0, 0)
+        self.mainLeftLayout.setStretch(1, 0)
+        self.mainLeftLayout.setStretch(2, 0)
+        self.mainLeftLayout.setStretch(3, 1)
+        self.gridLayout_6.setContentsMargins(4, 4, 4, 4)
+        self.gridLayout_6.setHorizontalSpacing(4)
+        self.gridLayout_6.setVerticalSpacing(4)
+        self.gridLayout_6.setRowStretch(0, 0)
+        self.gridLayout_6.setRowStretch(1, 1)
+        self.gridLayout_6.setColumnStretch(0, 1)
+        self.gridLayout_6.setColumnMinimumWidth(0, 0)
+        self.gridLayout_6.addWidget(self.mainLeftWidget, 0, 0, 1, 1, Qt.AlignTop)
 
         self.configureClassicMainPanels()
+        self.ensureBuiltinCustomTemplates()
+        self.refreshPinnedCustomTemplates()
         self.configureInfoTabs()
         self.configureAttachExplorerTab()
-        self.configureAssistTab()
+        self.removeAssistTab()
+        self.registerLogTabs()
         self.configureLogWidgets()
-        self.initLogDock()
-        self.setLogPanelVisible(True)
+
+    def registerLogTabs(self):
+        log_tabs = [self.tab_4, self.tab_3, self.tab_5]
+        while self.groupLogs.count() > 0:
+            self.groupLogs.removeTab(0)
+        for tab in log_tabs:
+            if self.tabWidget.indexOf(tab) < 0:
+                self.tabWidget.addTab(tab, "")
 
     def configureClassicMainPanels(self):
-        self.gridLayout_4.setContentsMargins(8, 8, 8, 8)
-        self.gridLayout_7.setContentsMargins(8, 8, 8, 8)
-        self.gridLayout_4.setHorizontalSpacing(6)
-        self.gridLayout_4.setVerticalSpacing(6)
-        self.gridLayout_7.setHorizontalSpacing(6)
-        self.gridLayout_7.setVerticalSpacing(6)
+        self.gridLayout_4.setContentsMargins(4, 4, 4, 4)
+        self.gridLayout_7.setContentsMargins(4, 4, 4, 4)
+        self.gridLayout_4.setHorizontalSpacing(4)
+        self.gridLayout_4.setVerticalSpacing(4)
+        self.gridLayout_7.setHorizontalSpacing(4)
+        self.gridLayout_7.setVerticalSpacing(2)
+
+        for widget in [
+            self.chkNetwork,
+            self.chkJni,
+            self.chkNewJnitrace,
+            self.chkHookEvent,
+            self.chkAntiDebug,
+            self.chkRegisterNative,
+            self.chkJavaEnc,
+            self.chkArtMethod,
+            self.chkSslPining,
+            self.chkLibArt,
+        ]:
+            self.gridLayout_5.removeWidget(widget)
+            widget.deleteLater()
 
         common_buttons = [
             self.btnDumpSo,
@@ -712,8 +1362,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         ]
         for button in common_buttons:
             self.gridLayout_4.removeWidget(button)
-            button.setMinimumHeight(34)
-            button.setMaximumHeight(34)
+            button.setMinimumHeight(32)
+            button.setMaximumHeight(32)
             button.setCursor(Qt.PointingHandCursor)
         self.gridLayout_4.addWidget(self.btnDumpSo, 0, 0, 1, 1)
         self.gridLayout_4.addWidget(self.btnWallbreaker, 0, 1, 1, 1)
@@ -721,55 +1371,61 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.gridLayout_4.addWidget(self.btnMemSearch, 0, 3, 1, 1)
         self.gridLayout_4.addWidget(self.btnDumpPtr, 1, 0, 1, 1)
         self.gridLayout_4.addWidget(self.btnFart, 1, 1, 1, 1)
-        self.gridLayout_4.addWidget(self.btnDumpDex, 1, 2, 1, 2)
+        self.gridLayout_4.addWidget(self.btnDumpDex, 1, 2, 1, 1)
         for col in range(4):
             self.gridLayout_4.setColumnStretch(col, 1)
 
         if hasattr(self, "labAiFeatureStatusMain"):
             self.gridLayout_7.removeWidget(self.labAiFeatureStatusMain)
             self.labAiFeatureStatusMain.deleteLater()
-        self.labAiFeatureStatusMain = QLabel(self.groupBox_2)
-        self.labAiFeatureStatusMain.setWordWrap(True)
-        self.labAiFeatureStatusMain.setObjectName("aiStateLabel")
-        self.gridLayout_7.addWidget(self.labAiFeatureStatusMain, 1, 0, 1, 1)
+            del self.labAiFeatureStatusMain
 
         if hasattr(self, "mainFeatureButtonGrid"):
             self.gridLayout_7.removeItem(self.mainFeatureButtonGrid)
         self.mainFeatureButtonGrid = QtWidgets.QGridLayout()
         self.mainFeatureButtonGrid.setContentsMargins(0, 0, 0, 0)
-        self.mainFeatureButtonGrid.setHorizontalSpacing(6)
-        self.mainFeatureButtonGrid.setVerticalSpacing(6)
+        self.mainFeatureButtonGrid.setHorizontalSpacing(4)
+        self.mainFeatureButtonGrid.setVerticalSpacing(4)
+        self.gridLayout_7.removeItem(self.gridLayout_5)
         self.gridLayout_7.removeItem(self.horizontalLayout)
 
-        self.btnGumTracePanel = QtWidgets.QPushButton(self.groupBox_2)
-        self.btnGumTracePanel.setMinimumHeight(34)
-        self.btnGumTracePanel.setMaximumHeight(34)
-        self.btnGumTracePanel.setCursor(Qt.PointingHandCursor)
-        self.btnGumTracePanel.clicked.connect(self.openGumTraceWorkspace)
+        self.btnFCAndJnitracePanel = QtWidgets.QPushButton(self.groupBox_2)
+        self.btnFCAndJnitracePanel.setObjectName("btnFCAndJnitracePanel")
+        self.btnFCAndJnitracePanel.setMinimumHeight(32)
+        self.btnFCAndJnitracePanel.setMaximumHeight(32)
+        self.btnFCAndJnitracePanel.setCursor(Qt.PointingHandCursor)
+        self.btnFCAndJnitracePanel.clicked.connect(self.openFCAndJnitrace)
 
         feature_buttons = [
             self.btnMatchMethod,
             self.btnNatives,
             self.btnStalker,
             self.btnTuoke,
-            self.btnCustom,
             self.btnPatch,
             self.btnAntiFrida,
-            self.btnGumTracePanel,
+            self.btnFCAndJnitracePanel,
         ]
+        # 隐藏已移到工具栏的按钮
+        self.btnCustom.hide()
         for index, button in enumerate(feature_buttons):
-            self.horizontalLayout.removeWidget(button) if button is not self.btnGumTracePanel else None
-            button.setMinimumHeight(34)
-            button.setMaximumHeight(34)
+            self.horizontalLayout.removeWidget(button)
+            button.setMinimumHeight(32)
+            button.setMaximumHeight(32)
             button.setCursor(Qt.PointingHandCursor)
             self.mainFeatureButtonGrid.addWidget(button, index // 4, index % 4, 1, 1)
         for col in range(4):
             self.mainFeatureButtonGrid.setColumnStretch(col, 1)
-        self.gridLayout_7.addLayout(self.mainFeatureButtonGrid, 2, 0, 1, 1)
-        self.gridLayout_7.setRowStretch(3, 1)
+        self.gridLayout_7.addLayout(self.mainFeatureButtonGrid, 1, 0, 1, 1)
+        self.gridLayout_7.setRowMinimumHeight(0, 0)
+        self.gridLayout_7.setRowMinimumHeight(1, 0)
+        self.gridLayout_7.setRowMinimumHeight(2, 0)
+        self.gridLayout_7.setRowStretch(0, 0)
+        self.gridLayout_7.setRowStretch(1, 0)
+        self.gridLayout_7.setRowStretch(2, 0)
+        self.gridLayout_7.setRowStretch(3, 0)
 
     def createSummaryCard(self, title, value, accent_color):
-        card = QtWidgets.QFrame(self.mainRootWidget)
+        card = QtWidgets.QFrame(self.tab)
         card.setObjectName("summaryCard")
         layout = QtWidgets.QVBoxLayout(card)
         layout.setContentsMargins(14, 12, 14, 12)
@@ -792,10 +1448,22 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.gridLayout_14.removeItem(self.horizontalLayout_3)
         self.gridLayout_14.removeWidget(self.groupBox_7)
 
-        self.attachWorkbenchHeader = QLabel(self.tab)
-        self.attachWorkbenchHeader.setObjectName("sectionHint")
-        self.attachWorkbenchHeader.setWordWrap(True)
-        self.gridLayout_14.addWidget(self.attachWorkbenchHeader, 0, 0, 1, 1)
+        self.attachSummaryWidget = QtWidgets.QWidget(self.tab)
+        self.attachSummaryLayout = QtWidgets.QHBoxLayout(self.attachSummaryWidget)
+        self.attachSummaryLayout.setContentsMargins(0, 0, 0, 0)
+        self.attachSummaryLayout.setSpacing(10)
+        self.attachPackageCard = self.createSummaryCard(self.trText("附加目标", "Attached target"), "-", "#1b5fd1")
+        self.attachProcessCard = self.createSummaryCard(self.trText("进程环境", "Process runtime"), "-", "#0f766e")
+        self.attachModuleCard = self.createSummaryCard(self.trText("SO 模块", "SO modules"), "-", "#7c3aed")
+        self.attachDexCard = self.createSummaryCard(self.trText("DEX", "DEX"), "-", "#b45309")
+        self.attachDebugCard = self.createSummaryCard(self.trText("调试状态", "Debug state"), "-", "#dc2626")
+        for card in [self.attachPackageCard, self.attachProcessCard, self.attachModuleCard, self.attachDexCard, self.attachDebugCard]:
+            self.attachSummaryLayout.addWidget(card, 1)
+
+        self.groupBox_4.hide()
+        self.groupBox_6.hide()
+        self.btnMethod.hide()
+        self.btnMethodClear.hide()
 
         self.nativeActionGroup = QtWidgets.QGroupBox(self.tab)
         self.nativeActionGroup.setObjectName("panelCard")
@@ -821,75 +1489,90 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.javaActionLayout.addWidget(button)
         self.javaActionLayout.addStretch(1)
 
-        self.nativeExplorerWidget = QtWidgets.QWidget(self.tab)
-        self.nativeExplorerLayout = QtWidgets.QHBoxLayout(self.nativeExplorerWidget)
-        self.nativeExplorerLayout.setContentsMargins(0, 0, 0, 0)
-        self.nativeExplorerLayout.setSpacing(12)
-        self.nativeExplorerLayout.addWidget(self.groupBox_3, 5)
-        self.nativeExplorerLayout.addWidget(self.nativeActionGroup, 2)
-        self.nativeExplorerLayout.addWidget(self.groupBox_5, 5)
+        self.attachDexGroup = QtWidgets.QGroupBox(self.tab)
+        self.attachDexGroup.setObjectName("panelCard")
+        self.attachDexLayout = QtWidgets.QVBoxLayout(self.attachDexGroup)
+        self.attachDexLayout.setContentsMargins(10, 12, 10, 10)
+        self.attachDexLayout.setSpacing(8)
+        self.labAttachDexHint = QLabel(self.attachDexGroup)
+        self.labAttachDexHint.setObjectName("panelHint")
+        self.labAttachDexHint.setWordWrap(True)
+        self.attachDexLayout.addWidget(self.labAttachDexHint)
+        self.txtDex = QLineEdit(self.attachDexGroup)
+        self.attachDexLayout.addWidget(self.txtDex)
+        self.listDex = QtWidgets.QListWidget(self.attachDexGroup)
+        self.attachDexLayout.addWidget(self.listDex, 1)
 
-        self.javaExplorerWidget = QtWidgets.QWidget(self.tab)
-        self.javaExplorerLayout = QtWidgets.QHBoxLayout(self.javaExplorerWidget)
-        self.javaExplorerLayout.setContentsMargins(0, 0, 0, 0)
-        self.javaExplorerLayout.setSpacing(12)
-        self.javaExplorerLayout.addWidget(self.groupBox_4, 5)
-        self.javaExplorerLayout.addWidget(self.javaActionGroup, 2)
-        self.javaExplorerLayout.addWidget(self.groupBox_6, 5)
+        self.attachResourceDetailGroup = QtWidgets.QGroupBox(self.tab)
+        self.attachResourceDetailGroup.setObjectName("panelCard")
+        self.attachResourceDetailLayout = QtWidgets.QVBoxLayout(self.attachResourceDetailGroup)
+        self.attachResourceDetailLayout.setContentsMargins(10, 12, 10, 10)
+        self.attachResourceDetailLayout.setSpacing(8)
+        self.labAttachResourceHint = QLabel(self.attachResourceDetailGroup)
+        self.labAttachResourceHint.setWordWrap(True)
+        self.labAttachResourceHint.setObjectName("panelHint")
+        self.attachResourceDetailLayout.addWidget(self.labAttachResourceHint)
+        self.attachResourceTable = QtWidgets.QTableWidget(self.attachResourceDetailGroup)
+        self.attachResourceTable.setObjectName("attachResourceTable")
+        self.attachResourceDetailLayout.addWidget(self.attachResourceTable, 1)
+        self.setupInfoTable(self.attachResourceTable)
 
-        self.attachExplorerSplitter = QtWidgets.QSplitter(Qt.Vertical, self.tab)
+        self.nativeResultWidget = QtWidgets.QWidget(self.tab)
+        self.nativeResultLayout = QtWidgets.QHBoxLayout(self.nativeResultWidget)
+        self.nativeResultLayout.setContentsMargins(0, 0, 0, 0)
+        self.nativeResultLayout.setSpacing(12)
+        self.nativeResultLayout.addWidget(self.nativeActionGroup, 2)
+        self.nativeResultLayout.addWidget(self.groupBox_5, 7)
+
+        self.javaResultWidget = QtWidgets.QWidget(self.tab)
+        self.javaResultLayout = QtWidgets.QHBoxLayout(self.javaResultWidget)
+        self.javaResultLayout.setContentsMargins(0, 0, 0, 0)
+        self.javaResultLayout.setSpacing(12)
+        self.javaResultLayout.addWidget(self.javaActionGroup, 2)
+        self.javaResultLayout.addWidget(self.groupBox_6, 7)
+
+        self.attachResourceTabs = QtWidgets.QTabWidget(self.tab)
+        self.attachResourceTabs.addTab(self.groupBox_3, "")
+        self.attachResourceTabs.addTab(self.attachDexGroup, "")
+
+        self.attachResultTabs = QtWidgets.QTabWidget(self.tab)
+        self.attachResultTabs.addTab(self.nativeResultWidget, "")
+        self.attachResultTabs.addTab(self.groupBox_7, "")
+
+        self.attachRightPane = QtWidgets.QWidget(self.tab)
+        self.attachRightLayout = QtWidgets.QVBoxLayout(self.attachRightPane)
+        self.attachRightLayout.setContentsMargins(0, 0, 0, 0)
+        self.attachRightLayout.setSpacing(12)
+        self.attachRightLayout.addWidget(self.attachResourceDetailGroup, 3)
+        self.attachRightLayout.addWidget(self.attachResultTabs, 7)
+
+        self.attachExplorerSplitter = QtWidgets.QSplitter(Qt.Horizontal, self.tab)
         self.attachExplorerSplitter.setChildrenCollapsible(False)
-        self.attachExplorerSplitter.addWidget(self.nativeExplorerWidget)
-        self.attachExplorerSplitter.addWidget(self.javaExplorerWidget)
-        self.attachExplorerSplitter.addWidget(self.groupBox_7)
+        self.attachExplorerSplitter.addWidget(self.attachResourceTabs)
+        self.attachExplorerSplitter.addWidget(self.attachRightPane)
         self.attachExplorerSplitter.setStretchFactor(0, 4)
-        self.attachExplorerSplitter.setStretchFactor(1, 4)
-        self.attachExplorerSplitter.setStretchFactor(2, 5)
-        self.attachExplorerSplitter.setSizes([240, 240, 320])
-        self.gridLayout_14.addWidget(self.attachExplorerSplitter, 1, 0, 1, 1)
+        self.attachExplorerSplitter.setStretchFactor(1, 7)
+        self.attachExplorerSplitter.setSizes([420, 860])
 
-    def configureAssistTab(self):
-        self.gridLayout_19.removeWidget(self.groupBox_9)
-        self.gridLayout_19.removeWidget(self.groupBox_10)
-        self.groupBox_9.hide()
-        self.groupBox_10.setObjectName("panelCard")
+        self.attachRootWidget = QtWidgets.QWidget(self.tab)
+        self.attachRootLayout = QtWidgets.QVBoxLayout(self.attachRootWidget)
+        self.attachRootLayout.setContentsMargins(0, 0, 0, 0)
+        self.attachRootLayout.setSpacing(12)
+        self.attachRootLayout.addWidget(self.attachSummaryWidget)
+        self.attachRootLayout.addWidget(self.attachExplorerSplitter, 1)
+        self.gridLayout_14.addWidget(self.attachRootWidget, 0, 0, 1, 1)
 
-        self.btnOpenGumTraceDir = QtWidgets.QPushButton(self.groupBox_10)
-        self.btnOpenGumTraceDir.clicked.connect(self.openGumTraceLogDirectory)
-        self.btnOpenGumTraceDir.setMinimumHeight(40)
-        self.btnOpenGumTraceWorkspace = QtWidgets.QPushButton(self.groupBox_10)
-        self.btnOpenGumTraceWorkspace.clicked.connect(self.openGumTraceWorkspace)
-        self.btnOpenGumTraceWorkspace.setMinimumHeight(40)
-        self.btnAssistUploadGumTrace = QtWidgets.QPushButton(self.groupBox_10)
-        self.btnAssistUploadGumTrace.clicked.connect(self.PushGumTraceLib)
-        self.btnAssistUploadGumTrace.setMinimumHeight(40)
+        self.txtDex.textChanged.connect(self.changeDex)
+        self.listDex.itemClicked.connect(self.listDexClick)
+        self.listSymbol.itemClicked.connect(self.listSymbolClick)
+        self.attachResultTabs.currentChanged.connect(self.onAttachResultTabChanged)
+        self.setupInfoTable(self.attachResourceTable)
 
-        self.groupBox10Layout = QtWidgets.QVBoxLayout(self.groupBox_10)
-        self.groupBox10Layout.setContentsMargins(16, 18, 16, 16)
-        self.groupBox10Layout.setSpacing(10)
-        self.labAssistGumTraceHint = QLabel(self.groupBox_10)
-        self.labAssistGumTraceHint.setWordWrap(True)
-        self.labAssistGumTraceHint.setObjectName("panelHint")
-        self.groupBox10Layout.addWidget(self.labAssistGumTraceHint)
-        self.labAssistGumTraceRemote = QLabel(self.groupBox_10)
-        self.labAssistGumTraceRemote.setWordWrap(True)
-        self.labAssistGumTraceRemote.setObjectName("summaryCaption")
-        self.groupBox10Layout.addWidget(self.labAssistGumTraceRemote)
-        self.labAssistGumTraceLocal = QLabel(self.groupBox_10)
-        self.labAssistGumTraceLocal.setWordWrap(True)
-        self.labAssistGumTraceLocal.setObjectName("summaryCaption")
-        self.groupBox10Layout.addWidget(self.labAssistGumTraceLocal)
-        self.labAssistGumTraceFilters = QLabel(self.groupBox_10)
-        self.labAssistGumTraceFilters.setWordWrap(True)
-        self.labAssistGumTraceFilters.setObjectName("summaryCaption")
-        self.groupBox10Layout.addWidget(self.labAssistGumTraceFilters)
-        for button in [self.btnPullGumTraceLog, self.btnOpenGumTraceDir, self.btnAssistUploadGumTrace, self.btnOpenGumTraceWorkspace]:
-            button.setCursor(Qt.PointingHandCursor)
-            button.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
-            self.groupBox10Layout.addWidget(button)
-        self.groupBox10Layout.addStretch(1)
-        self.gridLayout_19.addWidget(self.groupBox_10, 0, 0, 1, 1)
-
+    def removeAssistTab(self):
+        if hasattr(self, "tab_7"):
+            tab_index = self.tabWidget.indexOf(self.tab_7)
+            if tab_index >= 0:
+                self.tabWidget.removeTab(tab_index)
 
     def buildButtonCard(self, title, description, buttons, columns=2):
         card = QtWidgets.QGroupBox(title, self)
@@ -987,10 +1670,10 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.labHookSummary.setObjectName("sectionHint")
         self.gridLayout_7.addWidget(self.labHookSummary, 0, 0, 1, 1)
 
-        self.labAiFeatureStatusMain = QLabel(self.groupBox_2)
-        self.labAiFeatureStatusMain.setWordWrap(True)
-        self.labAiFeatureStatusMain.setObjectName("aiStateLabel")
-        self.gridLayout_7.addWidget(self.labAiFeatureStatusMain, 1, 0, 1, 1)
+        if hasattr(self, "labAiFeatureStatusMain"):
+            self.gridLayout_7.removeWidget(self.labAiFeatureStatusMain)
+            self.labAiFeatureStatusMain.deleteLater()
+            del self.labAiFeatureStatusMain
 
         self.quickScriptGroup = QtWidgets.QGroupBox(self._translate("kmainForm", "常用 Hook 预设"), self.groupBox_2)
         self.quickScriptGroup.setObjectName("panelCard")
@@ -998,12 +1681,36 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.quickScriptLayout.setContentsMargins(12, 14, 12, 12)
         self.quickScriptLayout.setSpacing(10)
         self.labQuickScriptHint = QLabel(
-            self._translate("kmainForm", "把最常用的 Hook 开关放在主页，适合快速试错；更复杂的链路放到工具中心。"),
+            self._translate("kmainForm", "主页只保留需要额外参数或特殊处理的 Hook；普通脚本预设统一迁到“自定义模板”。"),
             self.quickScriptGroup,
         )
         self.labQuickScriptHint.setWordWrap(True)
         self.labQuickScriptHint.setObjectName("panelHint")
         self.quickScriptLayout.addWidget(self.labQuickScriptHint)
+        for widget in [
+            self.chkJavaEnc,
+            self.chkSslPining,
+            self.chkHookEvent,
+            self.chkRegisterNative,
+            self.chkArtMethod,
+            self.chkLibArt,
+            self.chkAntiDebug,
+        ]:
+            self.gridLayout_5.removeWidget(widget)
+            widget.hide()
+
+        for widget in [
+            self.chkJavaEnc,
+            self.chkSslPining,
+            self.chkHookEvent,
+            self.chkRegisterNative,
+            self.chkArtMethod,
+            self.chkLibArt,
+            self.chkAntiDebug,
+        ]:
+            self.gridLayout_5.removeWidget(widget)
+            widget.hide()
+
         self.gridLayout_5.setHorizontalSpacing(12)
         self.gridLayout_5.setVerticalSpacing(8)
         self.quickScriptLayout.addLayout(self.gridLayout_5)
@@ -1031,7 +1738,6 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.cmdOpenCustom = self.buildToolLauncher(self.advancedToolGroup, self.custom)
         self.cmdOpenGumTrace = self.buildToolLauncher(self.advancedToolGroup, self.openGumTraceWorkspace)
         self.cmdOpenInspector = self.buildToolLauncher(self.advancedToolGroup, lambda: self.tabWidget.setCurrentWidget(self.tab))
-        self.cmdOpenAssist = self.buildToolLauncher(self.advancedToolGroup, lambda: self.tabWidget.setCurrentWidget(self.tab_7))
         self.cmdPatch = self.buildToolLauncher(self.advancedToolGroup, self.patch)
         self.cmdStalker = self.buildToolLauncher(self.advancedToolGroup, self.stalker)
         self.cmdTuoke = self.buildToolLauncher(self.advancedToolGroup, self.tuoke)
@@ -1040,7 +1746,6 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.cmdOpenCustom,
             self.cmdOpenGumTrace,
             self.cmdOpenInspector,
-            self.cmdOpenAssist,
             self.cmdPatch,
             self.cmdStalker,
             self.cmdTuoke,
@@ -1054,7 +1759,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.hookPanelLayout.setSpacing(12)
         self.hookPanelLayout.addWidget(self.quickScriptGroup, 5)
         self.hookPanelLayout.addWidget(self.advancedToolGroup, 6)
-        self.gridLayout_7.addWidget(self.hookPanelWidget, 2, 0, 1, 1)
+        self.gridLayout_7.addWidget(self.hookPanelWidget, 1, 0, 1, 1)
         self.rebuildAdvancedToolGrid()
 
     def rebuildAdvancedToolGrid(self):
@@ -1081,24 +1786,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         return button
 
     def initLogDock(self):
-        if hasattr(self, "logDock"):
-            return
-        self.logDock = QtWidgets.QDockWidget(self)
-        self.logDock.setObjectName("logDock")
-        self.logDock.setAllowedAreas(Qt.RightDockWidgetArea)
-        self.logDock.setFeatures(
-            QtWidgets.QDockWidget.DockWidgetClosable |
-            QtWidgets.QDockWidget.DockWidgetMovable |
-            QtWidgets.QDockWidget.DockWidgetFloatable
-        )
-        self.logDock.setMinimumWidth(360)
-        self.logDock.setWidget(self.groupLogs)
-        self.addDockWidget(Qt.RightDockWidgetArea, self.logDock)
-        self.logDock.visibilityChanged.connect(self.onLogDockVisibilityChanged)
-        self.actionToggleLogDock = QAction(self)
-        self.actionToggleLogDock.triggered.connect(self.toggleLogDock)
-        self.toolBar.addAction(self.actionToggleLogDock)
-        self.onLogDockVisibilityChanged(True)
+        return
 
 
     def configureLogWidgets(self):
@@ -1107,9 +1795,19 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             editor.setPlaceholderText(self._translate("kmainForm", "日志将在这里滚动显示..."))
         self.tabHooks.setAlternatingRowColors(True)
         self.tabHooks.verticalHeader().setVisible(False)
+        if hasattr(self, "txtAiLogInput"):
+            self.txtAiLogInput.setLineWrapMode(QtWidgets.QPlainTextEdit.NoWrap)
+            self.txtAiLogInput.setPlaceholderText(self._translate("kmainForm", "打开日志文件，或直接粘贴 / 输入待分析日志..."))
         self.txtAiAnalysis.setPlaceholderText(self._translate("kmainForm", "AI 分析结果会显示在这里")) if hasattr(self, "txtAiAnalysis") else None
 
     def applyWorkbenchTheme(self):
+        # 如果已经应用了 qt-material 主题，跳过自定义 stylesheet
+        try:
+            import sys
+            if 'qt_material' in sys.modules:
+                return
+        except Exception:
+            pass
         self.setStyleSheet("""
         QMainWindow, QDialog {
             background: #f4f7fb;
@@ -1134,11 +1832,12 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             padding: 10px 12px;
         }
         QPushButton:hover {
-            background: #deebff;
-            border-color: #8fb2f0;
+            background: #d6e7ff;
+            border-color: #6b9ef5;
+            border-width: 2px;
         }
         QPushButton:pressed {
-            background: #d3e4ff;
+            background: #c5d9ff;
         }
         QPushButton:disabled {
             background: #eef1f4;
@@ -1154,8 +1853,9 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             color: #16324a;
         }
         QCommandLinkButton:hover {
-            background: #edf5ff;
-            border-color: #91b4ec;
+            background: #e3f0ff;
+            border-color: #7aa5f0;
+            border-width: 2px;
         }
         QCommandLinkButton::description {
             color: #60738a;
@@ -1163,6 +1863,30 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         QCheckBox {
             spacing: 8px;
             padding: 4px 0;
+        }
+        QCheckBox:hover {
+            background: #f0f7ff;
+            border-radius: 4px;
+        }
+        QCheckBox::indicator {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #c8d7ee;
+            border-radius: 4px;
+            background: #ffffff;
+        }
+        QCheckBox::indicator:hover {
+            border-color: #6b9ef5;
+            border-width: 2px;
+            background: #f0f7ff;
+        }
+        QCheckBox::indicator:checked {
+            background: #4f8cff;
+            border-color: #4f8cff;
+        }
+        QCheckBox::indicator:checked:hover {
+            background: #3d7ae8;
+            border-color: #3d7ae8;
         }
         QLineEdit, QPlainTextEdit, QTableWidget, QListWidget, QComboBox {
             background: #fbfcff;
@@ -1258,10 +1982,22 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.aiAnalysisToolbar.addWidget(self.btnRestoreLiveLog)
         self.aiAnalysisToolbar.addWidget(self.btnAnalyzeLog)
         self.aiAnalysisLayout.addLayout(self.aiAnalysisToolbar)
-        self.txtAiAnalysis = QtWidgets.QPlainTextEdit(self.aiAnalysisTab)
+
+        self.aiAnalysisSplitter = QtWidgets.QSplitter(Qt.Vertical, self.aiAnalysisTab)
+        self.aiAnalysisSplitter.setChildrenCollapsible(False)
+
+        self.txtAiLogInput = QtWidgets.QPlainTextEdit(self.aiAnalysisSplitter)
+        self.txtAiLogInput.setLineWrapMode(QtWidgets.QPlainTextEdit.NoWrap)
+
+        self.txtAiAnalysis = QtWidgets.QPlainTextEdit(self.aiAnalysisSplitter)
         self.txtAiAnalysis.setReadOnly(True)
-        self.aiAnalysisLayout.addWidget(self.txtAiAnalysis)
-        self.groupLogs.addTab(self.aiAnalysisTab, self._translate("kmainForm", "AI 分析"))
+
+        self.aiAnalysisLayout.addWidget(self.aiAnalysisSplitter, 1)
+        self.aiAnalysisSplitter.setStretchFactor(0, 1)
+        self.aiAnalysisSplitter.setStretchFactor(1, 1)
+        self.aiAnalysisSplitter.setSizes([360, 320])
+        if self.tabWidget.indexOf(self.aiAnalysisTab) < 0:
+            self.tabWidget.addTab(self.aiAnalysisTab, "")
 
         self.outputLogToolbarWidget = QtWidgets.QWidget(self.tab_5)
         self.outputLogToolbarLayout = QtWidgets.QHBoxLayout(self.outputLogToolbarWidget)
@@ -1276,18 +2012,79 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         for button in [self.btnOpenLogFile, self.btnRestoreLiveLog, self.btnAnalyzeLog]:
             button.setCursor(Qt.PointingHandCursor)
             button.setMinimumHeight(38)
+        self.txtAiLogInput.setPlaceholderText(self._translate("kmainForm", "打开日志文件，或直接粘贴 / 输入待分析日志..."))
         self.txtAiAnalysis.setPlaceholderText(self._translate("kmainForm", "AI 分析结果会显示在这里"))
         self.btnOpenLogFile.clicked.connect(self.openLogFile)
         self.btnRestoreLiveLog.clicked.connect(self.restoreLiveLog)
         self.btnAnalyzeLog.clicked.connect(self.analyzeLogWithAi)
 
     def initSettingsMenu(self):
-        self.menuSettings = self.menubar.addMenu(self._translate("kmainForm", "设置"))
         self.actionAiSettings = QAction(self._translate("kmainForm", "AI 设置"), self)
         self.actionAiSettings.triggered.connect(self.openAiSettings)
-        self.menuSettings.addAction(self.actionAiSettings)
         self.toolBar.addSeparator()
         self.toolBar.addAction(self.actionAiSettings)
+
+    def initMainContextPanel(self):
+        control_height = 46
+        self.mainContextGroup = QtWidgets.QFrame(self.mainLeftWidget)
+        self.mainContextGroup.setObjectName("summaryCard")
+        self.mainContextGroup.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Maximum)
+        self.mainContextGroup.setMinimumHeight(58)
+        self.mainContextGroup.setMaximumHeight(58)
+        self.mainContextLayout = QtWidgets.QHBoxLayout(self.mainContextGroup)
+        self.mainContextLayout.setContentsMargins(12, 6, 12, 6)
+        self.mainContextLayout.setSpacing(8)
+
+        self.labMainContextDeviceTitle = QLabel(self.mainContextGroup)
+        self.labMainContextDeviceTitle.setObjectName("summaryTitle")
+        self.cmbMainContextDevices = QtWidgets.QComboBox(self.mainContextGroup)
+        self.cmbMainContextDevices.setMinimumWidth(240)
+        self.cmbMainContextDevices.setMaximumWidth(360)
+        self.cmbMainContextDevices.setFixedHeight(control_height)
+        self.cmbMainContextDevices.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContentsOnFirstShow)
+        self.cmbMainContextDevices.currentIndexChanged.connect(self.onDeviceChanged)
+
+        self.labMainContextPortTitle = QLabel(self.mainContextGroup)
+        self.labMainContextPortTitle.setObjectName("summaryTitle")
+        self.txtMainContextPortValue = QLineEdit(self.mainContextGroup)
+        self.txtMainContextPortValue.setReadOnly(True)
+        self.txtMainContextPortValue.setMinimumWidth(110)
+        self.txtMainContextPortValue.setMaximumWidth(160)
+        self.txtMainContextPortValue.setFixedHeight(control_height)
+
+        self.btnMainContextRefreshDevices = QtWidgets.QPushButton(self.mainContextGroup)
+        self.btnMainContextRefreshDevices.clicked.connect(self.refreshDeviceList)
+        self.btnMainContextRefreshDevices.setFixedHeight(control_height)
+        self.btnMainContextRefreshDevices.setMinimumWidth(132)
+        self.btnMainContextRefreshDevices.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        self.btnMainContextRefreshDevices.setStyleSheet("padding: 3px 16px 6px 16px;")
+        self.btnMainContextRefreshDevices.setCursor(Qt.PointingHandCursor)
+
+        self.btnMainContextPortSettings = QtWidgets.QPushButton(self.mainContextGroup)
+        self.btnMainContextPortSettings.clicked.connect(self.openCurrentConnectionSettings)
+        self.btnMainContextPortSettings.setFixedHeight(control_height)
+        self.btnMainContextPortSettings.setMinimumWidth(118)
+        self.btnMainContextPortSettings.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        self.btnMainContextPortSettings.setStyleSheet("padding: 3px 16px 6px 16px;")
+        self.btnMainContextPortSettings.setCursor(Qt.PointingHandCursor)
+
+        for widget in [
+            self.labMainContextDeviceTitle,
+            self.cmbMainContextDevices,
+            self.labMainContextPortTitle,
+            self.txtMainContextPortValue,
+            self.btnMainContextRefreshDevices,
+            self.btnMainContextPortSettings,
+        ]:
+            self.mainContextLayout.addWidget(widget)
+        self.mainContextLayout.addStretch(1)
+        self.updateToolbarContextPanel()
+
+    def fitButtonTextWidth(self, button, padding=16):
+        if button is None:
+            return
+        width = button.sizeHint().width() + padding
+        button.setMinimumWidth(max(button.minimumWidth(), width))
 
 
     def initGumTraceWorkspace(self):
@@ -1363,10 +2160,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.btnGumTracePreview = QtWidgets.QPushButton(self.gumTraceConfigGroup)
         self.btnGumTraceSaveCustom = QtWidgets.QPushButton(self.gumTraceConfigGroup)
         self.btnGumTraceActivate = QtWidgets.QPushButton(self.gumTraceConfigGroup)
-        self.btnGumTraceOpenCustom = QtWidgets.QPushButton(self.gumTraceConfigGroup)
-        self.btnGumTraceUpload = QtWidgets.QPushButton(self.gumTraceConfigGroup)
-        self.btnGumTraceDownload = QtWidgets.QPushButton(self.gumTraceConfigGroup)
-        action_buttons = [self.btnGumTraceSaveConfig, self.btnGumTracePreview, self.btnGumTraceSaveCustom, self.btnGumTraceActivate, self.btnGumTraceOpenCustom, self.btnGumTraceUpload, self.btnGumTraceDownload]
+        action_buttons = [self.btnGumTraceSaveConfig, self.btnGumTracePreview, self.btnGumTraceSaveCustom, self.btnGumTraceActivate]
         for index, button in enumerate(action_buttons):
             button.setMinimumHeight(40)
             button.setCursor(Qt.PointingHandCursor)
@@ -1390,9 +2184,11 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.txtGumTracePreview = QtWidgets.QPlainTextEdit(self.gumTracePreviewGroup)
         self.txtGumTracePreview.setReadOnly(True)
         self.gumTracePreviewLayout.addWidget(self.txtGumTracePreview, 1)
-        self.gumTraceSplitter.setStretchFactor(0, 5)
-        self.gumTraceSplitter.setStretchFactor(1, 6)
-        self.tabWidget.addTab(self.gumTraceTab, "")
+        self.gumTraceWindow = QtWidgets.QMainWindow(self)
+        self.gumTraceWindow.setObjectName("gumTraceWindow")
+        self.gumTraceWindow.setCentralWidget(self.gumTraceTab)
+        self.gumTraceWindow.resize(1180, 780)
+        self.gumTraceWindow.setMinimumSize(980, 680)
 
         self.txtGumTraceName.textChanged.connect(self.syncGumTraceFileName)
         self.cmbGumTraceMode.currentIndexChanged.connect(self.updateGumTraceModeFields)
@@ -1400,9 +2196,6 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.btnGumTracePreview.clicked.connect(self.renderGumTracePreview)
         self.btnGumTraceSaveCustom.clicked.connect(self.applyGumTraceScript)
         self.btnGumTraceActivate.clicked.connect(self.applyGumTraceScriptAndActivate)
-        self.btnGumTraceOpenCustom.clicked.connect(self.custom)
-        self.btnGumTraceUpload.clicked.connect(self.PushGumTraceLib)
-        self.btnGumTraceDownload.clicked.connect(self.pullGumTraceLog)
         for widget in [self.txtGumTraceName, self.txtGumTraceFileName, self.txtGumTraceTraceModules, self.txtGumTraceTriggerModule, self.txtGumTraceOffsets, self.txtGumTraceExports, self.txtGumTraceOutput, self.txtGumTraceAllowedThreads, self.txtGumTraceThreadId, self.txtGumTraceOptions]:
             widget.textChanged.connect(self.renderGumTracePreview)
         for checkbox in [self.chkGumTraceStopOnLeave, self.chkGumTraceAllowRepeat, self.chkGumTraceAutoAddHook, self.chkGumTraceOpenDir]:
@@ -1483,7 +2276,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.refreshOverviewCards()
         return script
 
-    def syncCustomHooksToMain(self):
+    def syncCustomHooksToMain(self, refresh_pinned=True):
         if len(self.customForm.customHooks) > 0:
             self.hooksData["custom"] = []
             for item in self.customForm.customHooks:
@@ -1491,6 +2284,376 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         elif "custom" in self.hooksData:
             self.hooksData.pop("custom")
         self.updateTabHooks()
+        if refresh_pinned:
+            self.refreshPinnedCustomTemplates()
+
+    def cleanCustomTemplateRemark(self, remark):
+        cleaned = (remark or "").strip()
+        for prefix in ("内置：", "内置:", "Built-in: ", "Built-in:", "Builtin: ", "Builtin:"):
+            if cleaned.startswith(prefix):
+                cleaned = cleaned[len(prefix):].strip()
+                break
+        return cleaned
+
+    def pinnedCustomTemplateSortKey(self, item):
+        raw_order = item.get("pinOrder", None)
+        try:
+            return (0, int(raw_order), item.get("name", "").lower(), item.get("fileName", "").lower())
+        except Exception:
+            return (1, item.get("name", "").lower(), item.get("fileName", "").lower())
+
+    def builtinCustomTemplateDefs(self):
+        return [
+            {
+                "sourceHookKey": "r0capture",
+                "fileName": "r0capture.js",
+                "name": "r0capture",
+                "bak": "内置：r0capture.js",
+                "scriptPath": "./js/r0capture.js",
+                "pinToMain": True,
+            },
+            {
+                "sourceHookKey": "javaEnc",
+                "fileName": "javaEnc.js",
+                "name": "Java Crypto Hooks",
+                "bak": "内置：javaEnc.js",
+                "scriptPath": "./js/javaEnc.js",
+                "pinToMain": True,
+            },
+            {
+                "sourceHookKey": "sslpining",
+                "fileName": "DroidSSLUnpinning.js",
+                "name": "SSL Pinning Bypass",
+                "bak": "内置：DroidSSLUnpinning.js",
+                "scriptPath": "./js/DroidSSLUnpinning.js",
+                "pinToMain": True,
+            },
+            {
+                "sourceHookKey": "hookEvent",
+                "fileName": "hookEvent.js",
+                "name": "UI Click Events",
+                "bak": "内置：hookEvent.js",
+                "scriptPath": "./js/hookEvent.js",
+                "pinToMain": True,
+            },
+            {
+                "sourceHookKey": "RegisterNative",
+                "fileName": "hook_RegisterNatives.js",
+                "name": "RegisterNatives Monitor",
+                "bak": "内置：hook_RegisterNatives.js",
+                "scriptPath": "./js/hook_RegisterNatives.js",
+                "pinToMain": True,
+            },
+            {
+                "sourceHookKey": "ArtMethod",
+                "fileName": "hook_artmethod.js",
+                "name": "ArtMethod Monitor",
+                "bak": "内置：hook_artmethod.js",
+                "scriptPath": "./js/hook_artmethod.js",
+                "pinToMain": True,
+            },
+            {
+                "sourceHookKey": "libArm",
+                "fileName": "hook_art.js",
+                "name": "libart Key Functions",
+                "bak": "内置：hook_art.js",
+                "scriptPath": "./js/hook_art.js",
+                "pinToMain": True,
+            },
+            {
+                "sourceHookKey": "anti_debug",
+                "fileName": "anti_debug.js",
+                "name": "One-Click Anti-Debug",
+                "bak": "内置：anti_debug.js",
+                "scriptPath": "./js/anti_debug.js",
+                "pinToMain": True,
+            },
+            {
+                "sourceHookKey": "root_bypass",
+                "fileName": "root_bypass.js",
+                "name": "Root Detection Bypass",
+                "bak": "内置：root_bypass.js",
+                "scriptPath": "./js/root_bypass.js",
+                "pinToMain": True,
+            },
+            {
+                "sourceHookKey": "webview_debug",
+                "fileName": "webview_debug.js",
+                "name": "WebView Debug",
+                "bak": "内置：webview_debug.js",
+                "scriptPath": "./js/webview_debug.js",
+                "pinToMain": True,
+            },
+            {
+                "sourceHookKey": "okhttp_logger",
+                "fileName": "okhttp_logger.js",
+                "name": "OkHttp Logger",
+                "bak": "内置：okhttp_logger.js",
+                "scriptPath": "./js/okhttp_logger.js",
+                "pinToMain": True,
+            },
+            {
+                "sourceHookKey": "shared_prefs_watch",
+                "fileName": "shared_prefs_watch.js",
+                "name": "SharedPrefs Monitor",
+                "bak": "内置：shared_prefs_watch.js",
+                "scriptPath": "./js/shared_prefs_watch.js",
+                "pinToMain": True,
+            },
+            {
+                "sourceHookKey": "sqlite_logger",
+                "fileName": "sqlite_logger.js",
+                "name": "SQLite Logger",
+                "bak": "内置：sqlite_logger.js",
+                "scriptPath": "./js/sqlite_logger.js",
+                "pinToMain": True,
+            },
+            {
+                "sourceHookKey": "clipboard_monitor",
+                "fileName": "clipboard_monitor.js",
+                "name": "Clipboard Monitor",
+                "bak": "内置：clipboard_monitor.js",
+                "scriptPath": "./js/clipboard_monitor.js",
+                "pinToMain": True,
+            },
+            {
+                "sourceHookKey": "intent_monitor",
+                "fileName": "intent_monitor.js",
+                "name": "Intent Monitor",
+                "bak": "内置：intent_monitor.js",
+                "scriptPath": "./js/intent_monitor.js",
+                "pinToMain": True,
+            },
+        ]
+
+    def ensureBuiltinCustomTemplates(self):
+        if not hasattr(self, "customForm"):
+            return
+        self.customForm.initData()
+        defs = self.builtinCustomTemplateDefs()
+        by_file = {item.get("fileName"): item for item in self.customForm.customs}
+        changed = False
+
+        for definition in defs:
+            file_name = definition["fileName"]
+            existing = by_file.get(file_name)
+
+            if existing is None:
+                existing = {
+                    "name": definition["name"],
+                    "fileName": file_name,
+                    "bak": definition["bak"],
+                    "pinToMain": bool(definition.get("pinToMain", False)),
+                    "pinOrder": self.customForm.nextPinnedTemplateOrder() if definition.get("pinToMain", False) else -1,
+                    "builtin": True,
+                    "sourceHookKey": definition.get("sourceHookKey", ""),
+                }
+                self.customForm.customs.append(existing)
+                by_file[file_name] = existing
+                changed = True
+            else:
+                if "pinToMain" not in existing:
+                    existing["pinToMain"] = bool(definition.get("pinToMain", False))
+                    if existing["pinToMain"] and "pinOrder" not in existing:
+                        existing["pinOrder"] = self.customForm.nextPinnedTemplateOrder()
+                    changed = True
+                elif existing.get("pinToMain") and "pinOrder" not in existing:
+                    existing["pinOrder"] = self.customForm.nextPinnedTemplateOrder()
+                    changed = True
+                if "builtin" not in existing and file_name in [d["fileName"] for d in defs]:
+                    existing["builtin"] = True
+                    changed = True
+                if "sourceHookKey" not in existing and definition.get("sourceHookKey"):
+                    existing["sourceHookKey"] = definition["sourceHookKey"]
+                    changed = True
+
+            target_path = os.path.join("./custom", file_name)
+            if os.path.exists(target_path) is False and os.path.exists(definition["scriptPath"]):
+                try:
+                    with open(definition["scriptPath"], "r", encoding="utf-8") as source_file:
+                        script_text = source_file.read()
+                    with open(target_path, "w", encoding="utf-8") as dest_file:
+                        dest_file.write(script_text)
+                    changed = True
+                except Exception as ex:
+                    self.log("ensure builtin custom failed: " + str(ex))
+
+        if changed:
+            self.customForm.save()
+            self.customForm.updateTabCustom()
+
+    def syncCustomHooksFromHooksData(self):
+        if not hasattr(self, "customForm"):
+            return
+        hooks = self.hooksData.get("custom")
+        if not isinstance(hooks, list):
+            return
+        by_file = {item.get("fileName"): item for item in self.customForm.customs}
+        resolved = []
+        for hook in hooks:
+            if not isinstance(hook, dict):
+                continue
+            file_name = hook.get("fileName") or hook.get("method")
+            if not file_name:
+                continue
+            item = by_file.get(file_name)
+            if item is None:
+                item = {
+                    "name": hook.get("class") or file_name,
+                    "fileName": file_name,
+                    "bak": hook.get("bak", ""),
+                    "pinToMain": False,
+                    "builtin": False,
+                    "sourceHookKey": "",
+                }
+                self.customForm.customs.append(item)
+            resolved.append(item)
+        self.customForm.customHooks = resolved
+        self.customForm.updateTabCustomHook()
+
+    def migrateLegacySimpleHooksToCustom(self):
+        legacy_keys = {definition["sourceHookKey"]: definition for definition in self.builtinCustomTemplateDefs()}
+        mutated = False
+        for key in list(self.hooksData.keys()):
+            if key not in legacy_keys:
+                continue
+            definition = legacy_keys[key]
+            file_name = definition["fileName"]
+            self.customForm.ensureCustomHook(file_name)
+            self.hooksData.pop(key, None)
+            mutated = True
+        if mutated:
+            self.syncCustomHooksToMain()
+
+    def refreshPinnedCustomTemplates(self):
+        if not hasattr(self, "customTemplateGrid") or not hasattr(self, "customForm"):
+            return
+        pinned = [item for item in self.customForm.customs if item.get("pinToMain")]
+        pinned.sort(key=self.pinnedCustomTemplateSortKey)
+        active_files = {item.get("fileName") for item in self.customForm.customHooks}
+
+        self._clearCustomTemplateGrid(delete_widgets=True)
+        self.customTemplateTiles = []
+
+        if not pinned:
+            empty = QLabel(
+                self.trText("暂无固定模板，可在“自定义”里右键模板→添加到主界面", "No pinned templates yet. Right-click a template in Custom and pin it to main."),
+                self.customTemplateContainer,
+            )
+            empty.setWordWrap(True)
+            empty.setObjectName("panelHint")
+            self.customTemplateGrid.addWidget(empty, 0, 0, 1, 1)
+            self.customTemplateGrid.setColumnStretch(0, 1)
+            return
+
+        for item in pinned:
+            file_name = item.get("fileName")
+            if not file_name:
+                continue
+            display_name = item.get("name", file_name)
+            tile = PinnedTemplateCheckBox(display_name, file_name, self.customTemplateContainer)
+            tile.setObjectName("customTemplateTile")
+            tile.setCursor(Qt.PointingHandCursor)
+            tile.setChecked(file_name in active_files)
+            tooltip_lines = [self.trText("文件：", "File: ") + file_name]
+            remark = self.cleanCustomTemplateRemark(item.get("bak", ""))
+            if remark:
+                tooltip_lines.append(self.trText("备注：", "Remark: ") + remark)
+            tile.setToolTip("\n".join(tooltip_lines))
+            tile.setContextMenuPolicy(Qt.CustomContextMenu)
+            tile.customContextMenuRequested.connect(lambda _pos, current=file_name: self.showPinnedCustomTemplateMenu(current))
+            tile.stateChanged.connect(lambda state, current=file_name: self.onPinnedCustomTemplateClicked(current, state == Qt.Checked))
+            tile.reorderRequested.connect(self.onPinnedCustomTemplateReordered)
+            self.customTemplateTiles.append(tile)
+
+        self.rebuildPinnedCustomTemplateGrid()
+
+    def _clearCustomTemplateGrid(self, delete_widgets=False):
+        while self.customTemplateGrid.count():
+            item = self.customTemplateGrid.takeAt(0)
+            widget = item.widget()
+            if widget is None:
+                continue
+            if delete_widgets:
+                widget.deleteLater()
+            else:
+                widget.hide()
+
+    def rebuildPinnedCustomTemplateGrid(self):
+        if not hasattr(self, "customTemplateGrid"):
+            return
+        self._clearCustomTemplateGrid(delete_widgets=False)
+        tiles = list(getattr(self, "customTemplateTiles", []))
+        if not tiles:
+            self.customTemplateGrid.setColumnStretch(0, 1)
+            return
+        viewport_width = self.customTemplateScroll.viewport().width() if hasattr(self, "customTemplateScroll") else 0
+        tile_width = 175
+        columns = max(1, viewport_width // tile_width) if viewport_width > 0 else 1
+        for index, tile in enumerate(tiles):
+            tile.show()
+            tile.setMinimumHeight(24)
+            tile.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+            self.customTemplateGrid.addWidget(tile, index // columns, index % columns)
+        for col in range(columns):
+            self.customTemplateGrid.setColumnStretch(col, 1)
+
+    def onPinnedCustomTemplateReordered(self, dragged_file_name, target_file_name, insert_after):
+        if not hasattr(self, "customTemplateTiles") or not hasattr(self, "customForm"):
+            return
+        current_order = [getattr(tile, "fileName", "") for tile in self.customTemplateTiles if getattr(tile, "fileName", "")]
+        if dragged_file_name not in current_order or target_file_name not in current_order:
+            return
+        if dragged_file_name == target_file_name:
+            return
+
+        current_order.remove(dragged_file_name)
+        target_index = current_order.index(target_file_name)
+        insert_index = target_index + (1 if insert_after else 0)
+        current_order.insert(insert_index, dragged_file_name)
+
+        tile_by_file = {getattr(tile, "fileName", ""): tile for tile in self.customTemplateTiles}
+        self.customTemplateTiles = [tile_by_file[file_name] for file_name in current_order if file_name in tile_by_file]
+        self.customForm.setPinnedTemplateOrder(current_order)
+        self.rebuildPinnedCustomTemplateGrid()
+
+    def onPinnedCustomTemplateClicked(self, file_name, checked):
+        if not hasattr(self, "customForm") or not file_name:
+            return
+        if checked:
+            self.customForm.ensureCustomHook(file_name)
+        else:
+            self.customForm.customHooks = [item for item in self.customForm.customHooks if item.get("fileName") != file_name]
+            self.customForm.updateTabCustomHook()
+        self.syncCustomHooksToMain(refresh_pinned=False)
+
+    def showPinnedCustomTemplateMenu(self, file_name):
+        if not file_name:
+            return
+        menu = QMenu(self)
+        remove_action = QAction(self.trText("从主界面移除", "Remove from main"), self)
+        remove_action.triggered.connect(lambda: self.removePinnedCustomTemplate(file_name))
+        menu.addAction(remove_action)
+        menu.exec_(QCursor.pos())
+
+    def removePinnedCustomTemplate(self, file_name):
+        if not hasattr(self, "customForm") or not file_name:
+            return
+        mutated = False
+        for item in self.customForm.customs:
+            if item.get("fileName") == file_name and item.get("pinToMain"):
+                item["pinToMain"] = False
+                item["pinOrder"] = -1
+                mutated = True
+                break
+        if not mutated:
+            return
+        self.customForm.customHooks = [item for item in self.customForm.customHooks if item.get("fileName") != file_name]
+        self.customForm.normalizePinnedTemplateOrders()
+        self.customForm.save()
+        self.customForm.updateTabCustom()
+        self.customForm.updateTabCustomHook()
+        self.syncCustomHooksToMain()
 
     def applyGumTraceScript(self):
         script = self.renderGumTracePreview()
@@ -1514,7 +2677,19 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.refreshOverviewCards()
 
     def openGumTraceWorkspace(self):
-        self.tabWidget.setCurrentWidget(self.gumTraceTab)
+        gumtrace_window = getattr(self, "gumTraceWindow", None)
+        if gumtrace_window is None:
+            return
+        try:
+            if gumtrace_window.isMinimized():
+                gumtrace_window.showNormal()
+            else:
+                gumtrace_window.show()
+            # Some Linux window managers/plugins may hang or ignore raise_()/activateWindow().
+            # Showing the top-level window is enough here; avoid forcing foreground activation.
+        except RuntimeError as ex:
+            self.log("openGumTraceWorkspace runtime error: %s" % str(ex))
+            QMessageBox().information(self, "hint", self.trText("打开 GumTrace 工作台失败：", "Failed to open GumTrace workbench: ") + str(ex))
 
     def openGumTraceLogDirectory(self):
         local_dir = os.path.abspath("./logs/gumtrace")
@@ -1532,21 +2707,338 @@ class kmainForm(QMainWindow, Ui_MainWindow):
                 self.labLogStatus.setText(self.trText("当前日志：", "Current log: ") + os.path.basename(self.loadedLogPath))
             else:
                 self.labLogStatus.setText(self.trText("当前日志：实时输出", "Current log: live output"))
+        self.refreshAttachSummaryCards()
+
+    def formatModuleDisplay(self, module):
+        return module["name"] + "----" + module["base"]
+
+    def classifyModuleOwnership(self, module):
+        package = (self.attachedAppInfoSnapshot or {}).get("package", {})
+        module_path = self.valueText(module.get("path"), "")
+        native_dir = self.valueText(package.get("nativeLibraryDir"), "")
+        package_name = self.valueText(package.get("packageName"), "")
+        if native_dir and native_dir in module_path:
+            return "app"
+        if package_name and package_name.replace('.', '/') in module_path:
+            return "app"
+        if module_path.startswith("/data/app") or module_path.startswith("/data/data"):
+            return "app"
+        if module_path.startswith("/system") or module_path.startswith("/apex") or module_path.startswith("/vendor"):
+            return "system"
+        return "other"
+
+    def moduleDisplayText(self, module):
+        display = self.formatModuleDisplay(module)
+        ownership = self.classifyModuleOwnership(module)
+        if ownership == "app":
+            return "[APP] " + display
+        if ownership == "system":
+            return "[SYS] " + display
+        return display
+
+    def moduleByDisplayText(self, text):
+        if not self.modules:
+            return None
+        normalized = text.replace("[APP] ", "").replace("[SYS] ", "")
+        for module in self.modules:
+            if self.formatModuleDisplay(module) == normalized:
+                return module
+        fallback_name = normalized.split("----")[0].strip()
+        fallback_lower = fallback_name.lower()
+        for module in self.modules:
+            module_name = self.valueText(module.get("name"), "")
+            module_path = self.valueText(module.get("path"), "")
+            if module_name == fallback_name or module_name.lower() == fallback_lower:
+                return module
+            if module_path == fallback_name or module_path.lower() == fallback_lower:
+                return module
+        return None
+
+    def isNativeModuleInput(self, text):
+        normalized = (text or "").replace("[APP] ", "").replace("[SYS] ", "").split("----")[0].strip().lower()
+        return normalized.endswith(".so")
+
+    def adbCommandArgs(self):
+        args = ["adb"]
+        serial = self.selectedDeviceSerial()
+        if len(serial) > 0:
+            args.extend(["-s", serial])
+        return args
+
+    def adbScriptPrefix(self):
+        serial = self.selectedDeviceSerial()
+        if platform.system() == "Windows":
+            return 'adb -s "%s"' % serial if len(serial) > 0 else "adb"
+
+        adb_path = "adb"
+        if platform.system() == "Darwin":
+            adb_path = CmdUtil.execCmdData("which adb").strip() or "adb"
+        adb_path = shlex.quote(adb_path)
+        if len(serial) > 0:
+            return "%s -s %s" % (adb_path, shlex.quote(serial))
+        return adb_path
+
+    def parseElfSymbolOutput(self, output, search_type):
+        results = []
+        for line in (output or "").splitlines():
+            line = line.strip()
+            if len(line) <= 0 or ":" not in line:
+                continue
+            match = re.match(r"^\s*\d+:\s+([0-9A-Fa-f]+)\s+\d+\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(.+)$", line)
+            if match is None:
+                continue
+            address, symbol_type, bind_type, visibility, ndx, name = match.groups()
+            name = name.strip()
+            if len(name) <= 0 or name == "0":
+                continue
+            if search_type == "export" and ndx == "UND":
+                continue
+            results.append({
+                "name": name,
+                "address": "0x" + address.lower(),
+                "type": symbol_type.lower(),
+                "bind": bind_type.lower(),
+                "visibility": visibility.lower(),
+                "index": ndx,
+            })
+        return results
+
+    def loadModuleSymbolsLocal(self, module, search_type):
+        result_key = "export" if search_type == "export" else "symbol"
+        result = {"type": search_type, result_key: []}
+        if not module:
+            result["error"] = self.trText("未找到模块信息", "Module information not found")
+            return result
+        module_path = self.valueText(module.get("path"), "")
+        if module_path in ["", "-"]:
+            result["error"] = self.trText("模块路径为空，无法离线解析", "Module path is empty, cannot analyze offline")
+            return result
+        tmp_root = os.path.abspath("./tmp")
+        os.makedirs(tmp_root, exist_ok=True)
+        work_dir = tempfile.mkdtemp(prefix="elf_", dir=tmp_root)
+        local_path = os.path.join(work_dir, os.path.basename(module_path) or "module.so")
+        try:
+            pull_cmd = self.adbCommandArgs() + ["pull", module_path, local_path]
+            pull_proc = subprocess.run(pull_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            if pull_proc.returncode != 0 or not os.path.exists(local_path):
+                result["error"] = self.trText("拉取模块失败：", "Failed to pull module: ") + pull_proc.stdout.strip()
+                return result
+            readelf_args = ["readelf", "--dyn-syms", "-W", local_path] if search_type == "export" else ["readelf", "--symbols", "-W", local_path]
+            readelf_proc = subprocess.run(readelf_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            if readelf_proc.returncode != 0:
+                result["error"] = self.trText("解析模块失败：", "Failed to parse module: ") + readelf_proc.stdout.strip()
+                return result
+            result[result_key] = self.parseElfSymbolOutput(readelf_proc.stdout, search_type)
+            if len(result[result_key]) <= 0:
+                result["error"] = self.trText("本地 ELF 解析完成，但未找到结果", "Local ELF parsing finished but no results were found")
+            return result
+        finally:
+            shutil.rmtree(work_dir, ignore_errors=True)
+
+    def preferredModule(self):
+        if not self.modules:
+            return None
+        native_app_modules = [module for module in self.modules if self.classifyModuleOwnership(module) == "app" and self.isNativeSharedObject(module)]
+        if native_app_modules:
+            return sorted(native_app_modules, key=lambda item: (0 if self.valueText(item.get("path"), "").endswith(item["name"]) else 1, item["name"].lower()))[0]
+        app_modules = [module for module in self.modules if self.classifyModuleOwnership(module) == "app"]
+        if app_modules:
+            return sorted(app_modules, key=lambda item: (0 if self.valueText(item.get("path"), "").endswith(item["name"]) else 1, item["name"].lower()))[0]
+        native_modules = [module for module in self.modules if self.isNativeSharedObject(module)]
+        if native_modules:
+            return sorted(native_modules, key=lambda item: item["name"].lower())[0]
+        return sorted(self.modules, key=lambda item: item["name"].lower())[0]
+
+    def refreshModuleList(self, keyword=""):
+        self.listModules.clear()
+        if self.modules is None:
+            return
+        normalized = (keyword or "").split("----")[0].strip().upper()
+        visible_modules = []
+        for module in self.modules:
+            haystacks = [module.get("name", ""), self.valueText(module.get("path"), "")]
+            if normalized and not any(normalized in item.upper() for item in haystacks if item):
+                continue
+            visible_modules.append(module)
+            self.listModules.addItem(self.moduleDisplayText(module))
+        self.filteredModules = visible_modules
+
+    def dexListKey(self, dex):
+        if not dex:
+            return ""
+        return self.valueText(dex.get("location"), "") + "::" + self.valueText(dex.get("classLoader"), "")
+
+    def changeDex(self, data):
+        self.listDex.clear()
+        keyword = (data or "").strip().upper()
+        for dex in self.dexes:
+            location = self.valueText(dex.get("location"), "")
+            loader = self.valueText(dex.get("classLoader"), "")
+            if keyword and keyword not in location.upper() and keyword not in loader.upper():
+                continue
+            item = QtWidgets.QListWidgetItem(location)
+            item.setData(Qt.UserRole, self.dexListKey(dex))
+            self.listDex.addItem(item)
+
+    def listDexClick(self, item):
+        self.currentAttachResourceType = "dex"
+        self.currentSelectedModule = None
+        selected_key = item.data(Qt.UserRole)
+        self.currentSelectedDex = None
+        for dex in self.dexes:
+            if self.dexListKey(dex) == selected_key:
+                self.currentSelectedDex = dex
+                break
+        self.renderCurrentDex()
+
+    def moduleCacheKey(self, module):
+        if not module:
+            return ""
+        return self.valueText(module.get("name"), "") + "::" + self.valueText(module.get("base"), "")
+
+    def isNativeSharedObject(self, module):
+        if not module:
+            return False
+        module_name = self.valueText(module.get("name"), "").lower()
+        module_path = self.valueText(module.get("path"), "").lower()
+        return module_name.endswith(".so") or module_path.endswith(".so")
+
+    def moduleInfoRows(self, module):
+        if not module:
+            return []
+        cache_key = self.moduleCacheKey(module)
+        export_cache = self.moduleExportCache.get(cache_key, [])
+        symbol_cache = self.moduleSymbolCache.get(cache_key, [])
+        return [
+            (self.trText("模块名", "Module name"), module.get("name")),
+            (self.trText("基址", "Base"), module.get("base")),
+            (self.trText("大小", "Size"), module.get("size")),
+            (self.trText("路径", "Path"), module.get("path")),
+            (self.trText("来源", "Ownership"), self.classifyModuleOwnership(module)),
+            (self.trText("导出数量", "Export count"), len(export_cache)),
+            (self.trText("符号数量", "Symbol count"), len(symbol_cache)),
+        ]
+
+    def dexInfoRows(self, dex):
+        if not dex:
+            return []
+        return [
+            (self.trText("位置", "Location"), dex.get("location")),
+            (self.trText("类型", "Type"), dex.get("type")),
+            (self.trText("ClassLoader", "ClassLoader"), dex.get("classLoader")),
+            (self.trText("来源", "Source"), dex.get("source")),
+            (self.trText("内存 DEX", "Memory DEX"), self.boolText(dex.get("isMemoryDex"))),
+        ]
+
+    def renderAttachResourceRows(self, rows):
+        if hasattr(self, "attachResourceTable"):
+            self.setupInfoTable(self.attachResourceTable)
+            self.setInfoTableRows(self.attachResourceTable, rows)
+
+    def renderCurrentModule(self):
+        if not self.currentSelectedModule:
+            self.renderAttachResourceRows([])
+            return
+        self.currentAttachResourceType = "module"
+        self.renderAttachResourceRows(self.moduleInfoRows(self.currentSelectedModule))
+        self.attachResultTabs.blockSignals(True)
+        self.attachResultTabs.setCurrentWidget(self.groupBox_7)
+        self.attachResultTabs.blockSignals(False)
+        self.log(self.trText("已禁用模块导出/符号自动查询，以避免目标进程崩溃。", "Automatic export/symbol queries are disabled to avoid target process crashes."))
+
+    def renderCurrentDex(self):
+        if not self.currentSelectedDex:
+            self.renderAttachResourceRows([])
+            return
+        self.currentAttachResourceType = "dex"
+        self.attachResourceTabs.setCurrentWidget(self.attachDexGroup)
+        self.renderAttachResourceRows(self.dexInfoRows(self.currentSelectedDex))
+        self.attachResultTabs.blockSignals(True)
+        self.attachResultTabs.setCurrentWidget(self.groupBox_7)
+        self.attachResultTabs.blockSignals(False)
+
+    def renderAttachRuntimeInfo(self):
+        self.currentAttachResourceType = "runtime"
+        self.attachResourceTabs.setCurrentWidget(self.groupBox_4)
+        self.attachResultTabs.setCurrentWidget(self.groupBox_7)
+        self.renderAttachResourceRows(self.buildAttachedInfoRows())
+
+    def refreshAttachSummaryCards(self):
+        if not hasattr(self, "attachPackageCard"):
+            return
+        data = self.attachedAppInfoSnapshot or {}
+        runtime = data.get("runtime", {})
+        package = data.get("package", {})
+        module_count = runtime.get("moduleCount") or len(data.get("modules", []))
+        dex_count = runtime.get("dexCount") or len(data.get("dexes", []))
+        self.attachPackageCard.valueLabel.setText(self.valueText(data.get("packageName") or package.get("packageName") or self.labPackage.text()))
+        self.attachProcessCard.valueLabel.setText("PID %s / %s" % (self.valueText(runtime.get("processId")), self.valueText(runtime.get("arch"))))
+        self.attachModuleCard.valueLabel.setText(str(module_count))
+        self.attachDexCard.valueLabel.setText(str(dex_count))
+        debug_state = []
+        if package:
+            debug_state.append(self.trText("可调试", "Debuggable") + ": " + self.boolText(package.get("debuggable")))
+            debug_state.append("targetSdk: " + self.valueText(package.get("targetSdk")))
+        else:
+            debug_state.append(self.valueText(runtime.get("platform")))
+        self.attachDebugCard.valueLabel.setText("\n".join(debug_state))
+
+    def populateSymbolList(self, items):
+        self.listSymbol.clear()
+        for item in items:
+            self.listSymbol.addItem(item["name"])
+
+    def ensureModuleSearchLoaded(self, module, search_type):
+        if not module:
+            return
+        cache_map = self.moduleExportCache if search_type == "export" else self.moduleSymbolCache
+        cache_key = self.moduleCacheKey(module)
+        self.lastSearchModuleKey = cache_key
+        if cache_key in cache_map:
+            self.searchType = search_type
+            self.symbols = cache_map[cache_key]
+            self.populateSymbolList(self.symbols)
+            self.renderAttachResourceRows(self.moduleInfoRows(module))
+            return
+        try:
+            appinfo = self.loadModuleSymbolsLocal(module, search_type)
+            self.searchAppInfoRes(appinfo)
+        except Exception as ex:
+            error_text = self.trText("加载模块导出失败: ", "Failed to load exports: ") if search_type == "export" else self.trText("加载模块符号失败: ", "Failed to load symbols: ")
+            self.log(error_text + str(ex))
+
+    def ensureModuleExportLoaded(self, module):
+        self.ensureModuleSearchLoaded(module, "export")
+
+    def ensureModuleSymbolLoaded(self, module):
+        self.ensureModuleSearchLoaded(module, "symbol")
+
+    def onAttachResultTabChanged(self, index):
+        if not hasattr(self, "attachResultTabs"):
+            return
+        widget = self.attachResultTabs.widget(index)
+        if widget == self.groupBox_7:
+            if self.currentAttachResourceType == "dex" and self.currentSelectedDex:
+                self.renderAttachResourceRows(self.dexInfoRows(self.currentSelectedDex))
+            elif self.currentAttachResourceType == "module" and self.currentSelectedModule:
+                self.renderAttachResourceRows(self.moduleInfoRows(self.currentSelectedModule))
+            else:
+                self.renderAttachRuntimeInfo()
+
 
     def refreshAiState(self):
         available = self.aiService.is_available()
         missing_message = self.aiService.missing_message("English" if self.isEnglish() else "China")
         self.btnAnalyzeLog.setEnabled(available)
         self.customForm.refreshAiState()
-        if hasattr(self, "labAiFeatureStatusMain"):
-            if available:
-                self.labAiFeatureStatusMain.setText(self.trText("AI 能力：已配置，可在“自定义”模块生成 Hook，并在日志页签执行 AI 分析。", "AI ready: use the Custom module to generate hooks and the log tab to run AI analysis."))
-            else:
-                self.labAiFeatureStatusMain.setText(self.trText("AI 能力：", "AI status: ") + missing_message)
         if hasattr(self, "aiSummaryCard"):
             self.aiSummaryCard.valueLabel.setText(self.trText("已配置，可写 Hook 与分析日志", "Configured for hook generation and log analysis") if available else missing_message)
-        if hasattr(self, "txtAiAnalysis") and not available:
-            self.txtAiAnalysis.setPlainText(missing_message)
+        if hasattr(self, "txtAiAnalysis"):
+            self.txtAiAnalysis.setPlaceholderText(
+                self.trText("AI 分析结果会显示在这里", "AI analysis output will appear here") if available else missing_message
+            )
+            if available and self.txtAiAnalysis.toPlainText().strip() == missing_message:
+                self.txtAiAnalysis.setPlainText("")
         self.refreshOverviewCards()
 
     def openAiSettings(self):
@@ -1557,6 +3049,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.refreshAiState()
 
     def currentLogText(self):
+        if hasattr(self, "txtAiLogInput"):
+            return self.txtAiLogInput.toPlainText()
         if self.currentLogMode == "file":
             return self.loadedLogContent
         return "\n".join(self.liveOutputLogBuffer)
@@ -1569,8 +3063,9 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.loadedLogContent = log_file.read()
         self.loadedLogPath = filepath[0]
         self.currentLogMode = "file"
+        self.txtAiLogInput.setPlainText(self.loadedLogContent)
         self.txtoutLogs.setPlainText(self.loadedLogContent)
-        self.showLogDock(self.tab_5)
+        self.showLogDock(self.aiAnalysisTab)
         self.labLogStatus.setText(self.trText("当前日志：", "Current log: ") + os.path.basename(filepath[0]))
         self.log(self.trText("已加载日志文件：", "Loaded log file: ") + filepath[0])
         self.refreshOverviewCards()
@@ -1579,9 +3074,11 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.currentLogMode = "live"
         self.loadedLogPath = ""
         self.loadedLogContent = ""
-        self.txtoutLogs.setPlainText("\n".join(self.liveOutputLogBuffer))
+        live_content = "\n".join(self.liveOutputLogBuffer)
+        self.txtAiLogInput.setPlainText(live_content)
+        self.txtoutLogs.setPlainText(live_content)
         self.labLogStatus.setText(self.trText("当前日志：实时输出", "Current log: live output"))
-        self.showLogDock(self.tab_5)
+        self.showLogDock(self.aiAnalysisTab)
         self.refreshOverviewCards()
 
     def analyzeLogWithAi(self):
@@ -1595,12 +3092,20 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             return
         self.btnAnalyzeLog.setEnabled(False)
         self.btnAnalyzeLog.setText(self.trText("分析中...", "Analyzing..."))
-        self.txtAiAnalysis.setPlainText(self.trText("AI 正在分析日志，请稍候...", "AI is analyzing the log, please wait..."))
+        self.txtAiAnalysis.setPlainText("")
         self.showLogDock(self.aiAnalysisTab)
-        self.aiWorker = AiWorker(self.aiService.analyze_log, content)
+        self.aiWorker = AiWorker(self.aiService.analyze_log, content, stream_handler=self.aiService.analyze_log_stream)
+        self.aiWorker.chunk.connect(self.onAiAnalysisChunk)
         self.aiWorker.success.connect(self.onAiAnalysisSuccess)
         self.aiWorker.error.connect(self.onAiAnalysisFailed)
         self.aiWorker.start()
+
+    def onAiAnalysisChunk(self, chunk):
+        cursor = self.txtAiAnalysis.textCursor()
+        cursor.movePosition(cursor.End)
+        cursor.insertText(chunk)
+        self.txtAiAnalysis.setTextCursor(cursor)
+        self.txtAiAnalysis.ensureCursorVisible()
 
     def onAiAnalysisSuccess(self, result):
         self.btnAnalyzeLog.setEnabled(self.aiService.is_available())
@@ -1645,14 +3150,32 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         if len(self.txtModule.text()) <= 0:
             QMessageBox().information(self, "hint", self._translate("kmainForm","未填写模块名称"))
             return
-        appinfo = self.th.default_api.searchinfo("export", self.txtModule.text().split("----")[0])
+        module = self.moduleByDisplayText(self.txtModule.text())
+        if module:
+            if not self.isNativeSharedObject(module):
+                QMessageBox().information(self, "hint", self.trText("当前模块不是 .so，无法查询导出。", "The selected module is not a .so, so exports cannot be queried."))
+                return
+        elif not self.isNativeModuleInput(self.txtModule.text()):
+            QMessageBox().information(self, "hint", self.trText("当前模块不是 .so，无法查询导出。", "The selected module is not a .so, so exports cannot be queried."))
+            return
+        self.lastSearchModuleKey = self.moduleCacheKey(module) if module else None
+        appinfo = self.loadModuleSymbolsLocal(module, "export") if module else {"type": "export", "export": [], "error": self.trText("请从模块列表中选择一个有效 .so", "Please select a valid .so from the module list")}
         self.searchAppInfoRes(appinfo)
 
     def searchSymbol(self):
         if len(self.txtModule.text()) <= 0:
             QMessageBox().information(self, "hint", self._translate("kmainForm","未填写模块名称"))
             return
-        appinfo=self.th.default_api.searchinfo("symbol", self.txtModule.text().split("----")[0])
+        module = self.moduleByDisplayText(self.txtModule.text())
+        if module:
+            if not self.isNativeSharedObject(module):
+                QMessageBox().information(self, "hint", self.trText("当前模块不是 .so，无法查询符号。", "The selected module is not a .so, so symbols cannot be queried."))
+                return
+        elif not self.isNativeModuleInput(self.txtModule.text()):
+            QMessageBox().information(self, "hint", self.trText("当前模块不是 .so，无法查询符号。", "The selected module is not a .so, so symbols cannot be queried."))
+            return
+        self.lastSearchModuleKey = self.moduleCacheKey(module) if module else None
+        appinfo = self.loadModuleSymbolsLocal(module, "symbol") if module else {"type": "symbol", "symbol": [], "error": self.trText("请从模块列表中选择一个有效 .so", "Please select a valid .so from the module list")}
         self.searchAppInfoRes(appinfo)
 
     def searchMethod(self):
@@ -1697,12 +3220,16 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.liveOutputLogBuffer = self.liveOutputLogBuffer[-5000:]
         if self.actionConsoleLog.isChecked() == False and self.currentLogMode == "live":
             self.txtoutLogs.appendPlainText(line)
+        if self.currentLogMode == "live" and hasattr(self, "txtAiLogInput"):
+            self.txtAiLogInput.appendPlainText(line)
         self.outlogger.logger.debug(logstr)
         if "default.js init hook success" in logstr:
             QMessageBox().information(self, "hint", self._translate("kmainForm", "附加进程成功"))
 
     # 线程调用脚本结束，并且触发结束信号
     def StopAttach(self):
+        if not hasattr(self, "th") or self.th is None:
+            return
         self.th.quit()
 
     def ClearTmp(self):
@@ -1728,6 +3255,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.loadedLogPath = ""
         self.currentLogMode = "live"
         self.txtoutLogs.setPlainText("")
+        if hasattr(self, "txtAiLogInput"):
+            self.txtAiLogInput.setPlainText("")
         if hasattr(self, "labLogStatus"):
             self.labLogStatus.setText(self._translate("kmainForm", "当前日志：实时输出"))
 
@@ -1741,7 +3270,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/fart")
         self.log(res)
         if "invalid" in res:
-            QMessageBox().information(self, "hint",self._translate("kmainForm",  "设置权限失败。可能是su权限错误，请先cmd切换"))
+            QMessageBox().information(self, "hint",self._translate("kmainForm",  "设置权限失败。请确认设备权限状态"))
             return
         res = CmdUtil.adbshellCmd("mkdir /sdcard/fart")
         self.log(res)
@@ -1796,40 +3325,223 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         QMessageBox().information(self, "hint", self._translate("kmainForm","下载完成") )
 
     def PushFridaServerNormal(self,arch):
-        try:
-            name32=""
-            name64=""
-            if self.fridaName!="":
-                name32=self.fridaName+"32"
-                name64=self.fridaName+"64"
-            if arch=="arm":
-                arch32="arm"
-                arch64="arm64"
-            elif arch=="x86":
-                arch32="x86"
-                arch64="x86_64"
+        family_key = "arm64" if arch in ["arm", "arm64"] else "x64"
+        self.handleFridaVersionUpload(self.curFridaVer, family_key)
 
-            res = CmdUtil.execCmd(f"adb push ./exec/frida-server-{self.curFridaVer}-android-{arch32} /data/local/tmp/"+name32)
-            self.log(res)
-            if "error" in res:
-                QMessageBox().information(self, "hint",self._translate("kmainForm", "上传失败.") + res)
-                return
-            res = CmdUtil.execCmd(f"adb push ./exec/frida-server-{self.curFridaVer}-android-{arch64} /data/local/tmp/"+name64)
-            self.log(res)
-            if "file pushed" not in res:
-                QMessageBox().information(self, "hint",self._translate("kmainForm", "上传失败,可能未连接设备.") + res)
-                return
-            if self.fridaName!="":
-                res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/"+self.fridaName+"*")
-            else:
-                res = CmdUtil.adbshellCmd("chmod 0777 /data/local/tmp/frida*")
-            self.log(res)
-            if "invalid" in res:
-                QMessageBox().information(self, "hint",self._translate("kmainForm", "上传完成，但是设置权限失败。可能是su权限错误，请先cmd切换."))
-            else:
-                QMessageBox().information(self, "hint", self._translate("kmainForm", "上传完成."))
-        except Exception as ex:
-            QMessageBox().information(self, "hint",  self._translate("kmainForm", "上传异常.") + str(ex))
+    def getFridaArchPair(self, arch):
+        arch_map = {
+            "arm": ["arm", "arm64"],
+            "x86": ["x86", "x86_64"],
+        }
+        if arch not in arch_map:
+            raise ValueError(self.trText("不支持的架构：", "Unsupported architecture: ") + str(arch))
+        return arch_map[arch]
+
+    def getFridaFamilyArches(self, family_key):
+        if family_key not in FRIDA_ARCH_FAMILIES:
+            raise ValueError(self.trText("不支持的 frida 架构类型：", "Unsupported Frida family: ") + str(family_key))
+        return FRIDA_ARCH_FAMILIES[family_key]
+
+    def getFridaServerFilename(self, version, arch):
+        return f"frida-server-{version}-android-{arch}"
+
+    def getFridaServerLocalPath(self, version, arch):
+        return os.path.join(".", "exec", self.getFridaServerFilename(version, arch))
+
+    def getFridaServerDownloadUrl(self, version, arch):
+        file_name = self.getFridaServerFilename(version, arch)
+        return f"https://github.com/frida/frida/releases/download/{version}/{file_name}.xz"
+
+    def getFridaRemoteName(self, arch, version=None):
+        if self.fridaName != "":
+            return self.fridaName + ("32" if arch in ["arm", "x86"] else "64")
+        return self.getFridaServerFilename(version or self.curFridaVer, arch)
+
+    def setFridaUploadActionsEnabled(self, enabled):
+        self.actionPushFridaServer.setEnabled(enabled)
+        self.actionPushFridaServerX86.setEnabled(enabled)
+        if self.fridaUploadMenu is not None:
+            self.fridaUploadMenu.menuAction().setEnabled(enabled)
+
+    def updateFridaDownloadProgress(self, downloaded, total):
+        if self.fridaDownloadDialog is None:
+            return
+        if total > 0:
+            if self.fridaDownloadDialog.maximum() != total:
+                self.fridaDownloadDialog.setRange(0, total)
+            self.fridaDownloadDialog.setValue(min(downloaded, total))
+        else:
+            self.fridaDownloadDialog.setRange(0, 0)
+        QApplication.processEvents()
+
+    def updateFridaDownloadStatus(self, status, version, arch):
+        if self.fridaDownloadDialog is None:
+            return
+        if status == "extracting":
+            label = self.trText("正在解压 frida-server {version} {arch}...", "Extracting frida-server {version} {arch}...")
+            self.fridaDownloadDialog.setRange(0, 0)
+        else:
+            label = self.trText("正在下载 frida-server {version} {arch}...", "Downloading frida-server {version} {arch}...")
+        self.fridaDownloadDialog.setLabelText(label.format(version=version, arch=arch))
+        QApplication.processEvents()
+
+    def cleanupFridaDownloadWorker(self):
+        if self.fridaDownloadDialog is not None:
+            self.fridaDownloadDialog.close()
+            self.fridaDownloadDialog.deleteLater()
+            self.fridaDownloadDialog = None
+        if self.fridaDownloadWorker is not None:
+            self.fridaDownloadWorker.wait()
+            self.fridaDownloadWorker.deleteLater()
+            self.fridaDownloadWorker = None
+
+    def cancelFridaDownload(self, loop, result):
+        if result.get("path"):
+            return
+        self.fridaDownloadCancelled = True
+        result["error"] = "cancelled"
+        if self.fridaDownloadWorker is not None:
+            self.fridaDownloadWorker.cancel()
+        loop.quit()
+
+    def disconnectFridaDownloadCancel(self, cancel_handler):
+        if self.fridaDownloadDialog is None:
+            return
+        try:
+            self.fridaDownloadDialog.canceled.disconnect(cancel_handler)
+        except TypeError:
+            pass
+
+    def downloadFridaServer(self, version, arch, local_path):
+        download_url = self.getFridaServerDownloadUrl(version, arch)
+        self.fridaDownloadCancelled = False
+        self.fridaDownloadDialog = QProgressDialog(self)
+        self.fridaDownloadDialog.setWindowTitle(self.trText("下载 frida-server", "Download frida-server"))
+        self.fridaDownloadDialog.setLabelText("")
+        self.fridaDownloadDialog.setCancelButtonText(self.trText("取消", "Cancel"))
+        self.fridaDownloadDialog.setMinimumDuration(0)
+        self.fridaDownloadDialog.setAutoClose(False)
+        self.fridaDownloadDialog.setAutoReset(False)
+        self.fridaDownloadDialog.setWindowModality(Qt.WindowModal)
+        self.updateFridaDownloadStatus("connecting", version, arch)
+        self.fridaDownloadDialog.show()
+
+        loop = QtCore.QEventLoop(self)
+        result = {"path": None, "error": None}
+        self.fridaDownloadWorker = FileDownloadWorker(download_url, local_path, self)
+        cancel_handler = lambda: self.cancelFridaDownload(loop, result)
+        self.fridaDownloadDialog.canceled.connect(cancel_handler)
+        self.fridaDownloadWorker.progress.connect(self.updateFridaDownloadProgress)
+        self.fridaDownloadWorker.status.connect(lambda status: self.updateFridaDownloadStatus(status, version, arch))
+        self.fridaDownloadWorker.success.connect(lambda path: result.update({"path": path}))
+        self.fridaDownloadWorker.success.connect(lambda: self.disconnectFridaDownloadCancel(cancel_handler))
+        self.fridaDownloadWorker.success.connect(loop.quit)
+        self.fridaDownloadWorker.error.connect(lambda message: result.update({"error": message}))
+        self.fridaDownloadWorker.error.connect(loop.quit)
+        self.fridaDownloadWorker.start()
+        loop.exec_()
+        self.cleanupFridaDownloadWorker()
+        if result["error"]:
+            if result["error"] == "cancelled":
+                raise RuntimeError(self.trText("已取消下载 frida-server", "Frida-server download cancelled"))
+            raise RuntimeError(self.trText("下载 frida-server 失败：", "Failed to download frida-server: ") + f"{result['error']}\nURL: {download_url}\nLocal: {local_path}")
+        if not result["path"] or os.path.exists(result["path"]) is False:
+            raise RuntimeError(self.trText("下载 frida-server 失败，未生成本地文件", "Failed to download frida-server: local file was not created") + f"\nURL: {download_url}\nLocal: {local_path}")
+        return result["path"]
+
+    def ensureFridaServerLocal(self, version, arch):
+        local_path = self.getFridaServerLocalPath(version, arch)
+        if os.path.exists(local_path) and os.path.getsize(local_path) > 0:
+            return local_path
+        return self.downloadFridaServer(version, arch, local_path)
+
+    def ensureFridaFamilyLocal(self, version, family_key, preferred_arch="", upload_only=False):
+        if preferred_arch:
+            local_path = self.getFridaServerLocalPath(version, preferred_arch)
+            if upload_only:
+                if os.path.exists(local_path) is False or os.path.getsize(local_path) <= 0:
+                    raise RuntimeError(self.trText("本地未找到已下载的 frida-server：", "Downloaded frida-server not found locally: ") + local_path)
+                return [(preferred_arch, local_path)]
+            return [(preferred_arch, self.ensureFridaServerLocal(version, preferred_arch))]
+        local_files = []
+        for arch in self.getFridaFamilyArches(family_key):
+            local_files.append((arch, self.ensureFridaServerLocal(version, arch)))
+        return local_files
+
+    def updateFridaUploadProgress(self, value, total):
+        if self.fridaUploadDialog is None:
+            return
+        if total > 0:
+            if self.fridaUploadDialog.maximum() != total:
+                self.fridaUploadDialog.setRange(0, total)
+            self.fridaUploadDialog.setValue(min(value, total))
+        else:
+            self.fridaUploadDialog.setRange(0, 0)
+        QApplication.processEvents()
+
+    def updateFridaUploadStatus(self, text):
+        if self.fridaUploadDialog is None or not text:
+            return
+        if self.fridaUploadDialog.maximum() != 0:
+            self.fridaUploadDialog.setRange(0, 0)
+        self.fridaUploadDialog.setLabelText(text)
+        QApplication.processEvents()
+
+    def cleanupFridaUploadWorker(self):
+        if self.fridaUploadDialog is not None:
+            self.fridaUploadDialog.close()
+            self.fridaUploadDialog.deleteLater()
+            self.fridaUploadDialog = None
+        if self.fridaUploadWorker is not None:
+            self.fridaUploadWorker.wait()
+            self.fridaUploadWorker.deleteLater()
+            self.fridaUploadWorker = None
+
+    def pushSingleFridaServer(self, local_path, remote_name, version, arch):
+        remote_path = "/data/local/tmp/" + remote_name
+        command_args = self.adbCommandArgs() + ["push", local_path, remote_path]
+        self.fridaUploadDialog = QProgressDialog(self)
+        self.fridaUploadDialog.setWindowTitle(self.trText("上传 frida-server", "Upload frida-server"))
+        self.fridaUploadDialog.setLabelText(self.trText("正在上传 frida-server {version} {arch}...", "Uploading frida-server {version} {arch}...").format(version=version, arch=arch))
+        self.fridaUploadDialog.setCancelButton(None)
+        self.fridaUploadDialog.setMinimumDuration(0)
+        self.fridaUploadDialog.setAutoClose(False)
+        self.fridaUploadDialog.setAutoReset(False)
+        self.fridaUploadDialog.setWindowModality(Qt.WindowModal)
+        self.fridaUploadDialog.setRange(0, 0)
+        self.fridaUploadDialog.setValue(0)
+        self.fridaUploadDialog.show()
+        QApplication.processEvents()
+
+        loop = QtCore.QEventLoop(self)
+        result = {"remote_path": None, "error": None}
+        self.fridaUploadWorker = AdbPushWorker(command_args, remote_path, self)
+        self.fridaUploadWorker.progress.connect(self.updateFridaUploadProgress)
+        self.fridaUploadWorker.status.connect(self.updateFridaUploadStatus)
+        self.fridaUploadWorker.success.connect(lambda path: result.update({"remote_path": path}))
+        self.fridaUploadWorker.success.connect(loop.quit)
+        self.fridaUploadWorker.error.connect(lambda message: result.update({"error": message}))
+        self.fridaUploadWorker.error.connect(loop.quit)
+        self.fridaUploadWorker.start()
+        loop.exec_()
+        self.cleanupFridaUploadWorker()
+        if result["error"]:
+            raise RuntimeError(self.trText("上传 frida-server 失败：", "Failed to upload frida-server: ") + f"{result['error']}\nLocal: {local_path}\nRemote: {remote_path}")
+        return result["remote_path"]
+
+    def chmodFridaServerRemote(self, remote_paths):
+        return CmdUtil.adbshellCmd("chmod 0777 " + " ".join(remote_paths))
+
+    def uploadFridaFamily(self, version, family_key, preferred_arch="", upload_only=False):
+        local_files = self.ensureFridaFamilyLocal(version, family_key, preferred_arch=preferred_arch, upload_only=upload_only)
+        remote_paths = []
+        for arch, local_path in local_files:
+            remote_paths.append(self.pushSingleFridaServer(local_path, self.getFridaRemoteName(arch, version), version, arch))
+        chmod_res = self.chmodFridaServerRemote(remote_paths)
+        self.log(chmod_res)
+        if "invalid" in chmod_res:
+            QMessageBox().information(self, "hint", self._translate("kmainForm", "上传完成，但是设置权限失败。请确认设备权限状态."))
+
 
     def PushFridaServer(self):
         self.PushFridaServerNormal("arm")
@@ -1852,7 +3564,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             chmod_res = CmdUtil.adbshellCmd(f"chmod 0777 {remote_path}")
             self.log(chmod_res)
             if "invalid" in chmod_res:
-                QMessageBox().information(self, "hint", self.trText("GumTrace 上传完成，但设置权限失败。请确认 su/cmd 切换是否正确。", "GumTrace upload finished, but chmod failed. Check the selected su/cmd mode."))
+                QMessageBox().information(self, "hint", self.trText("GumTrace 上传完成，但设置权限失败。请确认设备权限状态。", "GumTrace upload finished, but chmod failed. Check device permissions."))
                 return
             QMessageBox().information(self, "hint", self.trText("GumTrace 上传完成。默认已放到 /data/local/tmp/libGumTrace.so；若 dlopen 失败，可尝试 adb shell setenforce 0。", "GumTrace uploaded to /data/local/tmp/libGumTrace.so. If dlopen fails, try: adb shell setenforce 0."))
         except Exception as ex:
@@ -1897,35 +3609,71 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             return
         QMessageBox().information(self, "hint", self._translate("kmainForm",  "下载完成.输出结果在目录./fartdump/%s/") % pname)
 
+    def prepareGumTraceLogFile(self):
+        """hook 启动前，如果有 GumTrace 相关 hook，预创建日志文件并给权限"""
+        custom_hooks = self.hooksData.get("custom", [])
+        if not isinstance(custom_hooks, list):
+            return
+        has_gumtrace = any(
+            "gumtrace" in (item.get("fileName") or "").lower() or "gumtrace" in (item.get("class") or "").lower()
+            for item in custom_hooks if isinstance(item, dict)
+        )
+        if not has_gumtrace:
+            return
+        log_path = "/data/local/tmp/gumtrace.log"
+        if hasattr(self, "txtGumTraceOutput"):
+            custom_path = self.txtGumTraceOutput.text().strip()
+            if custom_path:
+                log_path = custom_path
+        res = CmdUtil.adbshellCmd("touch %s && chmod 0666 %s" % (log_path, log_path))
+        self.log("prepareGumTraceLogFile: %s -> %s" % (log_path, res.strip()))
+
     def pullGumTraceLog(self):
+        from PyQt5.QtWidgets import QApplication
+        active_window = QApplication.activeWindow() or self
         package_candidates = []
         for package_name in [self.labPackage.text().strip(), self.txtProcessName.text().strip()]:
             if len(package_name) > 0 and package_name not in package_candidates:
                 package_candidates.append(package_name)
-        remote_patterns = ["/data/local/tmp/gumtrace*.log", "/sdcard/gumtrace*.log"]
+        search_dirs = ["/data/local/tmp", "/sdcard"]
         if hasattr(self, "txtGumTraceOutput"):
             custom_output = self.txtGumTraceOutput.text().strip()
-            if len(custom_output) > 0 and custom_output not in remote_patterns:
-                remote_patterns.insert(0, custom_output)
+            if len(custom_output) > 0:
+                custom_dir = os.path.dirname(custom_output) if not custom_output.endswith("/") else custom_output
+                if custom_dir and custom_dir not in search_dirs:
+                    search_dirs.insert(0, custom_dir)
         for package_name in package_candidates:
-            remote_patterns.append(f"/data/data/{package_name}/files/gumtrace*.log")
-            remote_patterns.append(f"/data/user/0/{package_name}/files/gumtrace*.log")
-        search_cmd = "for p in %s; do if [ -f \"$p\" ]; then echo \"$p\"; fi; done | head -n 1" % " ".join(remote_patterns)
-        search_res = CmdUtil.adbshellCmd(search_cmd)
-        self.log(search_res)
-        remote_path = self.firstShellOutputLine(search_res)
+            search_dirs.append(f"/data/data/{package_name}/files")
+            search_dirs.append(f"/data/user/0/{package_name}/files")
+
+        remote_path = ""
+        for search_dir in search_dirs:
+            # 直接用 adb shell 执行，避免 su 包装导致通配符失效
+            cmd = "adb shell ls -t %s/gumtrace*.log 2>/dev/null | head -n 1" % search_dir
+            search_res = CmdUtil.exec(cmd).strip()
+            self.log("[DEBUG pullGumTrace] dir=%s res='%s'" % (search_dir, search_res.replace('\n', '\\n')[:200]))
+            if not search_res or "No such file" in search_res or "not found" in search_res.lower():
+                continue
+            line = search_res.splitlines()[0].strip()
+            if not line:
+                continue
+            if not line.startswith("/"):
+                line = search_dir.rstrip("/") + "/" + line
+            remote_path = line
+            self.log("[DEBUG pullGumTrace] found: %s" % remote_path)
+            break
         if len(remote_path) <= 0:
-            QMessageBox().information(self, "hint", self.trText("未找到 GumTrace 日志。默认会搜索 /data/local/tmp、/sdcard 以及当前包名的 files 目录。", "No GumTrace log was found. Searched /data/local/tmp, /sdcard and the current package files directories."))
+            QMessageBox().information(active_window, "hint", self.trText("未找到 GumTrace 日志。默认会搜索 /data/local/tmp、/sdcard 以及当前包名的 files 目录。", "No GumTrace log was found. Searched /data/local/tmp, /sdcard and the current package files directories."))
             return
 
         export_path = remote_path
         if not (remote_path.startswith("/sdcard/") or remote_path.startswith("/data/local/tmp/")):
             export_dir = "/sdcard/gumtrace_export"
             export_path = export_dir + "/" + os.path.basename(remote_path)
-            export_res = CmdUtil.adbshellCmd("mkdir -p %s && cp %s %s && chmod 0666 %s" % (export_dir, remote_path, export_path, export_path))
+            export_res = CmdUtil.adbshellCmd("mkdir -p %s && cp '%s' '%s' && chmod 0666 '%s'" % (export_dir, remote_path, export_path, export_path))
             self.log(export_res)
             if "No such file" in export_res or "not found" in export_res:
-                QMessageBox().information(self, "hint", self.trText("复制 GumTrace 日志到 /sdcard 失败：", "Failed to copy GumTrace log to /sdcard: ") + export_res)
+                QMessageBox().information(active_window, "hint", self.trText("复制 GumTrace 日志到 /sdcard 失败：", "Failed to copy GumTrace log to /sdcard: ") + export_res)
                 return
 
         local_dir = "./logs/gumtrace"
@@ -1935,13 +3683,13 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         name_root, name_ext = os.path.splitext(base_name)
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         local_path = os.path.join(local_dir, "%s_%s%s" % (name_root, timestamp, name_ext or ".log"))
-        pull_res = CmdUtil.execCmd("adb pull %s %s" % (export_path, local_path))
-        self.log(pull_res)
-        if "does not exist" in pull_res or "error" in pull_res.lower() or "failed" in pull_res.lower():
-            QMessageBox().information(self, "hint", self.trText("下载 GumTrace 日志失败：", "Failed to download GumTrace log: ") + pull_res)
+        pull_res = CmdUtil.exec("adb pull '%s' '%s'" % (export_path, local_path)).strip()
+        self.log("adb pull result: " + pull_res)
+        if "does not exist" in pull_res or ("error" in pull_res.lower() and "0 files pulled" not in pull_res.lower()) or "failed to access" in pull_res.lower():
+            QMessageBox().information(active_window, "hint", self.trText("下载 GumTrace 日志失败：", "Failed to download GumTrace log: ") + pull_res)
             return
         self.refreshOverviewCards()
-        QMessageBox().information(self, "hint", self.trText("GumTrace 日志下载完成：", "GumTrace log downloaded: ") + local_path)
+        QMessageBox().information(active_window, "hint", self.trText("GumTrace 日志下载完成：", "GumTrace log downloaded: ") + local_path)
         should_open_dir = hasattr(self, "chkGumTraceOpenDir") and self.chkGumTraceOpenDir.isChecked()
         if should_open_dir:
             self.openGumTraceLogDirectory()
@@ -1998,34 +3746,51 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
     def ReplaceSh(self,rfile,wfile,name):
         data = FileUtil.readFile(rfile)
-        adb = "adb"
+        adb_prefix = self.adbScriptPrefix()
+        line_sep = "\n"
         if platform.system() == "Darwin":
-            adb = "%adb%"
+            line_sep = "; "
+        binary_name = name
+        launch_name = binary_name
+        custom_port = (self.customPort or "").strip()
+        wifi_port = (self.wifi_port or "").strip()
         if self.connType == "wifi":
-            data = data.replace("%fridaName%", name + " -l 0.0.0.0:" + self.wifi_port)
-
-            data=data.replace("%customPort%",f"{adb} forward tcp:{self.wifi_port} tcp:{self.wifi_port}")
+            if len(wifi_port) > 0:
+                launch_name += " -l 0.0.0.0:" + wifi_port
+            data = data.replace("%removeForwards%", "")
+            data = data.replace("%defaultForwards%", "")
+            data = data.replace("%customPort%", "")
         elif self.connType == "usb":
-            if self.customPort!=None and len(self.customPort)>0:
-                data = data.replace("%fridaName%", name + " -l 0.0.0.0:" + self.customPort)
-                data=data.replace("%customPort%",f"{adb} forward tcp:{self.customPort} tcp:{self.customPort}")
+            if len(custom_port) > 0:
+                launch_name += " -l 0.0.0.0:" + custom_port
+                data = data.replace("%removeForwards%", line_sep.join([
+                    f"{adb_prefix} forward --remove tcp:27042 2>/dev/null",
+                    f"{adb_prefix} forward --remove tcp:27043 2>/dev/null",
+                    f"{adb_prefix} forward --remove tcp:{custom_port} 2>/dev/null",
+                ]))
+                data = data.replace("%defaultForwards%", "")
+                data = data.replace("%customPort%", f"{adb_prefix} forward tcp:{custom_port} tcp:{custom_port}")
             else:
-                data = data.replace("%fridaName%", name)
+                data = data.replace("%removeForwards%", line_sep.join([
+                    f"{adb_prefix} forward --remove tcp:27042 2>/dev/null",
+                    f"{adb_prefix} forward --remove tcp:27043 2>/dev/null",
+                ]))
+                data = data.replace("%defaultForwards%", line_sep.join([
+                    f"{adb_prefix} forward tcp:27042 tcp:27042",
+                    f"{adb_prefix} forward tcp:27043 tcp:27043",
+                ]))
                 data = data.replace("%customPort%","")
-        if self.actionSu0.isChecked():
-            data = data.replace("%sumod%", "su 0")
-        elif self.actionSuC.isChecked():
-            data = data.replace("%sumod%", "su -c")
-        elif self.actionMks0.isChecked():
-            data = data.replace("%sumod%", "mks 0")
-        
-        if platform.system()=="Darwin":
-            adbPath= CmdUtil.execCmdData("which adb")
-            if adbPath=="":
-                adbPath="adb"
-            data=data.replace("%adb%",adbPath.replace("\n",""))
+        else:
+            data = data.replace("%removeForwards%", "")
+            data = data.replace("%defaultForwards%", "")
+            data = data.replace("%customPort%", "")
+        data = data.replace("%adbPrefix%", adb_prefix)
+        data = data.replace("%fridaName%", binary_name)
+        data = data.replace("%fridaLaunch%", launch_name)
         if self.fridaName != None and len(self.fridaName) > 0:
             data = data.replace("%fName%", self.fridaName)
+        else:
+            data = data.replace("%fName%", "frida-server")
         FileUtil.writeFile(wfile,data)
 
     def ShStart(self, name):
@@ -2050,20 +3815,339 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             cmd = "bash -c " + savefile
         os.system(cmd)
 
-    def ChangeVer14(self, checked):
-        if checked==False:
-            return
-        self.curFridaVer="14.2.18"
+    def runAdbCommand(self, extra_args, timeout=20, log_command=True, log_output=True):
+        command_args = self.adbCommandArgs() + list(extra_args)
+        if log_command:
+            self.log(self.trText("执行命令：", "Run command: ") + " ".join(shlex.quote(part) for part in command_args))
+        proc = subprocess.run(
+            command_args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=timeout,
+        )
+        output = (proc.stdout or "").strip()
+        if log_output and output:
+            self.log(output)
+        return proc.returncode, output
 
-    def ChangeVer15(self, checked):
-        if checked==False:
-            return
-        self.curFridaVer = "15.1.9"
+    def runAdbShellScript(self, script_text, timeout=20, log_command=True, log_output=True):
+        return self.runAdbCommand(
+            ["shell", "sh", "-c", shlex.quote(script_text)],
+            timeout=timeout,
+            log_command=log_command,
+            log_output=log_output,
+        )
 
-    def ChangeVer16(self, checked):
-        if checked==False:
+    def fridaLaunchParts(self, name):
+        launch_parts = ["/data/local/tmp/" + name]
+        custom_port = (self.customPort or "").strip()
+        wifi_port = (self.wifi_port or "").strip()
+        if self.connType == "wifi" and len(wifi_port) > 0:
+            launch_parts.extend(["-l", "0.0.0.0:" + wifi_port])
+        elif self.connType == "usb" and len(custom_port) > 0:
+            launch_parts.extend(["-l", "0.0.0.0:" + custom_port])
+        return launch_parts
+
+    def expectedFridaPort(self):
+        if self.connType == "wifi":
+            return (self.wifi_port or "").strip()
+        if self.connType == "usb":
+            return (self.customPort or "").strip()
+        return ""
+
+    def isRemotePortListening(self, port):
+        if len(port) <= 0:
+            return False
+        try:
+            port_hex = format(int(port), "04X")
+        except ValueError:
+            return False
+        _, output = self.runAdbShellScript(
+            "cat /proc/net/tcp /proc/net/tcp6 2>/dev/null | grep -i ':%s '" % port_hex,
+            timeout=8,
+            log_command=False,
+            log_output=False,
+        )
+        return len(output.strip()) > 0
+
+    def readRemoteFridaStartLog(self):
+        _, output = self.runAdbShellScript(
+            "cat /data/local/tmp/frida_start.log 2>/dev/null || true",
+            timeout=8,
+            log_command=False,
+            log_output=False,
+        )
+        return output.strip()
+
+    def prepareFridaForward(self):
+        if self.connType != "usb":
             return
-        self.curFridaVer = "16.0.8"
+        custom_port = (self.customPort or "").strip()
+        ports_to_remove = ["27042", "27043"]
+        if len(custom_port) > 0:
+            ports_to_remove.append(custom_port)
+        for port in ports_to_remove:
+            self.runAdbCommand(["forward", "--remove", "tcp:" + port], timeout=8, log_command=False, log_output=False)
+        if len(custom_port) > 0:
+            rc, output = self.runAdbCommand(["forward", "tcp:" + custom_port, "tcp:" + custom_port], timeout=8)
+            if rc != 0:
+                raise RuntimeError(self.trText("创建自定义端口转发失败：", "Failed to create custom port forward: ") + output)
+        else:
+            for port in ("27042", "27043"):
+                rc, output = self.runAdbCommand(["forward", "tcp:" + port, "tcp:" + port], timeout=8)
+                if rc != 0:
+                    raise RuntimeError(self.trText("创建端口转发失败：", "Failed to create port forward: ") + output)
+
+    def ensureFridaServerReady(self):
+        last_error = ""
+        for _ in range(12):
+            try:
+                device = self.getFridaDevice()
+                device.enumerate_processes()
+                return
+            except Exception as ex:
+                last_error = str(ex)
+                time.sleep(0.5)
+        remote_log = self.readRemoteFridaStartLog()
+        details = self.trText("连接 frida-server 失败：", "Failed to connect to frida-server: ") + last_error
+        if remote_log:
+            details += "\nfrida_start.log:\n" + remote_log
+        raise RuntimeError(details)
+
+    def startFridaServerDirect(self, name):
+        launch_parts = self.fridaLaunchParts(name)
+        expected_port = self.expectedFridaPort()
+        self.log(self.trText("准备启动 frida-server...", "Preparing to start frida-server..."))
+
+        kill_cmd = "killall %s %s frida-server 2>/dev/null || true" % (self.fridaName or "frida-server", name)
+        self.runAdbShellScript(kill_cmd, timeout=8, log_command=False, log_output=False)
+
+        chmod_targets = ["/data/local/tmp/" + name]
+        if self.fridaName:
+            chmod_targets.insert(0, "/data/local/tmp/" + self.fridaName)
+        chmod_cmd = "; ".join("chmod 0777 %s 2>/dev/null" % target for target in chmod_targets)
+        self.runAdbShellScript(chmod_cmd, timeout=8, log_command=False, log_output=False)
+
+        self.prepareFridaForward()
+
+        remote_launch = "nohup %s >/data/local/tmp/frida_start.log 2>&1 &" % " ".join(shlex.quote(part) for part in launch_parts)
+        rc, output = self.runAdbShellScript(remote_launch, timeout=8)
+        if rc != 0:
+            raise RuntimeError(self.trText("启动 frida-server 失败：", "Failed to start frida-server: ") + output)
+
+        if len(expected_port) > 0:
+            for _ in range(12):
+                if self.isRemotePortListening(expected_port):
+                    break
+                time.sleep(0.5)
+            else:
+                remote_log = self.readRemoteFridaStartLog()
+                details = self.trText("目标端口未监听：", "Target port is not listening: ") + expected_port
+                if remote_log:
+                    details += "\nfrida_start.log:\n" + remote_log
+                raise RuntimeError(details)
+
+        self.ensureFridaServerReady()
+        self.log(self.trText("frida-server 已启动并通过连通性检测。", "frida-server is running and passed connectivity checks."))
+
+    def fridaWheelCacheDir(self):
+        return os.path.abspath(os.path.join(".", "tmp", "frida_wheels"))
+
+    def ensureFridaWheelCacheDir(self):
+        cache_dir = self.fridaWheelCacheDir()
+        os.makedirs(cache_dir, exist_ok=True)
+        return cache_dir
+
+    def getInstalledPythonFridaVersion(self):
+        try:
+            command_args = ["python3", "-c", "import frida; print(getattr(frida, '__version__', ''))"]
+            output = subprocess.check_output(command_args, stderr=subprocess.STDOUT, text=True).strip()
+            return output
+        except Exception:
+            return ""
+
+    def buildFridaInstallCommand(self, version):
+        cache_dir = self.ensureFridaWheelCacheDir()
+        package_spec = f"frida=={version}"
+        # 仅切换 frida Python 包版本；保留现有 frida-tools。
+        # 本地有 wheel 时走纯离线安装；否则允许 pip 访问索引并在需要时从源码构建。
+        if self.hasCachedFridaWheel(cache_dir, version):
+            return [
+                "python3", "-m", "pip", "install", "-U",
+                "--no-index",
+                "--find-links", cache_dir,
+                package_spec,
+            ]
+        return [
+            "python3", "-m", "pip", "install", "-U",
+            "--cache-dir", cache_dir,
+            "--find-links", cache_dir,
+            package_spec,
+        ]
+
+    def hasCachedFridaWheel(self, cache_dir, version):
+        """检查缓存目录中是否存在指定版本可直接安装的 frida wheel"""
+        if not os.path.isdir(cache_dir):
+            return False
+        prefix = f"frida-{version}-"
+        for f in os.listdir(cache_dir):
+            if f.startswith(prefix) and f.endswith(".whl"):
+                return True
+        return False
+
+    def hasCachedFridaPackage(self, cache_dir, version):
+        if not os.path.isdir(cache_dir):
+            return False
+        wheel_prefix = f"frida-{version}-"
+        source_prefix = f"frida-{version}."
+        for f in os.listdir(cache_dir):
+            if f.startswith(wheel_prefix) and f.endswith(".whl"):
+                return True
+            if f.startswith(source_prefix) and (f.endswith(".tar.gz") or f.endswith(".zip")):
+                return True
+        return False
+
+    def buildFridaWheelDownloadCommand(self, version):
+        cache_dir = self.ensureFridaWheelCacheDir()
+        return [
+            "python3",
+            "-m",
+            "pip",
+            "download",
+            "--dest",
+            cache_dir,
+            f"frida=={version}",
+        ]
+
+    def installPythonFridaVersion(self, version):
+        installed = self.getInstalledPythonFridaVersion()
+        if installed == version:
+            return []
+        return self.buildFridaInstallCommand(version)
+
+    def appendFridaVersionOutput(self, text):
+        if self.fridaVersionOutput is None or not text:
+            return
+        self.fridaVersionOutput.appendPlainText(text)
+        cursor = self.fridaVersionOutput.textCursor()
+        cursor.movePosition(cursor.End)
+        self.fridaVersionOutput.setTextCursor(cursor)
+        self.fridaVersionOutput.ensureCursorVisible()
+        QApplication.processEvents()
+
+    def cleanupFridaVersionWorker(self):
+        if self.fridaVersionWorker is not None:
+            self.fridaVersionWorker.wait()
+            self.fridaVersionWorker.deleteLater()
+            self.fridaVersionWorker = None
+
+    def closeFridaVersionDialog(self):
+        if self.fridaVersionDialog is not None:
+            self.fridaVersionDialog.close()
+            self.fridaVersionDialog.deleteLater()
+            self.fridaVersionDialog = None
+            self.fridaVersionOutput = None
+            self.fridaVersionCloseButton = None
+
+    def setFridaVersionDialogClosable(self, enabled):
+        if self.fridaVersionCloseButton is not None:
+            self.fridaVersionCloseButton.setEnabled(enabled)
+
+    def setFridaVersionDialogTitle(self, zh_text, en_text):
+        if self.fridaVersionDialog is not None:
+            self.fridaVersionDialog.setWindowTitle(self.trText(zh_text, en_text))
+
+    def createFridaVersionDialog(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self.trText("切换 frida 版本", "Switch frida version"))
+        dialog.setWindowModality(Qt.WindowModal)
+        dialog.resize(760, 420)
+        layout = QVBoxLayout(dialog)
+
+        output_view = QPlainTextEdit(dialog)
+        output_view.setReadOnly(True)
+        layout.addWidget(output_view)
+
+        close_button = QPushButton(self.trText("关闭", "Close"), dialog)
+        close_button.setEnabled(False)
+        close_button.clicked.connect(dialog.accept)
+        layout.addWidget(close_button)
+
+        self.fridaVersionDialog = dialog
+        self.fridaVersionOutput = output_view
+        self.fridaVersionCloseButton = close_button
+        return dialog
+
+    def finishFridaVersionChange(self, version, output, warm_cache=True):
+        self.cleanupFridaVersionWorker()
+        self.curFridaVer = version
+        for action in self.fridaVersionMenuActions:
+            action.setChecked(str(action.data() or "").strip() == version)
+        self.updateFridaVersionSelectionUi(version)
+        self.appendFridaVersionOutput(self.trText("\n切换完成。", "\nSwitch completed."))
+        self.setFridaVersionDialogClosable(True)
+        self.setFridaVersionDialogTitle("切换完成", "Switch completed")
+        if warm_cache:
+            cache_dir = self.ensureFridaWheelCacheDir()
+            if not self.hasCachedFridaPackage(cache_dir, version):
+                try:
+                    download_command = self.buildFridaWheelDownloadCommand(version)
+                    self.appendFridaVersionOutput(self.trText("缓存 frida 安装包以加速下次切换：", "Caching the frida package for faster switching: ") + " ".join(shlex.quote(arg) for arg in download_command))
+                    subprocess.Popen(
+                        download_command,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                except Exception:
+                    pass
+            else:
+                self.appendFridaVersionOutput(self.trText("本地 frida 安装包缓存已存在，跳过下载。", "Local frida package cache exists, skipping download."))
+        QMessageBox().information(self, "hint", self.trText("已切换本地 frida 版本：", "Switched local frida version: ") + version)
+
+    def failFridaVersionChange(self, message):
+        self.cleanupFridaVersionWorker()
+        self.appendFridaVersionOutput("\n" + self.trText("执行失败：", "Command failed: ") + message)
+        self.setFridaVersionDialogClosable(True)
+        self.setFridaVersionDialogTitle("切换失败", "Switch failed")
+        QMessageBox.critical(self, "error", message)
+        self.rebuildFridaVersionMenu()
+
+    def changeFridaClientVersion(self, version, checked):
+        if checked is False:
+            return
+        supported, unsupported_reason = self.isFridaVersionSupportedOnCurrentPython(version)
+        if not supported:
+            self.rebuildFridaVersionMenu()
+            QMessageBox().information(self, "hint", unsupported_reason)
+            return
+        self.cleanupFridaVersionWorker()
+        self.closeFridaVersionDialog()
+        command_args = self.installPythonFridaVersion(version)
+        dialog = self.createFridaVersionDialog()
+
+        installed = self.getInstalledPythonFridaVersion()
+        if installed == version or not command_args:
+            self.appendFridaVersionOutput(self.trText("当前 frida 版本已是目标版本，无需重复安装。", "The current frida version already matches the target version. Skipping reinstall."))
+            self.finishFridaVersionChange(version, "", warm_cache=False)
+            dialog.show()
+            return
+
+        command_text = " ".join(shlex.quote(arg) for arg in command_args)
+        self.appendFridaVersionOutput(self.trText("准备切换本地 frida 版本...", "Preparing to switch local frida version..."))
+        self.appendFridaVersionOutput(self.trText("仅切换 Python frida 包版本，保留现有 frida-tools。", "Only the Python frida package will be switched. Existing frida-tools will be kept."))
+        self.appendFridaVersionOutput(self.trText("执行命令：", "Command: ") + command_text)
+
+        self.fridaVersionWorker = CommandWorker(command_args, self)
+        self.fridaVersionWorker.started.connect(lambda started_command: self.appendFridaVersionOutput(self.trText("开始执行：", "Started: ") + started_command))
+        self.fridaVersionWorker.output.connect(self.appendFridaVersionOutput)
+        self.fridaVersionWorker.success.connect(lambda output: self.setFridaVersionDialogClosable(True))
+        self.fridaVersionWorker.success.connect(lambda output, current_version=version: self.finishFridaVersionChange(current_version, output, warm_cache=True))
+        self.fridaVersionWorker.error.connect(lambda message: self.setFridaVersionDialogClosable(True))
+        self.fridaVersionWorker.error.connect(self.failFridaVersionChange)
+        self.fridaVersionWorker.start()
+        dialog.show()
+
 
     def refreshHookHeaders(self):
         if self.isEnglish():
@@ -2090,50 +4174,58 @@ class kmainForm(QMainWindow, Ui_MainWindow):
     def retranslateDynamicUi(self):
         self.refreshHookHeaders()
         self.groupBox.setTitle(self.trText("功能(附加进程后使用)", "Functions (post-attach)"))
-        self.groupBox_2.setTitle(self.trText("hook多选(附加进程前使用)", "Hook selection (pre-attach)"))
-        if hasattr(self, "labAiFeatureStatusMain"):
-            self.labAiFeatureStatusMain.setText(
-                self.trText("AI 状态：已配置后可在“自定义”中写 Hook，并在日志页中分析日志。", "AI status: once configured, use Custom to write hooks and analyze logs in the log tabs.")
-                if self.aiService.is_available() else
-                self.trText("AI 状态：", "AI status: ") + self.aiService.missing_message("English" if self.isEnglish() else "China")
-            )
+        self.groupBox_2.setTitle(self.trText("附加前使用", "Pre-attach"))
+        if hasattr(self, "customTemplateGroup"):
+            self.customTemplateGroup.setTitle(self.trText("自定义模板", "Custom Templates"))
+        if hasattr(self, "labCustomTemplateHint"):
+            self.labCustomTemplateHint.setText(self.trText("将常用脚本固定到主界面，一键启用/禁用；管理与编辑请进入“自定义”。", "Pin frequently used scripts here for one-click enable/disable. Use 'Custom' to manage and edit templates."))
         if hasattr(self, "btnGumTracePanel"):
             self.btnGumTracePanel.setText(self.trText("GumTrace", "GumTrace"))
-        self.chkRootBypass.setText("root bypass")
-        self.chkWebViewDebug.setText("webview debug")
-        self.chkOkHttpLogger.setText("okhttp logger")
-        self.chkSharedPrefsWatch.setText("shared prefs")
-        self.chkSQLiteLogger.setText("sqlite logger")
-        self.chkClipboardMonitor.setText("clipboard monitor")
-        self.chkIntentMonitor.setText("intent monitor")
-        self.attachWorkbenchHeader.setText(self.trText("将 Native 与 Java 搜索流程拆分为上下两层，并把查询动作单独收纳为工具卡片，查模块、符号、类和函数时更聚焦。", "Native and Java exploration are split into two focused layers, with action buttons grouped into tool cards for cleaner module, symbol, class and method searches."))
+        if hasattr(self, "btnFCAndJnitracePanel"):
+            self.btnFCAndJnitracePanel.setText(self.trText("jnitrace", "jnitrace"))
         self.groupBox_7.setTitle(self.trText("附加进程逆向信息", "Attached process RE info"))
-        self.labAttachedInfoHint.setText(self.trText("这里汇总 Frida 运行时、应用包信息、模块/类数量和调试属性，便于附加后快速判断分析切入点。", "This panel summarizes Frida runtime data, package metadata, module/class counts and debug-related flags to help pick an analysis entry point quickly."))
+        self.labAttachedInfoHint.setText(self.trText("这里汇总 Frida 运行时、应用包信息、模块/DEX/类数量和调试属性，便于附加后快速判断分析切入点。", "This panel summarizes Frida runtime data, package metadata, module/DEX/class counts and debug-related flags to help pick an analysis entry point quickly."))
+        if hasattr(self, "attachDexGroup"):
+            self.attachDexGroup.setTitle(self.trText("已加载 DEX", "Loaded DEX"))
+        if hasattr(self, "labAttachDexHint"):
+            self.labAttachDexHint.setText(self.trText("这里展示附加后识别到的 dex / apk / jar 入口，便于判断 Java 代码来源。", "This panel lists dex / apk / jar entries discovered after attach so you can quickly spot Java code origins."))
+        if hasattr(self, "txtDex"):
+            self.txtDex.setPlaceholderText(self.trText("按 dex 路径或 ClassLoader 过滤", "Filter by dex path or ClassLoader"))
+        if hasattr(self, "attachResourceDetailGroup"):
+            self.attachResourceDetailGroup.setTitle(self.trText("当前选中资源详情", "Selected resource details"))
+        if hasattr(self, "labAttachResourceHint"):
+            self.labAttachResourceHint.setText(self.trText("点击左侧模块或 DEX 后，这里展示路径、大小、来源、导出/符号数量等关键属性。", "Click a module or DEX entry on the left to inspect key attributes here, including path, size, ownership and export/symbol counts."))
+        if hasattr(self, "attachResourceTabs"):
+            self.attachResourceTabs.setTabText(self.attachResourceTabs.indexOf(self.groupBox_3), self.trText("SO 模块", "SO modules"))
+            self.attachResourceTabs.setTabText(self.attachResourceTabs.indexOf(self.attachDexGroup), self.trText("DEX", "DEX"))
+        if hasattr(self, "attachResultTabs"):
+            self.attachResultTabs.setTabText(self.attachResultTabs.indexOf(self.nativeResultWidget), self.trText("导出/符号", "Exports / Symbols"))
+            self.attachResultTabs.setTabText(self.attachResultTabs.indexOf(self.groupBox_7), self.trText("运行时详情", "Runtime details"))
         self.labAppWorkbenchHint.setText(self.trText("支持先选择目标手机，再刷新前台应用与扩展元数据。默认会选中第一个已连接设备。", "Choose the target device first, then refresh the foreground app and extended metadata. The first connected device is selected by default."))
         self.currentAppExtraGroup.setTitle(self.trText("当前前台应用补充信息", "Foreground app extra info"))
         self.labCurrentAppInfoHint.setText(self.trText("这里基于 dumpsys / pm 输出补充显示版本、ABI、调试标记、数据目录等信息。", "This panel augments dumpsys / pm results with version, ABI, debug flags and data-path details."))
         self.labDeviceSelector.setText(self.trText("连接手机：", "Device:")) if hasattr(self, "labDeviceSelector") else None
         self.btnRefreshDevices.setText(self.trText("刷新设备", "Refresh devices")) if hasattr(self, "btnRefreshDevices") else None
-        self.groupLogs.setTabText(self.groupLogs.indexOf(self.aiAnalysisTab), self.trText("AI 分析", "AI Analysis"))
         self.labOutputLogView.setText(self.trText("输出日志视图", "Output log view"))
         self.txtLogs.setPlaceholderText(self.trText("日志将在这里滚动显示...", "Logs will stream here..."))
         self.txtoutLogs.setPlaceholderText(self.trText("日志将在这里滚动显示...", "Logs will stream here..."))
-        self.txtAiAnalysis.setPlaceholderText(self.trText("AI 分析结果会显示在这里", "AI analysis output will appear here"))
+        self.txtAiLogInput.setPlaceholderText(self.trText("打开日志文件，或直接粘贴 / 输入待分析日志...", "Open a log file, or paste / type the log content to analyze..."))
+        if self.aiService.is_available():
+            self.txtAiAnalysis.setPlaceholderText(self.trText("AI 分析结果会显示在这里", "AI analysis output will appear here"))
+        else:
+            self.txtAiAnalysis.setPlaceholderText(self.aiService.missing_message("English" if self.isEnglish() else "China"))
         self.btnOpenLogFile.setText(self.trText("打开日志文件", "Open log file"))
         self.btnRestoreLiveLog.setText(self.trText("恢复实时日志", "Restore live log"))
         self.btnAnalyzeLog.setText(self.trText("AI 分析日志", "AI analyze log"))
         self.actionAiSettings.setText(self.trText("AI 设置", "AI Settings"))
-        self.logDock.setWindowTitle(self.trText("日志 / Hook / AI 侧边栏", "Logs / Hooks / AI sidebar")) if hasattr(self, "logDock") else None
-        self.actionToggleLogDock.setText(self.trText("隐藏日志侧边栏", "Hide log sidebar")) if hasattr(self, "actionToggleLogDock") else None
-        self.menuSettings.setTitle(self.trText("设置", "Settings"))
-        self.groupLogs.setTabText(self.groupLogs.indexOf(self.tab_3), self.trText("操作日志", "Operation log"))
-        self.groupLogs.setTabText(self.groupLogs.indexOf(self.tab_5), self.trText("输出日志", "Output log"))
-        self.groupLogs.setTabText(self.groupLogs.indexOf(self.tab_4), self.trText("当前hook列表", "Current hook list"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), self.trText("主界面", "Main"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), self.trText("附加进程信息", "Attach process info"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_6), self.trText("应用信息", "App info"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_7), self.trText("辅助功能", "Assist work"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.gumTraceTab), self.trText("GumTrace 工作台", "GumTrace workbench"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_4), self.trText("hook列表", "Hook list"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_3), self.trText("操作日志", "Operation log"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_5), self.trText("输出日志", "Output log"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.aiAnalysisTab), self.trText("AI 分析", "AI Analysis"))
+        self.gumTraceWindow.setWindowTitle(self.trText("GumTrace 工作台", "GumTrace workbench")) if hasattr(self, "gumTraceWindow") else None
         self.btnDumpPtr.setText(self.trText("dump指定地址", "dump address"))
         self.btnDumpDex.setText(self.trText("dump_dex加载class后调用", "dump dex after class load"))
         self.btnCallFunction.setText(self.trText("函数重放", "function replay"))
@@ -2142,7 +4234,13 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.btnTuoke.setText(self.trText("脱壳", "unpack"))
         self.btnCustom.setText(self.trText("自定义", "custom"))
         self.btnAntiFrida.setText(self.trText("frida检测", "frida check"))
-        self.chkJavaEnc.setText(self.trText("java加解密", "java encrypt"))
+        # 安全检查：只在控件存在、未被删除且可见时设置文本
+        if hasattr(self, 'chkJavaEnc') and self.chkJavaEnc is not None:
+            try:
+                if not self.chkJavaEnc.isHidden():
+                    self.chkJavaEnc.setText(self.trText("java加解密", "java encrypt"))
+            except RuntimeError:
+                pass
         self.label.setText(self.trText("别名：", "Alias:"))
         self.label_2.setText(self.trText("别名：", "Alias:"))
         self.btnSaveHooks.setText(self.trText("保存列表", "Save list"))
@@ -2150,11 +4248,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.btnLoadHooks.setText(self.trText("加载记录", "Load record"))
         self.btnClearHooks.setText(self.trText("清空列表", "Clear list"))
         self.groupBox_3.setTitle(self.trText("module列表", "Module list"))
-        self.groupBox_4.setTitle(self.trText("java类列表", "Java class list"))
         self.groupBox_5.setTitle(self.trText("符号", "Symbols"))
-        self.groupBox_6.setTitle(self.trText("java函数", "Java methods"))
         self.nativeActionGroup.setTitle(self.trText("Native 查询动作", "Native query actions"))
-        self.javaActionGroup.setTitle(self.trText("Java 查询动作", "Java query actions"))
         self.btnSymbolClear.setText(self.trText("清空", "Clear"))
         self.btnMethod.setText(self.trText("查询函数", "Search methods"))
         self.btnMethodClear.setText(self.trText("清空", "Clear"))
@@ -2166,12 +4261,6 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.label_10.setText(self.trText("进程名：", "Process name:"))
         self.label_11.setText(self.trText("进程id：", "PID:"))
         self.label_13.setText(self.trText("base路径：", "Base path:"))
-        self.groupBox_10.setTitle(self.trText("GumTrace 与日志工具", "GumTrace and log tools"))
-        self.labAssistGumTraceHint.setText(self.trText("辅助页只保留 GumTrace 相关能力：上传动态库、下载日志、打开本地目录，以及跳转到 GumTrace 工作台。", "The assist page now keeps only GumTrace-related actions: upload the library, download logs, open the local directory and jump to the GumTrace workbench."))
-        self.btnPullGumTraceLog.setText(self.trText("下载GumTrace日志", "download GumTrace log"))
-        self.btnOpenGumTraceDir.setText(self.trText("打开本地日志目录", "open local log directory"))
-        self.btnAssistUploadGumTrace.setText(self.trText("上传 GumTrace 库", "upload GumTrace library"))
-        self.btnOpenGumTraceWorkspace.setText(self.trText("打开 GumTrace 面板", "open GumTrace workbench"))
         self.gumTraceConfigGroup.setTitle(self.trText("GumTrace 可视化配置", "Visual GumTrace configuration"))
         self.gumTracePreviewGroup.setTitle(self.trText("脚本预览与产物摘要", "Script preview and artifact summary"))
         self.labGumTraceWorkbenchHint.setText(self.trText("这里提供 GumTrace 专用配置面板：可视化设置触发模式、线程过滤、模块白名单、输出路径，并一键生成符合 custom 模块格式的脚本。", "This dedicated GumTrace workbench lets you configure trigger mode, thread filters, module whitelists and output paths visually, then generate scripts that match the custom-module format in one click."))
@@ -2206,18 +4295,19 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.btnGumTracePreview.setText(self.trText("刷新预览", "Refresh preview"))
         self.btnGumTraceSaveCustom.setText(self.trText("仅写入脚本仓库", "Save to script library"))
         self.btnGumTraceActivate.setText(self.trText("生成并加入当前 Hook", "Generate and activate"))
-        self.btnGumTraceOpenCustom.setText(self.trText("打开自定义模块", "Open Custom module"))
-        self.btnGumTraceUpload.setText(self.trText("上传 GumTrace 库", "Upload GumTrace library"))
-        self.btnGumTraceDownload.setText(self.trText("下载 GumTrace 日志", "Download GumTrace log"))
         self.menufile.setTitle(self.trText("文件", "file"))
         self.menuedit.setTitle(self.trText("执行", "run"))
         self.menuAttach.setTitle(self.trText("附加进程", "attach"))
+        self.setCmdMenuVisible(False)
+        self.actionFrida32Start.setText(self.trText("启动 frida-server", "Start frida-server"))
         self.menu_frida_server.setTitle(self.trText("启动frida-server", "start frida-server"))
         self.menuhelp.setTitle(self.trText("帮助", "help"))
         self.menu.setTitle(self.trText("上传与下载", "upload and download"))
-        self.menucmd.setTitle(self.trText("cmd切换", "change cmd"))
         self.menu_2.setTitle(self.trText("连接方式", "connect type"))
         self.menufrida.setTitle(self.trText("frida切换", "frida ver"))
+        self.menufrida.menuAction().setVisible(True)
+        if self.fridaUploadMenu is not None:
+            self.fridaUploadMenu.setTitle(self.trText("上传 frida", "Upload frida"))
         self.menu_3.setTitle(self.trText("语言", "language"))
         self.actionabort.setText(self.trText("关于我", "About"))
         self.actionStop.setText(self.trText("停止", "Stop"))
@@ -2235,6 +4325,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.actionClearOutlog.setText(self.trText("清空输出日志", "Clear output log"))
         self.actionPushFartSo.setText(self.trText("上传fart.so,gson.jar到设备", "Upload fart.so and gson.dex"))
         self.actionPushGumTrace.setText(self.trText("上传GumTrace库到设备", "Upload GumTrace library"))
+        if hasattr(self, "actionPullGumTraceLog"):
+            self.actionPullGumTraceLog.setText(self.trText("下载GumTrace日志", "Download GumTrace log"))
         self.actionClearHookJson.setText(self.trText("清空json列表", "Clear hook JSON list"))
         self.actionPullDumpDexRes.setText(self.trText("下载dump_dex结果", "Download dump_dex result"))
         self.actionPushFridaServer.setText(self.trText("上传frida-server(arm,arm64)", "Upload frida-server (arm, arm64)"))
@@ -2245,14 +4337,19 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.actionWifi.setText(self.trText("wifi连接", "WiFi"))
         self.actionChangePort.setText(self.trText("修改默认端口", "Change default port"))
         self.actionConsoleLog.setText(self.trText("关闭输出日志", "Disable output log"))
-        self.actionChina.setText(self.trText("中文", "Chinese"))
-        self.actionEnglish.setText("English")
         self.actionattach.setText("attach")
         self.actionattach.setToolTip("attach by packageName")
         self.actionattachF.setText("attachF")
         self.actionattachF.setToolTip("attach current top app")
         self.actionspawn.setText("spawn")
         self.actionstop.setText("stop")
+        if hasattr(self, "actionCustomModule"):
+            self.actionCustomModule.setText(self.trText("自定义", "Custom"))
+            self.actionCustomModule.setToolTip(self.trText("打开自定义模块", "Open Custom module"))
+        if hasattr(self, "actionGumTracePanel"):
+            self.actionGumTracePanel.setText("GumTrace")
+            self.actionGumTracePanel.setToolTip(self.trText("打开 GumTrace 工作台", "Open GumTrace workbench"))
+        self.updateToolbarContextPanel()
         self.cmbGumTraceMode.setItemText(0, self.trText("手动启动", "Manual"))
         self.cmbGumTraceMode.setItemText(1, self.trText("偏移触发", "Offset trigger"))
         self.cmbGumTraceMode.setItemText(2, self.trText("导出触发", "Export trigger"))
@@ -2262,7 +4359,6 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         else:
             self.labLogStatus.setText(self.trText("当前日志：实时输出", "Current log: live output"))
         self.onDeviceChanged() if hasattr(self, "cmbDevices") else None
-        self.onLogDockVisibilityChanged(self.logDock.isVisible()) if hasattr(self, "logDock") else None
         self.updateCurrentAppInfoTable()
         self.updateAttachedInfoTable()
         self.refreshAiState()
@@ -2270,9 +4366,14 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.updateTabHooks()
         self.refreshOverviewCards()
         self.refreshChildTranslations()
+        self.rebuildFridaVersionMenu()
+        self.updateConnectionSelectionUi()
+        self.updateFridaVersionSelectionUi()
+        self.updateLanguageSelectionUi()
 
     def switchLanguage(self, language):
         if self.language == language:
+            self.updateLanguageSelectionUi()
             return
         self.language = language
         conf.write("kmain", "language", language)
@@ -2280,6 +4381,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.loadTypeData()
         self.retranslateUi(self)
         self.retranslateDynamicUi()
+        self.updateLanguageSelectionUi()
 
     def ChangeEnglish(self,checked):
         if checked==False:
@@ -2291,51 +4393,28 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             return
         self.switchLanguage("China")
 
+    def StartFridaServer(self):
+        binary_name = "frida-server"
+        if self.fridaName != None and len(self.fridaName) > 0:
+            binary_name = self.fridaName + "64"
+        try:
+            self.startFridaServerDirect(binary_name)
+            QMessageBox().information(self, "hint", self.trText("frida-server 启动成功。", "frida-server started successfully."))
+        except Exception as ex:
+            self.log(self.trText("启动 frida-server 异常：", "Failed to start frida-server: ") + str(ex))
+            QMessageBox().information(self, "hint", self.trText("启动 frida-server 异常：", "Failed to start frida-server: ") + str(ex))
+
     def Frida32Start(self):
-        if self.fridaName !=None and len(self.fridaName)>0:
-            name=self.fridaName+"32"
-        else:
-            name=f"frida-server-{self.curFridaVer}-android-arm"
-        self.ShStart(name)
+        self.StartFridaServer()
 
     def Frida64Start(self):
-        if self.fridaName !=None and len(self.fridaName)>0:
-            name=self.fridaName+"64"
-        else:
-            name=f"frida-server-{self.curFridaVer}-android-arm64"
-        self.ShStart(name)
+        self.StartFridaServer()
 
     def FridaX86Start(self):
-        if self.fridaName !=None and len(self.fridaName)>0:
-            name=self.fridaName+"32"
-        else:
-            name=f"frida-server-{self.curFridaVer}-android-x86"
-        self.ShStart(name)
+        self.StartFridaServer()
 
     def FridaX64Start(self):
-        if self.fridaName !=None and len(self.fridaName)>0:
-            name=self.fridaName+"64"
-        else:
-            name=f"frida-server-{self.curFridaVer}-android-x86_64"
-        self.ShStart(name)
-
-    def changeCmdType(self,data):
-        CmdUtil.cmdhead = data
-
-    def ChangeSuC(self, checked):
-        if checked==False:
-            return
-        self.changeCmdType(self.actionSuC.text())
-
-    def ChangeSu0(self, checked):
-        if checked==False:
-            return
-        self.changeCmdType(self.actionSu0.text())
-
-    def ChangeMks0(self,checked):
-        if checked==False:
-            return
-        self.changeCmdType(self.actionMks0.text())
+        self.StartFridaServer()
 
     def ClearHookJson(self):
         path = "./hooks/"
@@ -2373,13 +4452,12 @@ class kmainForm(QMainWindow, Ui_MainWindow):
                 packageFile.write(name + "\n")
         self.labPackage.setText(name)
         self.refreshOverviewCards()
-        # appinfo=self.th.default_api.loadappinfo()
-        # self.loadAppInfo(appinfo)
 
     def getFridaDevice(self):
         if self.connType=="usb":
-            if self.customPort != None and len(self.customPort) > 0:
-                str_host = "127.0.0.1:%s" % (self.customPort)
+            custom_port = (self.customPort or "").strip()
+            if len(custom_port) > 0:
+                str_host = "127.0.0.1:%s" % custom_port
                 manager = frida.get_device_manager()
                 device = manager.add_remote_device(str_host)
                 return device
@@ -2397,14 +4475,26 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             device = manager.add_remote_device(str_host)
             return device
 
+    def normalizeWifiSettings(self):
+        self.address = (self.address or "").strip()
+        self.wifi_port = (self.wifi_port or "").strip()
+        return self.address, self.wifi_port
+
+    def ensureWifiConnectionReady(self):
+        if self.connType != "wifi":
+            return True
+        address, port = self.normalizeWifiSettings()
+        if len(address) <= 0 or len(port) <= 0:
+            QMessageBox().information(self, "hint", self._translate("kmainForm","当前为wifi连接,但是未设置地址或端口"))
+            return False
+        return True
+
     # 启动附加
     def actionAttachStart(self):
         self.log("actionAttach")
         try:
-            if self.connType=="wifi":
-                if len(self.address)<8 or len(self.wifi_port)<0:
-                    QMessageBox().information(self, "hint", self._translate("kmainForm","当前为wifi连接,但是未设置地址或端口"))
-                    return
+            if self.ensureWifiConnectionReady() is False:
+                return
 
             # 查下进程。能查到说明frida_server开启了
             device = self.getFridaDevice()
@@ -2419,16 +4509,19 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.th.loggerSignel.connect(self.log)
             self.th.outloggerSignel.connect(self.outlog)
             self.th.loadAppInfoSignel.connect(self.loadAppInfo)
+            self.th.classListSignel.connect(self.onClassListReceived)
             self.th.attachOverSignel.connect(self.attachOver)
             self.th.searchAppInfoSignel.connect(self.searchAppInfoRes)
             self.th.searchMemorySignel.connect(self.searchMemResp)
             self.th.setBreakSignel.connect(self.setBreakResp)
             self.th.attachType="attachCurrent"
+            self.prepareGumTraceLogFile()
             self.th.start()
             if len(self.hooksData) <= 0:
                 # QMessageBox().information(self, "提示", "未设置hook选项")
                 self.log(self._translate("kmainForm","未设置hook选项"))
         except Exception as ex:
+            self.changeAttachStatus(False)
             self.log(self._translate("kmainForm","附加异常")+".err:" + str(ex))
             QMessageBox().information(self, "hint", self._translate("kmainForm","附加异常")+"." + str(ex))
 
@@ -2440,8 +4533,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         if res == 0:
             return
         try:
-            if self.connType=="wifi" and (len(self.address)<8 or len(self.wifi_port)<=0):
-                QMessageBox().information(self, "hint",self._translate("kmainForm","当前为wifi连接,但是未设置地址或端口"))
+            if self.ensureWifiConnectionReady() is False:
                 return
             # 查下进程。能查到说明frida_server开启了
             device = self.getFridaDevice()
@@ -2456,31 +4548,77 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.th.loggerSignel.connect(self.log)
             self.th.outloggerSignel.connect(self.outlog)
             self.th.loadAppInfoSignel.connect(self.loadAppInfo)
+            self.th.classListSignel.connect(self.onClassListReceived)
             self.th.attachOverSignel.connect(self.attachOver)
             self.th.searchAppInfoSignel.connect(self.searchAppInfoRes)
             self.th.searchMemorySignel.connect(self.searchMemResp)
             self.th.attachType="spawn"
 
+            self.prepareGumTraceLogFile()
             self.th.start()
             if len(self.hooksData) <= 0:
                 # QMessageBox().information(self, "提示", "未设置hook选项")
                 self.log(self._translate("kmainForm","未设置hook选项"))
         except Exception as ex:
+            self.changeAttachStatus(False)
             self.log(self._translate("kmainForm","附加异常")+".err:" + str(ex))
             QMessageBox().information(self, "hint", self._translate("kmainForm","附加异常.") + str(ex))
 
+    def updateAttachActionStates(self, attached):
+        attach_enabled = not attached
+        for action_name in [
+            "actionAttach",
+            "actionAttachName",
+            "actionSpawn",
+            "actionattach",
+            "actionattachF",
+            "actionspawn",
+            "action",
+            "action_2",
+            "actionspwan",
+        ]:
+            action = getattr(self, action_name, None)
+            if action is not None:
+                action.setEnabled(attach_enabled)
+        for action_name in ["actionStop", "actionstop"]:
+            action = getattr(self, action_name, None)
+            if action is not None:
+                action.setEnabled(attached)
+                if action_name == "actionstop":
+                    action.setIcon(self.createColoredStopIcon("#ef4444" if attached else "#94a3b8"))
+        if hasattr(self, "menuAttach"):
+            self.menuAttach.setEnabled(attach_enabled)
+
     # 修改ui的状态表现
     def changeAttachStatus(self, isattach):
+        self.updateAttachActionStates(isattach)
         if isattach:
-            self.menuAttach.setEnabled(False)
-            self.actionStop.setEnabled(True)
             self.labStatus.setText( self._translate("kmainForm","当前状态:已连接") )
         else:
-            self.menuAttach.setEnabled(True)
-            self.actionStop.setEnabled(False)
             self.labStatus.setText(self._translate("kmainForm","当前状态:未连接") )
             self.labPackage.setText("")
             self.attachedAppInfoSnapshot = {}
+            self.modules = None
+            self.classes = None
+            self.dexes = []
+            self.filteredModules = []
+            self.currentSelectedModule = None
+            self.currentSelectedDex = None
+            self.moduleExportCache = {}
+            self.moduleSymbolCache = {}
+            self.lastSearchModuleKey = None
+            if hasattr(self, "listModules"):
+                self.listModules.clear()
+            if hasattr(self, "listClasses"):
+                self.listClasses.clear()
+            if hasattr(self, "listDex"):
+                self.listDex.clear()
+            if hasattr(self, "listSymbol"):
+                self.listSymbol.clear()
+            if hasattr(self, "listMethod"):
+                self.listMethod.clear()
+            if hasattr(self, "attachResourceTable"):
+                self.renderAttachResourceRows([])
             self.updateAttachedInfoTable()
         self.refreshOverviewCards()
 
@@ -2488,8 +4626,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
     def actionAttachNameStart(self):
         self.log("actionAttachName")
         try:
-            if self.connType=="wifi" and (len(self.address)<8 or len(self.wifi_port)):
-                QMessageBox().information(self, "hint", self._translate("kmainForm","当前为wifi连接,但是未设置地址或端口"))
+            if self.ensureWifiConnectionReady() is False:
                 return
             device = self.getFridaDevice()
             process = device.enumerate_processes()
@@ -2508,12 +4645,15 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.th.loggerSignel.connect(self.log)
             self.th.outloggerSignel.connect(self.outlog)
             self.th.loadAppInfoSignel.connect(self.loadAppInfo)
+            self.th.classListSignel.connect(self.onClassListReceived)
             self.th.attachOverSignel.connect(self.attachOver)
             self.th.searchAppInfoSignel.connect(self.searchAppInfoRes)
             self.th.searchMemorySignel.connect(self.searchMemResp)
             self.th.attachType = "attach"
+            self.prepareGumTraceLogFile()
             self.th.start()
         except Exception as ex:
+            self.changeAttachStatus(False)
             self.log(self._translate("kmainForm","附加异常")+".err:" + str(ex))
             QMessageBox().information(self, "hint", self._translate("kmainForm","附加异常.") + str(ex))
 
@@ -2523,26 +4663,28 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         res=self.portForm.exec()
         if res==0:
             return
-        self.fridaName = self.portForm.fridaName
-        self.customPort = self.portForm.port
+        self.fridaName = (self.portForm.fridaName or "").strip()
+        self.customPort = (self.portForm.port or "").strip()
         conf.write("kmain", "frida_name", self.fridaName)
         conf.write("kmain", "usb_port", self.customPort)
+        self.updateConnectionSelectionUi()
 
     def WifiConn(self):
         self.wifiForm.txtAddress.setText(self.address)
         self.wifiForm.txtPort.setText(self.wifi_port)
         res=self.wifiForm.exec()
         if res==0 :
+            self.updateConnectionSelectionUi()
             return
         self.connType="wifi"
         self.address=self.wifiForm.address
         self.wifi_port=self.wifiForm.port
         conf.write("kmain", "wifi_addr", self.address)
         conf.write("kmain", "wifi_port", self.wifi_port)
+        self.updateConnectionSelectionUi()
     def UsbConn(self):
         self.connType="usb"
-        self.actionUsb.setChecked(True)
-        self.actionWifi.setChecked(False)
+        self.updateConnectionSelectionUi()
 
     # 是否附加进程了
     def isattach(self):
@@ -2643,12 +4785,11 @@ class kmainForm(QMainWindow, Ui_MainWindow):
     def wallBreaker(self):
         if self.isattach() == False:
             return
-        if self.classes == None or len(self.classes) <= 0:
-            self.log(self._translate("kmainForm", "Error:未附加进程或操作太快,请稍等"))
-            QMessageBox().information(self, "hint",self._translate("kmainForm", "未附加进程或操作太快,请稍等") )
-            return
-        self.wallBreakerForm.classes = self.classes
-        self.wallBreakerForm.api = self.th.default_script.exports
+        print("[DEBUG] wallBreaker: self.classes=%d" % len(self.classes or []))
+        api = getattr(self.th.default_script, 'exports_sync', None) or self.th.default_script.exports
+        self.wallBreakerForm.api = api
+        self.wallBreakerForm._mainForm = self
+        self.wallBreakerForm.classes = self.classes or []
         self.wallBreakerForm.initData()
         self.wallBreakerForm.show()
 
@@ -2706,20 +4847,12 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         else:
             self.log(self._translate("kmainForm","取消hook ")+msg)
 
-    def hookJNI(self, checked):
+    def hookJNI(self, checked=None):
         typeStr = "jnitrace"
-        if checked:
-            self.log("hook jni")
-        else:
-            self.log(self._translate("kmainForm","取消hook jni"))
-            if typeStr in self.hooksData:
-                self.hooksData.pop(typeStr)
-                self.updateTabHooks()
-            return
+        self.log("hook jni")
         self.jniform.flushCmb()
         res = self.jniform.exec()
         if res == 0:
-            self.chkJni.setChecked(False)
             return
         jniHook = {"class": self.jniform.moduleName, "method": self.jniform.methodName,
                    "offset":self.jniform.offset,
@@ -2727,8 +4860,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.hooksData[typeStr] = jniHook
         self.updateTabHooks()
 
-    def hookNetwork(self, checked):
-        self.chk_hook_insert(checked,"r0capture",self._translate("kmainForm","网络相关"))
+    def hookNetwork(self, checked=None):
+        self.chk_hook_insert(True,"r0capture",self._translate("kmainForm","网络相关"))
 
     def hookJavaEnc(self, checked):
         self.chk_hook_insert(checked, "javaEnc", self._translate("kmainForm","java的算法加解密所有函数"))
@@ -2772,21 +4905,13 @@ class kmainForm(QMainWindow, Ui_MainWindow):
     def hookIntentMonitor(self, checked):
         self.chk_hook_insert(checked, "intent_monitor", self._translate("kmainForm", "监控 Intent、Service 与 Broadcast 跳转"))
 
-    def hookNewJnitrace(self,checked):
+    def hookNewJnitrace(self, checked=None):
         typeStr = "FCAnd_jnitrace"
-        if checked:
-            self.log("hook jni")
-        else:
-            self.log(self._translate("kmainForm", "取消hook jni"))
-            if typeStr in self.hooksData:
-                self.hooksData.pop(typeStr)
-                self.updateTabHooks()
-            return
+        self.log("hook jni")
         self.newJniform.checkData=False
         self.newJniform.flushCmb()
         res = self.newJniform.exec()
         if res == 0:
-            self.chkJni.setChecked(False)
             return
         jniHook = {"class": self.newJniform.moduleName, "method": self.newJniform.methodName,
                    "offset":self.newJniform.offset,
@@ -2794,6 +4919,9 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.hooksData[typeStr] = jniHook
         self.updateTabHooks()
         # self.chk_hook_insert(checked, "FCAnd_jnitrace", "新的jnitrace")
+
+    def openFCAndJnitrace(self):
+        self.hookNewJnitrace()
 
     def matchMethod(self):
         self.zenTracerForm.flushCmb()
@@ -2920,23 +5048,31 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
     # 加载hook列表后。这里刷新下checked
     def refreshChecks(self):
-        self.setCheckSilent(self.chkNetwork, self.chkNetwork.tag in self.hooksData)
-        self.setCheckSilent(self.chkJni, self.chkJni.tag in self.hooksData)
-        self.setCheckSilent(self.chkJavaEnc, self.chkJavaEnc.tag in self.hooksData)
-        self.setCheckSilent(self.chkSslPining, self.chkSslPining.tag in self.hooksData)
-        self.setCheckSilent(self.chkRegisterNative, self.chkRegisterNative.tag in self.hooksData)
-        self.setCheckSilent(self.chkArtMethod, self.chkArtMethod.tag in self.hooksData)
-        self.setCheckSilent(self.chkLibArt, self.chkLibArt.tag in self.hooksData)
-        self.setCheckSilent(self.chkHookEvent, self.chkHookEvent.tag in self.hooksData)
-        self.setCheckSilent(self.chkAntiDebug, "anti_debug" in self.hooksData)
-        self.setCheckSilent(self.chkNewJnitrace, "FCAnd_jnitrace" in self.hooksData)
-        self.setCheckSilent(self.chkRootBypass, self.chkRootBypass.tag in self.hooksData)
-        self.setCheckSilent(self.chkWebViewDebug, self.chkWebViewDebug.tag in self.hooksData)
-        self.setCheckSilent(self.chkOkHttpLogger, self.chkOkHttpLogger.tag in self.hooksData)
-        self.setCheckSilent(self.chkSharedPrefsWatch, self.chkSharedPrefsWatch.tag in self.hooksData)
-        self.setCheckSilent(self.chkSQLiteLogger, self.chkSQLiteLogger.tag in self.hooksData)
-        self.setCheckSilent(self.chkClipboardMonitor, self.chkClipboardMonitor.tag in self.hooksData)
-        self.setCheckSilent(self.chkIntentMonitor, self.chkIntentMonitor.tag in self.hooksData)
+        """hook 列表变动后，同步 customForm 并刷新主界面的 pinned checkbox 状态"""
+        if hasattr(self, "customForm"):
+            # 从 hooksData 反向同步 customForm.customHooks
+            custom_hooks = self.hooksData.get("custom", [])
+            if isinstance(custom_hooks, list):
+                active_files = {item.get("fileName") or item.get("method") for item in custom_hooks if isinstance(item, dict)}
+                self.customForm.customHooks = [
+                    item for item in self.customForm.customHooks
+                    if item.get("fileName") in active_files
+                ]
+                self.customForm.updateTabCustomHook()
+            else:
+                self.customForm.customHooks = []
+                self.customForm.updateTabCustomHook()
+        # 刷新主界面 pinned checkbox
+        if hasattr(self, "customTemplateTiles"):
+            active_files = set()
+            if hasattr(self, "customForm"):
+                active_files = {item.get("fileName") for item in self.customForm.customHooks}
+            for tile in self.customTemplateTiles:
+                file_name = getattr(tile, "fileName", None)
+                if file_name is not None:
+                    tile.blockSignals(True)
+                    tile.setChecked(file_name in active_files)
+                    tile.blockSignals(False)
 
     def loadJson(self, filepath):
         if os.path.exists(filepath)==False:
@@ -2944,6 +5080,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         with open(filepath, "r", encoding="utf8") as hooksFile:
             data = hooksFile.read()
             self.hooksData = json.loads(data)
+            self.syncCustomHooksFromHooksData()
+            self.migrateLegacySimpleHooksToCustom()
             self.updateTabHooks()
             self.refreshChecks()
 
@@ -3007,15 +5145,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
     def changeModule(self, data):
         if self.modules == None:
             return
-        self.listModules.clear()
-        if len(data) > 0:
-            for item in self.modules:
-                data = data.split("----")[0]
-                if data.upper() in item["name"].upper():
-                    self.listModules.addItem(item["name"] + "----" + item["base"])
-        else:
-            for item in self.modules:
-                self.listModules.addItem(item["name"] + "----" + item["base"])
+        self.refreshModuleList(data)
 
     def changeClass(self, data):
         if self.modules == None:
@@ -3055,9 +5185,16 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
     def listModuleClick(self, item):
         self.txtModule.setText(item.text())
+        self.log(self.trText("已禁用模块点击联动，仅同步模块名称。", "Module click linkage is disabled; only the module name is synchronized."))
 
     def listClassClick(self, item):
         self.txtClass.setText(item.text())
+
+    def listSymbolClick(self, item):
+        self.txtSymbol.setText(item.text())
+
+    def listMethodClick(self, item):
+        self.txtMethod.setText(item.text())
 
     def extractMatch(self, pattern, text, group=1):
         match = re.search(pattern, text, re.MULTILINE)
@@ -3099,35 +5236,56 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         snapshot["allowBackup"] = "ALLOW_BACKUP" in flags
         return snapshot
 
+    def onClassListReceived(self, classes):
+        """通过 send 消息从 default.js 异步接收 Java 类列表"""
+        self.classes = classes or []
+        print("[DEBUG] onClassListReceived: %d classes" % len(self.classes))
+        self.log("onClassListReceived: %d classes" % len(self.classes))
+        if hasattr(self, 'changeClass') and hasattr(self, 'txtClass'):
+            self.changeClass(self.txtClass.text() if self.txtClass.text() else "")
+
     # 附加成功后取出app的信息展示
     def loadAppInfo(self, info):
-        self.listModules.clear()
-        self.listClasses.clear()
-
+        print("[DEBUG] loadAppInfo called, info is None: %s" % (info is None))
         if info==None:
             return
-        if "modules" not in info or "classes" not in info:
+
+        print("[DEBUG] loadAppInfo: keys=%s" % list(info.keys()))
+        print("[DEBUG] loadAppInfo: classes in info=%s, len=%d" % ("classes" in info, len(info.get("classes", []))))
+        print("[DEBUG] loadAppInfo: javaUnavailable=%s" % info.get("javaUnavailable", False))
+
+        self.listModules.clear()
+        if hasattr(self, "listDex"):
+            self.listDex.clear()
+
+        if "modules" not in info:
             return
         self.modules = info["modules"]
-        self.classes = info["classes"]
+        self.classes = info.get("classes", []) or []
+        self.methods = []
+        self.dexes = info.get("dexes", []) or []
+        self.filteredModules = []
+        self.currentSelectedModule = None
+        self.currentSelectedDex = None
+        self.moduleExportCache = {}
+        self.moduleSymbolCache = {}
+        self.lastSearchModuleKey = None
 
-        for module in info["modules"]:
-            self.listModules.addItem(module["name"] + "----" + module["base"])
+        self.refreshModuleList(self.txtModule.text() if hasattr(self, "txtModule") else "")
 
-        for item in info["classes"]:
-            self.listClasses.addItem(item)
+        if hasattr(self, "listDex"):
+            self.changeDex(self.txtDex.text() if hasattr(self, "txtDex") else "")
 
         try:
             self.listModules.itemClicked.disconnect(self.listModuleClick)
         except Exception:
             pass
-        try:
-            self.listClasses.itemClicked.disconnect(self.listClassClick)
-        except Exception:
-            pass
         self.listModules.itemClicked.connect(self.listModuleClick)
-        self.listClasses.itemClicked.connect(self.listClassClick)
-        packageName = self.labPackage.text()
+        packageName = self.labPackage.text().strip()
+        if len(packageName) <= 0:
+            packageName = ((info.get("package") or {}).get("packageName") or "").strip()
+            if len(packageName) > 0:
+                self.labPackage.setText(packageName)
         attach_type_map = {
             "attachCurrent": self.trText("附加当前前台进程", "Attach current foreground process"),
             "attach": self.trText("附加指定进程", "Attach selected process"),
@@ -3142,12 +5300,18 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.attachedAppInfoSnapshot = snapshot
         self.updateAttachedInfoTable()
         self.refreshOverviewCards()
+        self.renderAttachRuntimeInfo()
 
-        with open("./tmp/" + packageName + ".classes.txt", "w+", encoding="utf-8") as packageTmpFile:
-            for item in info["classes"]:
-                packageTmpFile.write(item + "\n")
-        spawnpath = ".spawn" if info["spawn"] == "1" else ""
-        with open("./tmp/" + packageName + ".modules" + spawnpath + ".txt", "w+", encoding="utf-8") as packageTmpFile:
+        preferred_module = self.preferredModule()
+        if preferred_module is not None:
+            normalized_display = self.moduleDisplayText(preferred_module)
+            matches = self.listModules.findItems(normalized_display, Qt.MatchExactly)
+            if matches:
+                self.listModules.setCurrentItem(matches[0])
+            if hasattr(self, "txtModule"):
+                self.txtModule.clear()
+
+        with open("./tmp/" + packageName + ".modules" + (".spawn" if info.get("spawn") == "1" else "") + ".txt", "w+", encoding="utf-8") as packageTmpFile:
             for module in info["modules"]:
                 packageTmpFile.write(module["name"] + "\n")
 
@@ -3155,10 +5319,20 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         searchTyep = info["type"]
         self.searchType = searchTyep
         if searchTyep == "export" or searchTyep == "symbol":
-            self.listSymbol.clear()
+            error_message = info.get("error")
             self.symbols = info[searchTyep]
-            for item in info[searchTyep]:
-                self.listSymbol.addItem(item["name"])
+            cache_key = self.lastSearchModuleKey
+            if cache_key and not error_message:
+                if searchTyep == "export":
+                    self.moduleExportCache[cache_key] = info[searchTyep]
+                else:
+                    self.moduleSymbolCache[cache_key] = info[searchTyep]
+            self.lastSearchModuleKey = None
+            self.populateSymbolList(self.symbols)
+            if error_message:
+                self.log(self.trText("模块查询已跳过：", "Module query skipped: ") + error_message)
+            if self.currentSelectedModule is not None and self.moduleCacheKey(self.currentSelectedModule) == cache_key:
+                self.renderAttachResourceRows(self.moduleInfoRows(self.currentSelectedModule))
         elif searchTyep == "method":
             self.listMethod.clear()
             self.methods = info[searchTyep]
@@ -3231,11 +5405,14 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         super(kmainForm, self).resizeEvent(event)
         self.rebuildResponsiveCards()
         self.rebuildAdvancedToolGrid()
+        self.rebuildPinnedCustomTemplateGrid()
 
     # 不关闭的话，mac下调试时退出会出现无法关闭进程
     def closeEvent(self, event):
+        if hasattr(self, "gumTraceWindow"):
+            self.gumTraceWindow.close()
         if platform.system() =='Darwin':
-            CmdUtil.execCmd(CmdUtil.cmdhead + "\"pkill -9 frida\"")
+            CmdUtil.adbshellCmd("pkill -9 frida")
 
 
 def getTrans():
@@ -3272,8 +5449,82 @@ def apply_app_language(app, language):
 
 
 if __name__ == "__main__":
+    import os
+    # 抑制 Qt 的 SVG 和样式警告 - 必须在 QApplication 创建之前设置
+    os.environ['QT_LOGGING_RULES'] = 'qt.svg=false;*.warning=false'
+    
     current_exit_code = 1207
     app = QApplication(sys.argv)
+    try:
+        import logging
+        logging.getLogger().setLevel(logging.ERROR)
+        # 抑制 Qt 内部警告
+        import warnings
+        warnings.filterwarnings('ignore')
+        
+        from qt_material import apply_stylesheet
+        apply_stylesheet(app, theme='dark_teal.xml', extra={
+            'density_scale': '0',
+        })
+        # qt-material 不覆盖 checkbox/radio，手动补充，并添加悬浮效果
+        app.setStyleSheet(app.styleSheet() + """
+        QPushButton {
+            padding: 8px 16px;
+        }
+        QPushButton:hover {
+            background-color: #00897b;
+            border: 2px solid #4db6ac;
+        }
+        QPushButton:pressed {
+            background-color: #00695c;
+        }
+        QCheckBox::indicator {
+            width: 18px; height: 18px;
+            border: 2px solid #80cbc4;
+            border-radius: 3px;
+            background: transparent;
+        }
+        QCheckBox::indicator:checked {
+            background: #009688;
+            border-color: #009688;
+            image: url(none);
+        }
+        QCheckBox::indicator:hover {
+            border-color: #26a69a;
+            border-width: 3px;
+            background: rgba(77, 182, 172, 0.1);
+        }
+        QCheckBox::indicator:checked:hover {
+            background: #00897b;
+            border-color: #00897b;
+        }
+        QCheckBox {
+            spacing: 8px;
+            color: #ffffff;
+        }
+        QCheckBox:hover {
+            color: #4db6ac;
+            background: rgba(77, 182, 172, 0.05);
+            border-radius: 4px;
+            padding: 2px;
+        }
+        QRadioButton::indicator {
+            width: 18px; height: 18px;
+            border: 2px solid #80cbc4;
+            border-radius: 10px;
+            background: transparent;
+        }
+        QRadioButton::indicator:checked {
+            background: #009688;
+            border-color: #009688;
+        }
+        QRadioButton::indicator:hover {
+            border-color: #26a69a;
+            border-width: 3px;
+        }
+        """)
+    except ImportError:
+        pass
     while current_exit_code == 1207:
         language=conf.read("kmain","language")
         apply_app_language(app, language)
@@ -3282,6 +5533,3 @@ if __name__ == "__main__":
         current_exit_code=app.exec_()
         kmain=None
     sys.exit(current_exit_code)
-
-
-
