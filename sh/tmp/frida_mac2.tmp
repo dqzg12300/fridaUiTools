@@ -1,5 +1,6 @@
-adb shell %sumod% 'pkill -9 frida-server '
-adb forward tcp:27042 tcp:27042
-adb forward tcp:27043 tcp:27043
+%adbPrefix% shell sh -c 'pkill -9 frida-server ' || %adbPrefix% shell su -c 'pkill -9 frida-server ' || %adbPrefix% shell su 0 sh -c 'pkill -9 frida-server '
+%removeForwards%
+%defaultForwards%
 %customPort%
-nohup adb shell %sumod% '/data/local/tmp/%fridaName%' &
+%adbPrefix% shell sh -c 'chmod 0777 /data/local/tmp/%fName% 2>/dev/null || chmod 0777 /data/local/tmp/%fridaName%' || %adbPrefix% shell su -c 'chmod 0777 /data/local/tmp/%fName% 2>/dev/null || chmod 0777 /data/local/tmp/%fridaName%' || %adbPrefix% shell su 0 sh -c 'chmod 0777 /data/local/tmp/%fName% 2>/dev/null || chmod 0777 /data/local/tmp/%fridaName%'
+nohup sh -c "%adbPrefix% shell sh -c '/data/local/tmp/%fridaLaunch%' || %adbPrefix% shell su -c '/data/local/tmp/%fridaLaunch%' 2>/dev/null || %adbPrefix% shell su 0 sh -c '/data/local/tmp/%fridaLaunch%' 2>/dev/null" &

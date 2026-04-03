@@ -1,5 +1,12 @@
 Java.perform(function () {
-    console.log('[sqlite_logger] init');
+    function klog(data) {
+        var message = {};
+        message["jsname"] = "sqlite_logger";
+        message["data"] = data;
+        send(message);
+    }
+
+    klog('[sqlite_logger] init');
 
     function stringify(value) {
         if (value === null || value === undefined) {
@@ -28,40 +35,40 @@ Java.perform(function () {
 
         var execSql = SQLiteDatabase.execSQL.overload('java.lang.String');
         execSql.implementation = function (sql) {
-            console.log('[sqlite_logger] execSQL => ' + sql);
+            klog('[sqlite_logger] execSQL => ' + sql);
             return execSql.call(this, sql);
         };
 
         var execSqlArgs = SQLiteDatabase.execSQL.overload('java.lang.String', '[Ljava.lang.Object;');
         execSqlArgs.implementation = function (sql, bindArgs) {
-            console.log('[sqlite_logger] execSQL => ' + sql + ' | args=' + stringifyArray(bindArgs));
+            klog('[sqlite_logger] execSQL => ' + sql + ' | args=' + stringifyArray(bindArgs));
             return execSqlArgs.call(this, sql, bindArgs);
         };
 
         var rawQuery = SQLiteDatabase.rawQuery.overload('java.lang.String', '[Ljava.lang.String;');
         rawQuery.implementation = function (sql, selectionArgs) {
-            console.log('[sqlite_logger] rawQuery => ' + sql + ' | args=' + stringifyArray(selectionArgs));
+            klog('[sqlite_logger] rawQuery => ' + sql + ' | args=' + stringifyArray(selectionArgs));
             return rawQuery.call(this, sql, selectionArgs);
         };
 
         var insertMethod = SQLiteDatabase.insert.overload('java.lang.String', 'java.lang.String', 'android.content.ContentValues');
         insertMethod.implementation = function (table, nullColumnHack, values) {
-            console.log('[sqlite_logger] insert => table=' + table + ', values=' + stringify(values));
+            klog('[sqlite_logger] insert => table=' + table + ', values=' + stringify(values));
             return insertMethod.call(this, table, nullColumnHack, values);
         };
 
         var updateMethod = SQLiteDatabase.update.overload('java.lang.String', 'android.content.ContentValues', 'java.lang.String', '[Ljava.lang.String;');
         updateMethod.implementation = function (table, values, whereClause, whereArgs) {
-            console.log('[sqlite_logger] update => table=' + table + ', where=' + stringify(whereClause) + ', whereArgs=' + stringifyArray(whereArgs) + ', values=' + stringify(values));
+            klog('[sqlite_logger] update => table=' + table + ', where=' + stringify(whereClause) + ', whereArgs=' + stringifyArray(whereArgs) + ', values=' + stringify(values));
             return updateMethod.call(this, table, values, whereClause, whereArgs);
         };
 
         var deleteMethod = SQLiteDatabase.delete.overload('java.lang.String', 'java.lang.String', '[Ljava.lang.String;');
         deleteMethod.implementation = function (table, whereClause, whereArgs) {
-            console.log('[sqlite_logger] delete => table=' + table + ', where=' + stringify(whereClause) + ', whereArgs=' + stringifyArray(whereArgs));
+            klog('[sqlite_logger] delete => table=' + table + ', where=' + stringify(whereClause) + ', whereArgs=' + stringifyArray(whereArgs));
             return deleteMethod.call(this, table, whereClause, whereArgs);
         };
     } catch (e) {
-        console.log('[sqlite_logger] hook failed: ' + e);
+        klog('[sqlite_logger] hook failed: ' + e);
     }
 });

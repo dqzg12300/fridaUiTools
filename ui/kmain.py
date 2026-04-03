@@ -547,16 +547,67 @@ class Ui_MainWindow(object):
         self.btnCustom.setText(_translate("MainWindow", "自定义"))
         self.btnPatch.setText(_translate("MainWindow", "Patch"))
         self.btnAntiFrida.setText(_translate("MainWindow", "frida检测"))
-        self.chkNetwork.setText(_translate("MainWindow", "r0capture"))
-        self.chkJni.setText(_translate("MainWindow", "jnitrace"))
-        self.chkJavaEnc.setText(_translate("MainWindow", "java加解密"))
-        self.chkSslPining.setText(_translate("MainWindow", "ssl pining"))
-        self.chkHookEvent.setText(_translate("MainWindow", "hookEvent"))
-        self.chkRegisterNative.setText(_translate("MainWindow", "RegisterNative"))
-        self.chkArtMethod.setText(_translate("MainWindow", "ArtMethod"))
-        self.chkLibArt.setText(_translate("MainWindow", "libArt"))
-        self.chkAntiDebug.setText(_translate("MainWindow", "anti_debug"))
-        self.chkNewJnitrace.setText(_translate("MainWindow", "FCAnd_jnitrace"))
+        # 安全检查：只在控件存在、未被删除且可见时设置文本
+        if hasattr(self, 'chkNetwork') and self.chkNetwork is not None:
+            try:
+                if not self.chkNetwork.isHidden():
+                    self.chkNetwork.setText(_translate("MainWindow", "r0capture"))
+            except RuntimeError:
+                pass
+        if hasattr(self, 'chkJni') and self.chkJni is not None:
+            try:
+                if not self.chkJni.isHidden():
+                    self.chkJni.setText(_translate("MainWindow", "jnitrace"))
+            except RuntimeError:
+                pass
+        if hasattr(self, 'chkJavaEnc') and self.chkJavaEnc is not None:
+            try:
+                if not self.chkJavaEnc.isHidden():
+                    self.chkJavaEnc.setText(_translate("MainWindow", "java加解密"))
+            except RuntimeError:
+                pass
+        if hasattr(self, 'chkSslPining') and self.chkSslPining is not None:
+            try:
+                if not self.chkSslPining.isHidden():
+                    self.chkSslPining.setText(_translate("MainWindow", "ssl pining"))
+            except RuntimeError:
+                pass
+        if hasattr(self, 'chkHookEvent') and self.chkHookEvent is not None:
+            try:
+                if not self.chkHookEvent.isHidden():
+                    self.chkHookEvent.setText(_translate("MainWindow", "hookEvent"))
+            except RuntimeError:
+                pass
+        if hasattr(self, 'chkRegisterNative') and self.chkRegisterNative is not None:
+            try:
+                if not self.chkRegisterNative.isHidden():
+                    self.chkRegisterNative.setText(_translate("MainWindow", "RegisterNative"))
+            except RuntimeError:
+                pass
+        if hasattr(self, 'chkArtMethod') and self.chkArtMethod is not None:
+            try:
+                if not self.chkArtMethod.isHidden():
+                    self.chkArtMethod.setText(_translate("MainWindow", "ArtMethod"))
+            except RuntimeError:
+                pass
+        if hasattr(self, 'chkLibArt') and self.chkLibArt is not None:
+            try:
+                if not self.chkLibArt.isHidden():
+                    self.chkLibArt.setText(_translate("MainWindow", "libArt"))
+            except RuntimeError:
+                pass
+        if hasattr(self, 'chkAntiDebug') and self.chkAntiDebug is not None:
+            try:
+                if not self.chkAntiDebug.isHidden():
+                    self.chkAntiDebug.setText(_translate("MainWindow", "anti_debug"))
+            except RuntimeError:
+                pass
+        if hasattr(self, 'chkNewJnitrace') and self.chkNewJnitrace is not None:
+            try:
+                if not self.chkNewJnitrace.isHidden():
+                    self.chkNewJnitrace.setText(_translate("MainWindow", "FCAnd_jnitrace"))
+            except RuntimeError:
+                pass
         self.groupLogs.setTabText(self.groupLogs.indexOf(self.tab_3), _translate("MainWindow", "操作日志"))
         self.groupLogs.setTabText(self.groupLogs.indexOf(self.tab_5), _translate("MainWindow", "输出日志"))
         self.label.setText(_translate("MainWindow", "别名："))

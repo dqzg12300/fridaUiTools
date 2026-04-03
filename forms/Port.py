@@ -10,7 +10,6 @@ class portForm(QDialog,Ui_Port):
     def __init__(self, parent=None):
         super(portForm, self).__init__(parent)
         self.setupUi(self)
-        self.setWindowOpacity(0.93)
         self.btnSubmit.clicked.connect(self.submit)
         self.btnClear.clicked.connect(self.clearUi)
         self.fridaName=""
@@ -22,10 +21,11 @@ class portForm(QDialog,Ui_Port):
         self.txtFridaName.setText("")
 
     def submit(self):
-        port = self.txtPort.text()
-        if len(self.txtFridaName.text()) <= 0:
+        port = self.txtPort.text().strip()
+        frida_name = self.txtFridaName.text().strip()
+        if len(frida_name) <= 0:
             QMessageBox().information(self, "hint", "missing FridaName")
             return
         self.port = port
-        self.fridaName = self.txtFridaName.text()
+        self.fridaName = frida_name
         self.accept()

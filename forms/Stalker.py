@@ -9,7 +9,6 @@ class stalkerForm(QDialog,Ui_StalkerDialog):
     def __init__(self, parent=None):
         super(stalkerForm, self).__init__(parent)
         self.setupUi(self)
-        self.setWindowOpacity(0.93)
         self.btnSubmit.clicked.connect(self.submit)
         self.btnClear.clicked.connect(self.clearUi)
         self.clearUi()

@@ -11,7 +11,6 @@ class antiFridaForm(QDialog,Ui_antiFrida):
     def __init__(self, parent=None):
         super(antiFridaForm, self).__init__(parent)
         self.setupUi(self)
-        self.setWindowOpacity(0.93)
         self.antiType=""
         self.rdoAnti1.toggled.connect(self.anti1)
         self.rdoAnti2.toggled.connect(self.anti2)

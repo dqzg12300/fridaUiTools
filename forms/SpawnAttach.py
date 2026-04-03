@@ -9,7 +9,6 @@ class spawnAttachForm(QDialog,Ui_SpawnAttachDialog):
     def __init__(self, parent=None):
         super(spawnAttachForm, self).__init__(parent)
         self.setupUi(self)
-        self.setWindowOpacity(0.93)
         self.btnSubmit.clicked.connect(self.submit)
         self.packageName = ""
         self.packages=[]

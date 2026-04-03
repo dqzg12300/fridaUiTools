@@ -11,7 +11,6 @@ class zenTracerForm(QDialog,Ui_ZenTracerDialog):
     def __init__(self, parent=None):
         super(zenTracerForm, self).__init__(parent)
         self.setupUi(self)
-        self.setWindowOpacity(0.93)
         self.flushCmb()
         self.traceClass =[]
         self.traceBClass=[]

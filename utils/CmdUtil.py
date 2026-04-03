@@ -1,7 +1,6 @@
 import os
 import subprocess
 
-cmdhead="adb shell su -c "       #切换使用adb shell su -c 和 adb shell su 0
 
 def exec(cmd):
     proc = subprocess.Popen(
@@ -14,7 +13,7 @@ def exec(cmd):
     proc.stdin.close()  # 既然没有命令行窗口，那就关闭输入
     result = proc.stdout.read()  # 读取cmd执行的输出结果（是byte类型，需要decode）
     proc.stdout.close()
-    return result.decode(encoding="utf-8")
+    return result.decode(encoding="utf-8", errors="ignore")
 
 def execCmd(cmd):
     text = exec(cmd)
@@ -27,6 +26,45 @@ def execCmd(cmd):
 def execCmdData(cmd):
     text = exec(cmd)
     return text
+
+
+def _run_command(command_args):
+    proc = subprocess.Popen(
+        command_args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        stdin=subprocess.DEVNULL,
+        text=True,
+    )
+    output, _ = proc.communicate()
+    return output or "", proc.returncode
+
+
+def _append_command_trace(text, command_text):
+    if len(text) > 0:
+        return text + "\ncmd命令执行" + command_text
+    return "cmd命令执行" + command_text
+
+
+def _adb_shell_attempts(cmd):
+    return [
+        (["adb", "shell", "su", "-c", cmd], 'adb shell su -c "%s"' % cmd),
+        (["adb", "shell", "su", "0", "sh", "-c", cmd], 'adb shell su 0 sh -c "%s"' % cmd),
+        (["adb", "shell", "sh", "-c", cmd], 'adb shell sh -c "%s"' % cmd),
+    ]
+
+
+def _should_try_next(output, return_code, is_last):
+    if is_last or return_code == 0:
+        return False
+    lower_output = (output or "").lower()
+    return (
+        "su: inaccessible or not found" in lower_output
+        or "su: not found" in lower_output
+        or "invalid uid/gid" in lower_output
+        or "permission denied" in lower_output
+        or return_code != 0
+    )
 
 def dumpdexInit(packageName):
     path = "/data/data/" + packageName + "/files/" + "/dump_dex_" + packageName
@@ -43,22 +81,23 @@ def fartInit(savepath):
     return res
 
 def adbshellCmd(cmd):
-    cmd="%s '%s'"%(cmdhead,cmd)
-    text = exec(cmd)
-    if len(text) > 0:
-        text += "\ncmd命令执行" + cmd
-    else:
-        text = "cmd命令执行" + cmd
-    return text
+    attempts = _adb_shell_attempts(cmd)
+    last_output = ""
+    last_command = ""
+    for index, (command_args, command_text) in enumerate(attempts):
+        output, return_code = _run_command(command_args)
+        last_output = output
+        last_command = command_text
+        if _should_try_next(output, return_code, index == len(attempts) - 1):
+            continue
+        return _append_command_trace(output, command_text)
+    return _append_command_trace(last_output, last_command)
 
 def adbshellCmdEnd(cmd,end):
-    cmd="%s '%s' %s"%(cmdhead,cmd,end)
-    text = exec(cmd)
-    if len(text) > 0:
-        text += "\ncmd命令执行" + cmd
-    else:
-        text = "cmd命令执行" + cmd
-    return text
+    result = adbshellCmd(cmd)
+    if end:
+        result += "\n" + end
+    return result
 
 def fix_so(arch, origin_so_name, so_name, base, size):
     if arch == "arm":

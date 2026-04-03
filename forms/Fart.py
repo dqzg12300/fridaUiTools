@@ -9,7 +9,6 @@ class fartForm(QDialog,Ui_FartDialog):
     def __init__(self, parent=None):
         super(fartForm, self).__init__(parent)
         self.setupUi(self)
-        self.setWindowOpacity(0.93)
         self.btnSubmitFridaFart.clicked.connect(self.submitFridaFart)
         self.btnSubmitFridaFartClass.clicked.connect(self.submitFridaFartClass)
         self.btnSelectClasses.clicked.connect(self.selectClasses)

@@ -764,21 +764,305 @@ function next_scan_decrease() {
 }
 
 
+function normalizeDexLocation(rawLocation) {
+    if (rawLocation === null || rawLocation === undefined) {
+        return '';
+    }
+    try {
+        if (typeof rawLocation === 'string') {
+            return rawLocation;
+        }
+        return rawLocation.toString();
+    } catch (e) {
+        return '' + rawLocation;
+    }
+}
+
+function classifyDexLocation(location) {
+    if (!location) {
+        return 'unknown';
+    }
+    var lower = location.toLowerCase();
+    if (lower.indexOf('memory') >= 0 || lower.indexOf('anonymous') >= 0) {
+        return 'memory';
+    }
+    if (lower.indexOf('.apk') >= 0) {
+        return 'apk';
+    }
+    if (lower.indexOf('.jar') >= 0) {
+        return 'jar';
+    }
+    if (lower.indexOf('.dex') >= 0) {
+        return 'dex';
+    }
+    return 'unknown';
+}
+
+function collectDexEntries() {
+    var dexMap = {};
+    var result = [];
+
+    function pushDex(location, classLoaderName, source) {
+        var normalizedLocation = normalizeDexLocation(location);
+        var key = normalizedLocation + '::' + classLoaderName;
+        if (normalizedLocation.length <= 0 || dexMap[key]) {
+            return;
+        }
+        dexMap[key] = true;
+        var dexType = classifyDexLocation(normalizedLocation);
+        result.push({
+            "location": normalizedLocation,
+            "classLoader": classLoaderName,
+            "source": source,
+            "type": dexType,
+            "isMemoryDex": dexType == 'memory'
+        });
+    }
+
+    var application = null;
+    try {
+        var ActivityThread = Java.use('android.app.ActivityThread');
+        application = ActivityThread.currentApplication();
+    } catch (e) {}
+
+    if (application) {
+        var context = application.getApplicationContext();
+        var packageCodePath = '';
+        try {
+            packageCodePath = context.getPackageCodePath().toString();
+        } catch (e) {}
+        if (packageCodePath.length > 0) {
+            pushDex(packageCodePath, 'Application', 'context.getPackageCodePath');
+        }
+
+        try {
+            var appInfo = context.getApplicationInfo();
+            var sourceDir = normalizeDexLocation(appInfo.sourceDir.value);
+            var publicSourceDir = normalizeDexLocation(appInfo.publicSourceDir.value);
+            if (sourceDir.length > 0) {
+                pushDex(sourceDir, 'ApplicationInfo', 'applicationInfo.sourceDir');
+            }
+            if (publicSourceDir.length > 0) {
+                pushDex(publicSourceDir, 'ApplicationInfo', 'applicationInfo.publicSourceDir');
+            }
+            try {
+                var splitSourceDirs = appInfo.splitSourceDirs.value;
+                if (splitSourceDirs) {
+                    for (var splitIndex = 0; splitIndex < splitSourceDirs.length; splitIndex++) {
+                        pushDex(splitSourceDirs[splitIndex], 'ApplicationInfo', 'applicationInfo.splitSourceDirs');
+                    }
+                }
+            } catch (e) {}
+        } catch (e) {}
+    }
+
+    try {
+        var BaseDexClassLoader = Java.use('dalvik.system.BaseDexClassLoader');
+        var DexPathListElement = Java.use('dalvik.system.DexPathList$Element');
+        Java.enumerateClassLoaders({
+            onMatch: function (loader) {
+                try {
+                    if (!Java.cast(loader, BaseDexClassLoader)) {
+                        return;
+                    }
+                } catch (e) {
+                    return;
+                }
+                try {
+                    var loaderName = loader.toString();
+                    var pathList = loader.pathList.value;
+                    var dexElements = pathList.dexElements.value;
+                    if (!dexElements) {
+                        return;
+                    }
+                    for (var i = 0; i < dexElements.length; i++) {
+                        var element = Java.cast(dexElements[i], DexPathListElement);
+                        var dexFile = null;
+                        var location = '';
+                        try {
+                            dexFile = element.dexFile.value;
+                        } catch (e) {}
+                        if (dexFile) {
+                            try {
+                                location = dexFile.toString();
+                            } catch (e) {}
+                            if (!location) {
+                                try {
+                                    location = dexFile.getName();
+                                } catch (e) {}
+                            }
+                        }
+                        if (!location) {
+                            try {
+                                var path = element.path.value;
+                                location = normalizeDexLocation(path);
+                            } catch (e) {}
+                        }
+                        if (!location) {
+                            try {
+                                var file = element.file.value;
+                                location = normalizeDexLocation(file);
+                            } catch (e) {}
+                        }
+                        pushDex(location, loaderName, 'BaseDexClassLoader');
+                    }
+                } catch (e) {}
+            },
+            onComplete: function () {}
+        });
+    } catch (e) {}
+
+    return result;
+}
+
 //动态取一些附加的app信息传给py
 function loadAppInfo(){
     var appinfo={};
+    appinfo["modules"] = Process.enumerateModules();
+    appinfo["classes"] = [];
+    appinfo["dexes"] = [];
+    appinfo["spawn"] = "%spawn%";
+    appinfo["runtime"] = {
+        "processId": Process.id,
+        "arch": Process.arch,
+        "platform": Process.platform,
+        "pointerSize": Process.pointerSize,
+        "pageSize": Process.pageSize,
+        "codeSigningPolicy": Process.codeSigningPolicy,
+        "debuggerAttached": Process.isDebuggerAttached(),
+        "currentDir": Process.getCurrentDir(),
+        "homeDir": Process.getHomeDir(),
+        "tmpDir": Process.getTmpDir(),
+        "moduleCount": appinfo["modules"].length,
+        "classCount": 0,
+        "dexCount": 0
+    };
+    if (typeof Java === 'undefined' || !Java.available) {
+        appinfo["javaUnavailable"] = true;
+        return appinfo;
+    }
     Java.perform(function(){
-        appinfo["modules"]=Process.enumerateModules();
         appinfo["classes"]=Java.enumerateLoadedClassesSync();
-        appinfo["spawn"]="%spawn%";
+        appinfo["runtime"]["classCount"] = appinfo["classes"].length;
+        try {
+            var ActivityThread = Java.use('android.app.ActivityThread');
+            var ApplicationInfo = Java.use('android.content.pm.ApplicationInfo');
+            var Build = Java.use('android.os.Build');
+            var BuildVersion = Java.use('android.os.Build$VERSION');
+            var application = ActivityThread.currentApplication();
+            if (application) {
+                var context = application.getApplicationContext();
+                var packageName = context.getPackageName();
+                var packageManager = context.getPackageManager();
+                var packageInfo = packageManager.getPackageInfo(packageName, 0);
+                var appMeta = context.getApplicationInfo();
+                var flags = appMeta.flags.value;
+                var label = packageManager.getApplicationLabel(appMeta);
+                var supportedAbis = Build.SUPPORTED_ABIS.value;
+                var minSdkVersion = '';
+                try {
+                    minSdkVersion = appMeta.minSdkVersion.value;
+                } catch (e) {}
+                var longVersionCode = '';
+                try {
+                    longVersionCode = packageInfo.getLongVersionCode();
+                } catch (e) {
+                    longVersionCode = packageInfo.versionCode.value;
+                }
+                appinfo["package"] = {
+                    "packageName": packageName,
+                    "processName": appMeta.processName.value,
+                    "appLabel": label ? label.toString() : '',
+                    "versionName": packageInfo.versionName.value,
+                    "versionCode": '' + longVersionCode,
+                    "targetSdk": '' + appMeta.targetSdkVersion.value,
+                    "minSdk": '' + minSdkVersion,
+                    "uid": '' + appMeta.uid.value,
+                    "enabled": !!appMeta.enabled.value,
+                    "debuggable": (flags & ApplicationInfo.FLAG_DEBUGGABLE.value) !== 0,
+                    "allowBackup": (flags & ApplicationInfo.FLAG_ALLOW_BACKUP.value) !== 0,
+                    "testOnly": (flags & ApplicationInfo.FLAG_TEST_ONLY.value) !== 0,
+                    "sourceDir": appMeta.sourceDir.value,
+                    "publicSourceDir": appMeta.publicSourceDir.value,
+                    "dataDir": appMeta.dataDir.value,
+                    "nativeLibraryDir": appMeta.nativeLibraryDir.value,
+                    "taskAffinity": appMeta.taskAffinity.value,
+                    "className": appMeta.className.value,
+                    "brand": Build.BRAND.value,
+                    "model": Build.MODEL.value,
+                    "device": Build.DEVICE.value,
+                    "androidVersion": BuildVersion.RELEASE.value,
+                    "sdkInt": '' + BuildVersion.SDK_INT.value,
+                    "supportedAbis": supportedAbis ? supportedAbis.join(', ') : ''
+                };
+            }
+        } catch (e) {
+            appinfo["packageError"] = e.toString();
+        }
+        try {
+            appinfo["dexes"] = collectDexEntries();
+            appinfo["runtime"]["dexCount"] = appinfo["dexes"].length;
+        } catch (e) {
+            appinfo["dexes"] = [];
+            appinfo["dexError"] = e.toString();
+            appinfo["runtime"]["dexCount"] = 0;
+        }
     })
     return appinfo;
 }
 
 function main(){
     klog("init","default.js init hook success")
+    // 异步获取 Java 类列表，通过 send 消息传回 Python
+    var javaCheck = (typeof Java !== 'undefined') ? "Java defined" : "Java undefined";
+    var javaAvail = (typeof Java !== 'undefined' && Java.available) ? "available" : "not available";
+    klog("init", "Java check: " + javaCheck + ", " + javaAvail)
+    if (typeof Java !== 'undefined' && Java.available) {
+        klog("init", "entering Java.perform for class_list")
+        Java.perform(function(){
+            try {
+                var classes = Java.enumerateLoadedClassesSync().filter(function(c){
+                    return c && !c.startsWith('[');
+                });
+                var msg = {};
+                msg["jsname"] = "default";
+                msg["data"] = "class_list loaded: " + classes.length;
+                msg["class_list"] = classes;
+                send(msg);
+            } catch(e) {
+                klog("init", "class_list error: " + e.toString());
+            }
+        });
+    } else {
+        klog("init", "Java not available, skipping class_list")
+    }
 }
 setImmediate(main);
+
+// 监听 Python 端的 refresh_class_list 请求
+function listenClassListRefresh() {
+    recv('refresh_class_list', function() {
+        if (typeof Java !== 'undefined' && Java.available) {
+            Java.perform(function(){
+                try {
+                    var classes = Java.enumerateLoadedClassesSync().filter(function(c){
+                        return c && !c.startsWith('[');
+                    });
+                    var msg = {};
+                    msg["jsname"] = "default";
+                    msg["data"] = "class_list refreshed: " + classes.length;
+                    msg["class_list"] = classes;
+                    send(msg);
+                } catch(e) {
+                    klog("class_list refresh error: " + e.toString());
+                }
+            });
+        }
+        // 重新注册监听，recv 是一次性的
+        listenClassListRefresh();
+    });
+}
+listenClassListRefresh();
 
 
 const arch = Process.arch;
@@ -1145,24 +1429,49 @@ function dumpPtr(inputModule,inputAddress,dumpType,size){
     }
 }
 
+function isNativeSharedObjectModule(module) {
+    if (!module) {
+        return false;
+    }
+    var moduleName = '';
+    var modulePath = '';
+    try {
+        moduleName = module.name ? module.name.toString().toLowerCase() : '';
+    } catch (e) {}
+    try {
+        modulePath = module.path ? module.path.toString().toLowerCase() : '';
+    } catch (e) {}
+    return moduleName.indexOf('.so') >= 0 || modulePath.endsWith('.so');
+}
+
 function searchInfo(searchType,baseName){
     klog("enter searchInfo",searchType,baseName);
     var appinfo={};
-    Java.perform(function () {
-        appinfo["type"]=searchType;
-        klog(searchType+" "+baseName);
-        var count=0;
-        if(searchType=="export"){
-            var module=Process.getModuleByName(baseName);
-            var exports=module.enumerateExports();
-            appinfo["export"]=exports;
-            count=exports.length;
-        }else if(searchType=="symbol"){
-            var module=Process.getModuleByName(baseName);
-            var symbols=module.enumerateSymbols();
-            appinfo["symbol"]=symbols;
-            count=symbols.length;
-        }else if(searchType=="method"){
+    appinfo["type"]=searchType;
+    klog(searchType+" "+baseName);
+    var count=0;
+    if(searchType=="export"){
+        var module=Process.getModuleByName(baseName);
+        if (!isNativeSharedObjectModule(module)) {
+            appinfo["export"]=[];
+            appinfo["error"]="module is not a native shared object";
+            return appinfo;
+        }
+        var exports=module.enumerateExports();
+        appinfo["export"]=exports;
+        count=exports.length;
+    }else if(searchType=="symbol"){
+        var module=Process.getModuleByName(baseName);
+        if (!isNativeSharedObjectModule(module)) {
+            appinfo["symbol"]=[];
+            appinfo["error"]="module is not a native shared object";
+            return appinfo;
+        }
+        var symbols=module.enumerateSymbols();
+        appinfo["symbol"]=symbols;
+        count=symbols.length;
+    }else if(searchType=="method"){
+        Java.performNow(function () {
             var classModel=Java.use(baseName);
             var methods=classModel.class.getDeclaredMethods();
             appinfo["method"]=[]
@@ -1171,12 +1480,32 @@ function searchInfo(searchType,baseName){
                 appinfo["method"].push(methodName);
             });
             count=methods.length;
-        }
-    })
+        })
+    }
     return appinfo;
 }
 
+function listClasses() {
+    var result = [];
+    if (typeof Java === 'undefined' || !Java.available) {
+        return result;
+    }
+    Java.performNow(function () {
+        for (var attempt = 0; attempt < 10; attempt++) {
+            result = Java.enumerateLoadedClassesSync().filter(function (className) {
+                return className && !className.startsWith('[');
+            });
+            if (result.length > 0) {
+                break;
+            }
+            Thread.sleep(0.2);
+        }
+    });
+    return result;
+}
+
 rpc.exports.loadappinfo=loadAppInfo;
+rpc.exports.listclasses=listClasses;
 rpc.exports.showmethods=showMethods;
 rpc.exports.showexports=showExport;
 rpc.exports.dumpptr=dumpPtr;
@@ -1201,6 +1530,123 @@ rpc.exports.dumpmodule= function(so_name) {
     libso.buffer = libso_buffer;
     return libso_buffer;
 }
+
+function safeReadCString(address, sizeLimit) {
+    try {
+        return ptr(address).readCString(sizeLimit);
+    } catch (e) {
+        return "";
+    }
+}
+
+function safeReadUtf8String(address, sizeLimit) {
+    try {
+        return ptr(address).readUtf8String(sizeLimit);
+    } catch (e) {
+        return "";
+    }
+}
+
+function normalizeRangeDetails(rangeInfo) {
+    var moduleInfo = null;
+    try {
+        moduleInfo = Process.findModuleByAddress(rangeInfo.base);
+    } catch (e) {
+        moduleInfo = null;
+    }
+    var filePath = "";
+    if (rangeInfo.file && rangeInfo.file.path) {
+        filePath = rangeInfo.file.path;
+    }
+    return {
+        base: rangeInfo.base.toString(),
+        size: rangeInfo.size,
+        protection: rangeInfo.protection,
+        filePath: filePath,
+        moduleName: moduleInfo ? moduleInfo.name : ""
+    };
+}
+
+function collectDisassembly(startAddress, instructionCount) {
+    var result = [];
+    var cursor = ptr(startAddress);
+    var count = parseInt(instructionCount || 0);
+    if (count <= 0) {
+        count = 16;
+    }
+    for (var index = 0; index < count; index++) {
+        try {
+            var ins = Instruction.parse(cursor);
+            var symbol = DebugSymbol.fromAddress(ins.address);
+            result.push({
+                address: ins.address.toString(),
+                mnemonic: ins.mnemonic,
+                opStr: ins.opStr,
+                size: ins.size,
+                text: ins.toString(),
+                symbolName: symbol && symbol.name ? symbol.name : "",
+                moduleName: symbol && symbol.moduleName ? symbol.moduleName : ""
+            });
+            cursor = ins.next;
+        } catch (e) {
+            result.push({
+                address: cursor.toString(),
+                mnemonic: "invalid",
+                opStr: "",
+                size: 0,
+                text: e.toString(),
+                symbolName: "",
+                moduleName: ""
+            });
+            break;
+        }
+    }
+    return result;
+}
+
+function scanMatchesInto(results, matches, maxResults) {
+    for (var index = 0; index < matches.length; index++) {
+        results.push(matches[index].address.toString());
+        if (maxResults > 0 && results.length >= maxResults) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function scanReadableChunks(start, rangeSize, pattern, maxResults) {
+    var results = [];
+    var chunkSize = 0x40000;
+    var pageSize = Process.pageSize || 0x1000;
+    var offset = 0;
+    while (offset < rangeSize) {
+        var currentSize = Math.min(chunkSize, rangeSize - offset);
+        var cursor = start.add(offset);
+        try {
+            var matches = Memory.scanSync(cursor, currentSize, pattern);
+            if (scanMatchesInto(results, matches, maxResults)) {
+                return results;
+            }
+        } catch (chunkError) {
+            var pageOffset = 0;
+            while (pageOffset < currentSize) {
+                var pageSizeNow = Math.min(pageSize, currentSize - pageOffset);
+                var pageCursor = cursor.add(pageOffset);
+                try {
+                    var pageMatches = Memory.scanSync(pageCursor, pageSizeNow, pattern);
+                    if (scanMatchesInto(results, pageMatches, maxResults)) {
+                        return results;
+                    }
+                } catch (pageError) {
+                }
+                pageOffset += pageSizeNow;
+            }
+        }
+        offset += currentSize;
+    }
+    return results;
+}
+
 rpc.exports.allmodule= function() {
     return Process.enumerateModules()
 }
@@ -1223,6 +1669,86 @@ rpc.exports.getexportbyname=function(so_name,symbol_name){
 }
 rpc.exports.getmodules=function (){
     return Process.enumerateModules();
+}
+
+rpc.exports.enumerateranges=function (protection, coalesce){
+    var protectionText = protection || "r--";
+    var shouldCoalesce = coalesce !== false;
+    var ranges = Process.enumerateRanges({
+        protection: protectionText,
+        coalesce: shouldCoalesce
+    });
+    return ranges.map(normalizeRangeDetails);
+}
+
+rpc.exports.scanrange=function(base, size, pattern, limit){
+    var start = ptr(base);
+    var rangeSize = parseInt(size || 0);
+    var maxResults = parseInt(limit || 0);
+    if (rangeSize <= 0) {
+        return [];
+    }
+    return scanReadableChunks(start, rangeSize, pattern, maxResults);
+}
+
+rpc.exports.inspectaddress=function(addr, byteCount, instructionCount){
+    var target = ptr(addr);
+    var readBytes = parseInt(byteCount || 0);
+    var insCount = parseInt(instructionCount || 0);
+    if (readBytes <= 0) {
+        readBytes = 96;
+    }
+    if (insCount <= 0) {
+        insCount = 24;
+    }
+    var rangeInfo = null;
+    var moduleInfo = null;
+    var symbolInfo = null;
+    try {
+        rangeInfo = Process.findRangeByAddress(target);
+    } catch (e) {
+        rangeInfo = null;
+    }
+    try {
+        moduleInfo = Process.findModuleByAddress(target);
+    } catch (e) {
+        moduleInfo = null;
+    }
+    try {
+        symbolInfo = DebugSymbol.fromAddress(target);
+    } catch (e) {
+        symbolInfo = null;
+    }
+    var filePath = "";
+    if (rangeInfo && rangeInfo.file && rangeInfo.file.path) {
+        filePath = rangeInfo.file.path;
+    }
+    return {
+        address: target.toString(),
+        range: rangeInfo ? {
+            base: rangeInfo.base.toString(),
+            size: rangeInfo.size,
+            protection: rangeInfo.protection,
+            filePath: filePath
+        } : null,
+        module: moduleInfo ? {
+            name: moduleInfo.name,
+            base: moduleInfo.base.toString(),
+            size: moduleInfo.size,
+            path: moduleInfo.path
+        } : null,
+        symbol: symbolInfo ? {
+            address: symbolInfo.address ? symbolInfo.address.toString() : target.toString(),
+            name: symbolInfo.name || "",
+            moduleName: symbolInfo.moduleName || "",
+            fileName: symbolInfo.fileName || "",
+            lineNumber: symbolInfo.lineNumber || 0
+        } : null,
+        hexdump: hexdump(target, {length: readBytes}),
+        cstring: safeReadCString(target, readBytes),
+        utf8: safeReadUtf8String(target, readBytes),
+        disassembly: collectDisassembly(target, insCount)
+    };
 }
 
 rpc.exports.readdata=function(pointer,len){

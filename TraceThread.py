@@ -15,6 +15,35 @@ import os
 
 from utils import CmdUtil
 
+JAVA_PERFORM_PREFIX = re.compile(r'^\s*Java\.perform\(function\s*\(\)\s*\{', re.S)
+JAVA_PERFORM_SUFFIX = re.compile(r'\}\s*\)\s*;?\s*$', re.S)
+
+def wrap_java_perform_script(script_text, script_name):
+    if not JAVA_PERFORM_PREFIX.match(script_text):
+        return script_text
+    stripped = JAVA_PERFORM_PREFIX.sub('', script_text, count=1)
+    stripped = JAVA_PERFORM_SUFFIX.sub('', stripped, count=1)
+    return f'''(function(){{
+function __run_when_java_ready_{script_name.replace('.', '_').replace('-', '_')}() {{
+{stripped}
+}}
+if (typeof Java !== "undefined" && Java.available) {{
+    Java.perform(__run_when_java_ready_{script_name.replace('.', '_').replace('-', '_')});
+}} else {{
+    var __retry_count = 0;
+    var __retry_timer = setInterval(function() {{
+        __retry_count++;
+        if (typeof Java !== "undefined" && Java.available) {{
+            clearInterval(__retry_timer);
+            Java.perform(__run_when_java_ready_{script_name.replace('.', '_').replace('-', '_')});
+        }} else if (__retry_count >= 20) {{
+            clearInterval(__retry_timer);
+            send({{"jsname": "{script_name}", "data": "[java-wait] Java runtime not ready, skip delayed init"}});
+        }}
+    }}, 500);
+}}
+}})();'''
+
 md5 = lambda bs: hashlib.md5(bs).hexdigest()
 # 继承QThread
 class Runthread(QThread):
@@ -26,8 +55,9 @@ class Runthread(QThread):
     #线程退出信号
     taskOverSignel=pyqtSignal()
     #获取一些附加成功就可以取的通用信息。这里暂时还不知道初始化一些啥信息比较好。先打通流程
-    loadAppInfoSignel=pyqtSignal(str)
-    searchAppInfoSignel=pyqtSignal(str)
+    loadAppInfoSignel=pyqtSignal(object)
+    searchAppInfoSignel=pyqtSignal(object)
+    classListSignel=pyqtSignal(list)
     searchMemorySignel=pyqtSignal(str,str)
     setBreakSignel=pyqtSignal(dict)
     #附加成功的信号
@@ -39,6 +69,7 @@ class Runthread(QThread):
         self.hooksData = hooksData
         self.attachName=attachName
         self.scripts=[]
+        self.sessions=[]
         self.default_script=None
         self.device=None
         self.isSpawn=isSpawn
@@ -50,6 +81,7 @@ class Runthread(QThread):
         self.port=""
         self.attachType=""
         self.customPort=None
+        self.usb_device_id=""
         self.default_api=None
 
     def quit(self):
@@ -61,6 +93,19 @@ class Runthread(QThread):
                     self.scripts.remove(s)
                 except Exception as ex:
                     print(ex)
+        if self.sessions:
+            for session in copy(self.sessions):
+                try:
+                    session.detach()
+                except Exception as ex:
+                    print(ex)
+                finally:
+                    try:
+                        self.sessions.remove(session)
+                    except ValueError:
+                        pass
+        self.default_script = None
+        self.default_api = None
         self.taskOverSignel.emit()
 
     def log(self,msg):
@@ -126,9 +171,9 @@ class Runthread(QThread):
                 methods_s=str(methods).replace('u\'', '\'')
                 source = source.replace('{methodName}', methods_s)
             elif item=="sslpining":
-                source += open('./js/DroidSSLUnpinning.js', 'r', encoding="utf8").read()
+                source += wrap_java_perform_script(open('./js/DroidSSLUnpinning.js', 'r', encoding="utf8").read(), 'DroidSSLUnpinning.js')
             elif item=="hookEvent":
-                source += open("./js/hookEvent.js", 'r', encoding="utf8").read()
+                source += wrap_java_perform_script(open("./js/hookEvent.js", 'r', encoding="utf8").read(), 'hookEvent.js')
             elif item=="RegisterNative":
                 source += open("./js/hook_RegisterNatives.js", 'r', encoding="utf8").read()
             elif item=="ArtMethod":
@@ -136,7 +181,7 @@ class Runthread(QThread):
             elif item=="libArm":
                 source += open("./js/hook_art.js", 'r', encoding="utf8").read()
             elif item == "javaEnc":
-                source += open("./js/javaEnc.js", 'r', encoding="utf8").read()
+                source += wrap_java_perform_script(open("./js/javaEnc.js", 'r', encoding="utf8").read(), 'javaEnc.js')
             elif item=="stakler":
                 source += open("./js/sktrace.js", 'r', encoding="utf8").read()
                 source = source.replace("%moduleName%", self.hooksData[item]["class"])
@@ -144,7 +189,21 @@ class Runthread(QThread):
                 source = source.replace("%offset%", self.hooksData[item]["offset"])
             elif item=="custom":
                 for item in self.hooksData["custom"]:
+                    if item.get("fileName") == "r0capture.js":
+                        curtime = time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(time.time()))
+                        self.ssl_sessions = {}
+                        self.pcap_file = open(f"./pcap/r0capture_{curtime}.pcap", "wb", 0)
+                        for writes in (
+                                ("=I", 0xa1b2c3d4),
+                                ("=H", 2),
+                                ("=H", 4),
+                                ("=i", time.timezone),
+                                ("=I", 0),
+                                ("=I", 65535),
+                                ("=I", 228)):
+                            self.pcap_file.write(struct.pack(writes[0], writes[1]))
                     customJs= open("./custom/"+item["fileName"], 'r', encoding="utf8").read()
+                    customJs = wrap_java_perform_script(customJs, item["fileName"])
                     customJs=customJs.replace("%customName%",item["class"])
                     customJs = customJs.replace("%customFileName%", item["fileName"])
                     #rpc.export.call_demo1= 匹配出主动调用要用的rpc函数
@@ -152,7 +211,8 @@ class Runthread(QThread):
                     self.customCallFuns.clear()
                     for match in it:
                         self.customCallFuns.append(match.group(1))
-                    source+="(function(){\n%s\n})();"%customJs
+                    # custom scripts in this repo are already self-contained IIFEs; append with separators
+                    source += "\n;\n%s\n;\n" % customJs
             elif item=="tuoke":
                 tuokeType=self.hooksData[item]["class"]
                 if tuokeType=="dumpdex":
@@ -190,21 +250,21 @@ class Runthread(QThread):
                     source = source.replace("{PATCHLIST}", json.dumps(patchList))
                     source = source.replace("%moduleName%",moduleName)
             elif item=="anti_debug":
-                source += open("./js/anti_debug.js", 'r', encoding="utf8").read()
+                source += wrap_java_perform_script(open("./js/anti_debug.js", 'r', encoding="utf8").read(), 'anti_debug.js')
             elif item=="root_bypass":
-                source += open("./js/root_bypass.js", 'r', encoding="utf8").read()
+                source += wrap_java_perform_script(open("./js/root_bypass.js", 'r', encoding="utf8").read(), 'root_bypass.js')
             elif item=="webview_debug":
-                source += open("./js/webview_debug.js", 'r', encoding="utf8").read()
+                source += wrap_java_perform_script(open("./js/webview_debug.js", 'r', encoding="utf8").read(), 'webview_debug.js')
             elif item=="okhttp_logger":
-                source += open("./js/okhttp_logger.js", 'r', encoding="utf8").read()
+                source += wrap_java_perform_script(open("./js/okhttp_logger.js", 'r', encoding="utf8").read(), 'okhttp_logger.js')
             elif item=="shared_prefs_watch":
-                source += open("./js/shared_prefs_watch.js", 'r', encoding="utf8").read()
+                source += wrap_java_perform_script(open("./js/shared_prefs_watch.js", 'r', encoding="utf8").read(), 'shared_prefs_watch.js')
             elif item=="sqlite_logger":
-                source += open("./js/sqlite_logger.js", 'r', encoding="utf8").read()
+                source += wrap_java_perform_script(open("./js/sqlite_logger.js", 'r', encoding="utf8").read(), 'sqlite_logger.js')
             elif item=="clipboard_monitor":
-                source += open("./js/clipboard_monitor.js", 'r', encoding="utf8").read()
+                source += wrap_java_perform_script(open("./js/clipboard_monitor.js", 'r', encoding="utf8").read(), 'clipboard_monitor.js')
             elif item=="intent_monitor":
-                source += open("./js/intent_monitor.js", 'r', encoding="utf8").read()
+                source += wrap_java_perform_script(open("./js/intent_monitor.js", 'r', encoding="utf8").read(), 'intent_monitor.js')
             elif item=="FCAnd_jnitrace":
                 jsdata= open("./js/FCAnd_jnitrace.js", 'r', encoding="utf8").read()
                 jsdata=jsdata.replace("%moduleName%",self.hooksData[item]["class"])
@@ -229,6 +289,7 @@ class Runthread(QThread):
         if self.isSpawn:
             self.device.resume(pid)
             self.log("resume pid:%s" % pid)
+        self.sessions.append(session)
         self.default_script=script
         self.default_api=script.exports
         self.scripts.append(script)
@@ -239,6 +300,10 @@ class Runthread(QThread):
             mds = []
             self.dump(pname, script.exports, mds=mds)
         self.attachOverSignel.emit(pname)
+        try:
+            self.loadAppInfoSignel.emit(script.exports.loadappinfo())
+        except Exception as ex:
+            self.log("loadAppInfo rpc failed: " + str(ex))
 
 
     def log_pcap(self,pcap_file, ssl_session_id, function, src_addr, src_port,
@@ -333,6 +398,8 @@ class Runthread(QThread):
             self.loadAppInfoSignel.emit(p["appinfo"])
         elif "appinfo_search" in p:
             self.searchAppInfoSignel.emit(p["appinfo_search"])
+        elif "class_list" in p:
+            self.classListSignel.emit(p["class_list"])
         elif "scanInfoList" in p:
             self.searchMemorySignel.emit("searchMem",p["scanInfoList"])
         elif "scanlog" in p:
@@ -433,6 +500,16 @@ class Runthread(QThread):
     #     self.default_script.post({'type': 'input', 'payload': postdata})
     #     self.log("post nextScan")
 
+    def newScanProtect(self,postdata):
+        postdata["func"] = "newScanProtect"
+        self.default_script.post({'type': 'input', 'payload': postdata})
+        self.log("post newScanProtect")
+
+    def newScanByAddress(self,postdata):
+        postdata["func"] = "newScanByAddress"
+        self.default_script.post({'type': 'input', 'payload': postdata})
+        self.log("post newScanByAddress")
+
     def fart(self,fartType,classes):
         # postdata["func"] = "fart"
         # self.default_script.post({'type': 'input', 'payload': postdata})
@@ -453,18 +530,29 @@ class Runthread(QThread):
 
     def on_message(self,message, data):
         if message["type"] == "error":
+            print("[DEBUG] on_message ERROR: %s" % json.dumps(message)[:300])
             self.outlog(json.dumps(message))
             return
-        if "init" in message["payload"]:
-            self.outlog(message["payload"]["init"])
-            self.log(message["payload"]["init"])
+        payload = message.get("payload", {})
+        # 调试：打印所有非 error 消息的 key
+        if isinstance(payload, dict):
+            print("[DEBUG] on_message: keys=%s" % list(payload.keys()))
+        else:
+            print("[DEBUG] on_message: payload type=%s, val=%s" % (type(payload), str(payload)[:200]))
+        if "init" in payload:
+            self.outlog(payload["init"])
+            self.log(payload["init"])
             return
-        if "jsname" not in message["payload"]:
-            print("message data not found jsname payload:"+str(message["payload"]))
+        if "jsname" not in payload:
+            print("[DEBUG] on_message: no jsname, payload=%s" % str(payload)[:200])
             return
 
-        if message["payload"]["jsname"]=="default":
-            self.default_message(message["payload"])
+        # 调试：检查 class_list 消息
+        if "class_list" in payload:
+            print("[DEBUG] on_message: class_list found, count=%d" % len(payload["class_list"]))
+
+        if payload["jsname"]=="default":
+            self.default_message(payload)
             return
         elif message["payload"]["jsname"]=="r0capture":
             self.r0capture_message(message["payload"],data)
@@ -484,12 +572,20 @@ class Runthread(QThread):
     def run(self):
         if self.connType=="usb":
             # self.device.on("child-added", self._on_child_added)
-            if self.customPort!=None and len(self.customPort)>0:
-                str_host = "%s:%s" % ("127.0.0.1", self.customPort)
+            custom_port = (self.customPort or "").strip()
+            if len(custom_port)>0:
+                str_host = "%s:%s" % ("127.0.0.1", custom_port)
                 manager = frida.get_device_manager()
                 self.device = manager.add_remote_device(str_host)
             else:
-                self.device = frida.get_usb_device()
+                if self.usb_device_id:
+                    manager = frida.get_device_manager()
+                    try:
+                        self.device = manager.get_device(self.usb_device_id, timeout=5)
+                    except Exception:
+                        self.device = frida.get_usb_device()
+                else:
+                    self.device = frida.get_usb_device()
         elif self.connType=="wifi":
             str_host = "%s:%s"%(self.address,self.port)
             manager = frida.get_device_manager()

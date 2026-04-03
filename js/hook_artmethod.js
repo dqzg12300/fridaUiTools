@@ -43,13 +43,19 @@ class StdString {
 }
 
 function prettyMethod(method_id, withSignature) {
+    if (typeof Java === 'undefined' || !Java.available || !Java.api || !Java.api['art::ArtMethod::PrettyMethod']) {
+        return ptr(method_id).toString();
+    }
     const result = new StdString();
     Java.api['art::ArtMethod::PrettyMethod'](result, method_id, withSignature ? 1 : 0);
     return result.disposeToString();
 }
 
 function hook_dlopen(module_name, fun) {
-    var android_dlopen_ext = Module.findExportByName(null, "android_dlopen_ext");
+    var android_dlopen_ext = null;
+    try {
+        android_dlopen_ext = Module.getExportByName(null, "android_dlopen_ext");
+    } catch (e) {}
 
     if (android_dlopen_ext) {
         Interceptor.attach(android_dlopen_ext, {
@@ -70,7 +76,10 @@ function hook_dlopen(module_name, fun) {
             }
         });
     }
-    var dlopen = Module.findExportByName(null, "dlopen");
+    var dlopen = null;
+    try {
+        dlopen = Module.getExportByName(null, "dlopen");
+    } catch (e) {}
     if (dlopen) {
         Interceptor.attach(dlopen, {
             onEnter: function (args) {

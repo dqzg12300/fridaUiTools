@@ -1,0 +1,67 @@
+name: build-and-release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }} package
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: windows-latest
+            platform: windows
+          - os: macos-latest
+            platform: macos
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "setuptools<81" wheel pyinstaller
+          python -m pip install -r requirements.txt
+
+      - name: Build desktop package
+        run: python tools/build_release.py
+
+      - id: package
+        name: Archive build output
+        shell: bash
+        env:
+          VERSION_NAME: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
+        run: |
+          archive_path=$(python tools/package_release.py --platform "${{ matrix.platform }}" --version "$VERSION_NAME" --format zip)
+          echo "archive_path=$archive_path" >> "$GITHUB_OUTPUT"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fridaUiTools-${{ matrix.platform }}-${{ github.run_number }}
+          path: ${{ steps.package.outputs.archive_path }}
+          if-no-files-found: error
+
+      - name: Publish release asset
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.package.outputs.archive_path }}
+          generate_release_notes: true

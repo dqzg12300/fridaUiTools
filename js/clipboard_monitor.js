@@ -1,5 +1,12 @@
 Java.perform(function () {
-    console.log('[clipboard_monitor] init');
+    function klog(data) {
+        var message = {};
+        message["jsname"] = "clipboard_monitor";
+        message["data"] = data;
+        send(message);
+    }
+
+    klog('[clipboard_monitor] init');
 
     function describeClip(clip) {
         if (!clip) {
@@ -27,21 +34,21 @@ Java.perform(function () {
 
         var setPrimaryClip = ClipboardManager.setPrimaryClip.overload('android.content.ClipData');
         setPrimaryClip.implementation = function (clip) {
-            console.log('[clipboard_monitor] setPrimaryClip => ' + describeClip(clip));
+            klog('[clipboard_monitor] setPrimaryClip => ' + describeClip(clip));
             return setPrimaryClip.call(this, clip);
         };
 
         var getPrimaryClip = ClipboardManager.getPrimaryClip.overload();
         getPrimaryClip.implementation = function () {
             var result = getPrimaryClip.call(this);
-            console.log('[clipboard_monitor] getPrimaryClip => ' + describeClip(result));
+            klog('[clipboard_monitor] getPrimaryClip => ' + describeClip(result));
             return result;
         };
 
         if (ClipboardManager.setText) {
             var setText = ClipboardManager.setText.overload('java.lang.CharSequence');
             setText.implementation = function (text) {
-                console.log('[clipboard_monitor] setText => ' + text);
+                klog('[clipboard_monitor] setText => ' + text);
                 return setText.call(this, text);
             };
         }
@@ -50,11 +57,11 @@ Java.perform(function () {
             var getText = ClipboardManager.getText.overload();
             getText.implementation = function () {
                 var result = getText.call(this);
-                console.log('[clipboard_monitor] getText => ' + result);
+                klog('[clipboard_monitor] getText => ' + result);
                 return result;
             };
         }
     } catch (e) {
-        console.log('[clipboard_monitor] hook failed: ' + e);
+        klog('[clipboard_monitor] hook failed: ' + e);
     }
 });

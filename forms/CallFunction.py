@@ -7,7 +7,6 @@ class callFunctionForm(QDialog,Ui_CallFunctionDialog):
     def __init__(self, parent=None):
         super(callFunctionForm, self).__init__(parent)
         self.setupUi(self)
-        self.setWindowOpacity(0.93)
         self.btnSubmit.clicked.connect(self.submit)
         self.method = ""
         self.btnClear.clicked.connect(self.clearUi)
