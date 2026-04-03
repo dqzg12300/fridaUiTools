@@ -672,6 +672,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.updateToolbarContextPanel()
 
     def currentFridaVersionDisplay(self):
+        if not self.listLocalFridaInventory():
+            return ""
         for action in getattr(self, "fridaVersionMenuActions", []):
             version = str(action.data() or "").strip()
             if action.isChecked() and version:
@@ -821,7 +823,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             placeholder = QAction(self.trText("请先下载并上传 frida", "Download and upload frida first"), self)
             placeholder.setEnabled(False)
             self.menufrida.addAction(placeholder)
-            self.updateFridaVersionSelectionUi(installed_version)
+            self.updateFridaVersionSelectionUi("")
             return
         self.verGroup = QActionGroup(self)
         self.verGroup.setExclusive(True)
