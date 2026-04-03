@@ -48,6 +48,51 @@ import tempfile
 import TraceThread
 from utils.IniUtil import IniConfig
 
+
+def resolve_app_root():
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(os.path.abspath(sys.executable))
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def resolve_bundle_root():
+    if getattr(sys, "frozen", False):
+        meipass_root = getattr(sys, "_MEIPASS", "")
+        if meipass_root:
+            return os.path.abspath(meipass_root)
+        return os.path.join(resolve_app_root(), "_internal")
+    return resolve_app_root()
+
+
+def sync_runtime_resource_dir(directory_name):
+    source_dir = os.path.join(BUNDLE_ROOT, directory_name)
+    target_dir = os.path.join(APP_ROOT, directory_name)
+    if os.path.isdir(source_dir) is False:
+        return
+    if os.path.exists(target_dir) is False:
+        shutil.copytree(source_dir, target_dir)
+        return
+    for current_root, _, file_names in os.walk(source_dir):
+        relative_root = os.path.relpath(current_root, source_dir)
+        target_root = target_dir if relative_root == "." else os.path.join(target_dir, relative_root)
+        os.makedirs(target_root, exist_ok=True)
+        for file_name in file_names:
+            source_file = os.path.join(current_root, file_name)
+            target_file = os.path.join(target_root, file_name)
+            if os.path.exists(target_file) is False:
+                shutil.copy2(source_file, target_file)
+
+
+def bootstrap_runtime_resources():
+    for directory_name in ("config", "custom", "exec", "js", "lib", "sh"):
+        sync_runtime_resource_dir(directory_name)
+
+
+APP_ROOT = resolve_app_root()
+BUNDLE_ROOT = resolve_bundle_root()
+bootstrap_runtime_resources()
+os.chdir(APP_ROOT)
+
 FRIDA_ARCH_FAMILIES = {
     "arm64": ["arm", "arm64"],
     "x64": ["x86", "x86_64"],
@@ -61,7 +106,7 @@ FRIDA_LOCAL_ARCH_TO_FAMILY = {
 }
 FRIDA_SUPPORTED_MAJORS = [14, 15, 16]
 FRIDA_MENU_VERSION_LIMIT = 3
-FRIDA_RELEASE_CACHE_PATH = os.path.join(".", "config", "frida_versions.json")
+FRIDA_RELEASE_CACHE_PATH = os.path.join(APP_ROOT, "config", "frida_versions.json")
 FRIDA_RELEASE_TAGS_API_URL = "https://api.github.com/repos/frida/frida/tags?per_page=100&page={page}"
 FRIDA_RELEASE_TAGS_PAGES = 4
 FRIDA_EMPTY_RELEASE_CATALOG = {major: [] for major in FRIDA_SUPPORTED_MAJORS}
@@ -182,6 +227,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.loadedLogContent = ""
         self.language = conf.read("kmain", "language") or "China"
         self.currentAppInfoSnapshot = {}
+        self.mainContextForegroundPackage = ""
         self.attachedAppInfoSnapshot = {}
         self.hooksData = {}
         self.initUi()
@@ -590,6 +636,18 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         if hasattr(self, "btnMainContextPortSettings"):
             self.btnMainContextPortSettings.setText(self.currentConnectionSettingsActionText())
             self.fitButtonTextWidth(self.btnMainContextPortSettings)
+        if hasattr(self, "txtMainContextForegroundPackage"):
+            attached_package = (self.labPackage.text().strip() if hasattr(self, "labPackage") else "")
+            if len(attached_package) > 0:
+                display_text = attached_package
+                placeholder = self.trText("当前已附加包名", "Attached package")
+            else:
+                display_text = self.trText("未附加进程", "No process attached")
+                placeholder = display_text
+            self.txtMainContextForegroundPackage.setPlaceholderText(placeholder)
+            self.txtMainContextForegroundPackage.setText(display_text)
+            self.txtMainContextForegroundPackage.setToolTip(display_text if len(display_text) > 0 else placeholder)
+            self.txtMainContextForegroundPackage.setCursorPosition(0)
 
     def updateConnectionSelectionUi(self):
         current_conn_type = getattr(self, "connType", "usb")
@@ -933,6 +991,47 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             return self.cmbDevices.currentText().strip()
         return self.selectedDeviceSerial()
 
+    def currentAppSnapshotForSelectedDevice(self):
+        snapshot = self.currentAppInfoSnapshot or {}
+        if len(snapshot) <= 0:
+            return {}
+        snapshot_serial = (snapshot.get("deviceSerial") or "").strip()
+        current_serial = self.selectedDeviceSerial()
+        if snapshot_serial and current_serial and snapshot_serial != current_serial:
+            return {}
+        return snapshot
+
+    def setMainContextForegroundPackage(self, package_name):
+        self.mainContextForegroundPackage = (package_name or "").strip()
+
+    def readForegroundPackageNameSilently(self):
+        if len(self.selectedDeviceSerial()) <= 0:
+            return ""
+        try:
+            res = CmdUtil.exec("adb shell dumpsys window")
+        except Exception:
+            return ""
+        m1 = re.search("mCurrentFocus=Window\\{(.+?)\\}", res)
+        if m1 is None:
+            return ""
+        m1sp = m1.group(1).split(" ")
+        if len(m1sp) < 3:
+            return ""
+        focus_entry = m1sp[2].strip()
+        if focus_entry == "StatusBar":
+            return ""
+        focus_parts = focus_entry.split("/")
+        if len(focus_parts) < 2:
+            return ""
+        return focus_parts[0].strip()
+
+    def refreshMainContextForegroundPackage(self):
+        snapshot = self.currentAppSnapshotForSelectedDevice()
+        if snapshot:
+            self.setMainContextForegroundPackage(snapshot.get("packageName"))
+            return
+        self.setMainContextForegroundPackage(self.readForegroundPackageNameSilently())
+
     def updateSelectedDevice(self, serial):
         self.selectedDeviceId = (serial or "").strip()
         if self.selectedDeviceId:
@@ -977,6 +1076,10 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         if hasattr(self, "cmbMainContextDevices"):
             self.populateDeviceCombo(self.cmbMainContextDevices, devices, target)
         self.updateSelectedDevice(target)
+        snapshot_serial = ((self.currentAppInfoSnapshot or {}).get("deviceSerial") or "").strip()
+        if len(target) <= 0 or (snapshot_serial and snapshot_serial != target):
+            self.currentAppInfoSnapshot = {}
+        self.refreshMainContextForegroundPackage()
         if hasattr(self, "labDeviceStatus"):
             if target:
                 self.labDeviceStatus.setText(self.trText("当前设备：", "Current device: ") + target)
@@ -1003,6 +1106,10 @@ class kmainForm(QMainWindow, Ui_MainWindow):
                 combo.setCurrentIndex(index)
             combo.blockSignals(False)
         self.updateSelectedDevice(current)
+        snapshot_serial = ((self.currentAppInfoSnapshot or {}).get("deviceSerial") or "").strip()
+        if len(current) <= 0 or (snapshot_serial and snapshot_serial != current):
+            self.currentAppInfoSnapshot = {}
+        self.refreshMainContextForegroundPackage()
         if hasattr(self, "labDeviceStatus"):
             self.labDeviceStatus.setText((self.trText("当前设备：", "Current device: ") + current) if current else self.trText("当前设备：未检测到已连接设备", "Current device: no connected device detected"))
         self.updateToolbarContextPanel()
@@ -1019,7 +1126,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.activateWindow()
 
     def loadTypeData(self):
-        typePath = "./config/type_en.json" if self.isEnglish() else "./config/type.json"
+        typePath = os.path.join(APP_ROOT, "config", "type_en.json" if self.isEnglish() else "type.json")
         with open(typePath, "r", encoding="utf8") as typeFile:
             self.typeData = json.loads(typeFile.read())
 
@@ -1132,7 +1239,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.setupInfoTable(self.attachInfoTable)
 
     def buildCurrentAppInfoRows(self):
-        data = self.currentAppInfoSnapshot or {}
+        data = self.currentAppSnapshotForSelectedDevice()
         if len(data) <= 0:
             return []
         return [
@@ -2068,6 +2175,12 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.btnMainContextPortSettings.setStyleSheet("padding: 3px 16px 6px 16px;")
         self.btnMainContextPortSettings.setCursor(Qt.PointingHandCursor)
 
+        self.txtMainContextForegroundPackage = QLineEdit(self.mainContextGroup)
+        self.txtMainContextForegroundPackage.setReadOnly(True)
+        self.txtMainContextForegroundPackage.setMinimumWidth(220)
+        self.txtMainContextForegroundPackage.setFixedHeight(control_height)
+        self.txtMainContextForegroundPackage.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+
         for widget in [
             self.labMainContextDeviceTitle,
             self.cmbMainContextDevices,
@@ -2075,9 +2188,10 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.txtMainContextPortValue,
             self.btnMainContextRefreshDevices,
             self.btnMainContextPortSettings,
+            self.txtMainContextForegroundPackage,
         ]:
-            self.mainContextLayout.addWidget(widget)
-        self.mainContextLayout.addStretch(1)
+            stretch = 1 if widget is self.txtMainContextForegroundPackage else 0
+            self.mainContextLayout.addWidget(widget, stretch)
         self.updateToolbarContextPanel()
 
     def fitButtonTextWidth(self, button, padding=16):
@@ -3959,9 +4073,24 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         os.makedirs(cache_dir, exist_ok=True)
         return cache_dir
 
+    def currentPythonExecutable(self):
+        if getattr(sys, "frozen", False):
+            return "python3"
+        return sys.executable or "python3"
+
+    def bundledPythonSiteTarget(self):
+        if getattr(sys, "frozen", False):
+            return BUNDLE_ROOT
+        return ""
+
     def getInstalledPythonFridaVersion(self):
         try:
-            command_args = ["python3", "-c", "import frida; print(getattr(frida, '__version__', ''))"]
+            if getattr(sys, "frozen", False):
+                preferred_version = conf.read("kmain", "python_frida_version").strip()
+                if preferred_version:
+                    return preferred_version
+                return getattr(frida, "__version__", "") or ""
+            command_args = [self.currentPythonExecutable(), "-c", "import frida; print(getattr(frida, '__version__', ''))"]
             output = subprocess.check_output(command_args, stderr=subprocess.STDOUT, text=True).strip()
             return output
         except Exception:
@@ -3970,21 +4099,45 @@ class kmainForm(QMainWindow, Ui_MainWindow):
     def buildFridaInstallCommand(self, version):
         cache_dir = self.ensureFridaWheelCacheDir()
         package_spec = f"frida=={version}"
+        python_cmd = self.currentPythonExecutable()
+        target_dir = self.bundledPythonSiteTarget()
         # 仅切换 frida Python 包版本；保留现有 frida-tools。
         # 本地有 wheel 时走纯离线安装；否则允许 pip 访问索引并在需要时从源码构建。
         if self.hasCachedFridaWheel(cache_dir, version):
-            return [
-                "python3", "-m", "pip", "install", "-U",
+            command = [
+                python_cmd, "-m", "pip", "install", "-U",
                 "--no-index",
                 "--find-links", cache_dir,
                 package_spec,
             ]
+        else:
+            command = [
+                python_cmd, "-m", "pip", "install", "-U",
+                "--cache-dir", cache_dir,
+                "--find-links", cache_dir,
+                package_spec,
+            ]
+        if target_dir:
+            command[4:4] = ["--target", target_dir]
+        return command
+
+    def buildFridaWheelDownloadCommand(self, version):
+        cache_dir = self.ensureFridaWheelCacheDir()
         return [
-            "python3", "-m", "pip", "install", "-U",
-            "--cache-dir", cache_dir,
-            "--find-links", cache_dir,
-            package_spec,
+            self.currentPythonExecutable(),
+            "-m",
+            "pip",
+            "download",
+            "--dest",
+            cache_dir,
+            f"frida=={version}",
         ]
+
+    def installPythonFridaVersion(self, version):
+        installed = self.getInstalledPythonFridaVersion()
+        if installed == version:
+            return []
+        return self.buildFridaInstallCommand(version)
 
     def hasCachedFridaWheel(self, cache_dir, version):
         """检查缓存目录中是否存在指定版本可直接安装的 frida wheel"""
@@ -4007,24 +4160,6 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             if f.startswith(source_prefix) and (f.endswith(".tar.gz") or f.endswith(".zip")):
                 return True
         return False
-
-    def buildFridaWheelDownloadCommand(self, version):
-        cache_dir = self.ensureFridaWheelCacheDir()
-        return [
-            "python3",
-            "-m",
-            "pip",
-            "download",
-            "--dest",
-            cache_dir,
-            f"frida=={version}",
-        ]
-
-    def installPythonFridaVersion(self, version):
-        installed = self.getInstalledPythonFridaVersion()
-        if installed == version:
-            return []
-        return self.buildFridaInstallCommand(version)
 
     def appendFridaVersionOutput(self, text):
         if self.fridaVersionOutput is None or not text:
@@ -4082,6 +4217,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
     def finishFridaVersionChange(self, version, output, warm_cache=True):
         self.cleanupFridaVersionWorker()
         self.curFridaVer = version
+        conf.write("kmain", "python_frida_version", version)
         for action in self.fridaVersionMenuActions:
             action.setChecked(str(action.data() or "").strip() == version)
         self.updateFridaVersionSelectionUi(version)
@@ -4451,6 +4587,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             if name not in packageData:
                 packageFile.write(name + "\n")
         self.labPackage.setText(name)
+        self.updateToolbarContextPanel()
         self.refreshOverviewCards()
 
     def getFridaDevice(self):
@@ -4620,6 +4757,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             if hasattr(self, "attachResourceTable"):
                 self.renderAttachResourceRows([])
             self.updateAttachedInfoTable()
+        self.updateToolbarContextPanel()
         self.refreshOverviewCards()
 
     # 根据进程名进行附加进程
@@ -5211,6 +5349,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
     def queryCurrentAppSnapshot(self, packageName, currentFocus, component, pid, baseDir):
         snapshot = {
+            "deviceSerial": self.selectedDeviceSerial(),
             "packageName": packageName,
             "processName": packageName,
             "currentFocus": currentFocus,
@@ -5392,7 +5531,9 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.txtComponent.setText(component)
         self.txtBaseDir.setText(baseDir)
         self.currentAppInfoSnapshot = self.queryCurrentAppSnapshot(packageName, currentFocus, component, pid, baseDir)
+        self.setMainContextForegroundPackage(packageName)
         self.updateCurrentAppInfoTable()
+        self.updateToolbarContextPanel()
         self.refreshOverviewCards()
 
     def fartOpBin(self):
