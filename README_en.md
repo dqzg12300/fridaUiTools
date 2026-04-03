@@ -1,97 +1,78 @@
 # fridaUiTools
 
-**English**| [中文](README.md)
+**English** | [中文](README.md)
 
-A frida interface tool for organizing scripts。Referenced from ZenTracer project
+fridaUiTools is a PyQt5-based desktop Frida workbench. It brings common connection flows, attach actions, script template management, log viewing, AI-assisted analysis, GumTrace, and memory search into one interface, so you can build a reusable local repository of your own Frida workflows.
 
-support：win、mac、linux
+![fridaUiTools](img/img.png)
 
-## update 2022-01-08
+## Project Positioning
 
-add switch language
+- Reduce the daily operating cost of Frida through a desktop UI
+- Gradually reshape built-in features into a maintainable template library
+- Save commonly used scripts as custom templates and enable them quickly
+- Connect to AI-compatible endpoints for AI script generation and AI log analysis
 
-## update 2022-12-28
+## Feature Overview
 
-add switch frida16，add anti frida
+- Multiple attach modes: attach current foreground process, attach a specified process, and spawn attach
+- Multiple connection modes: USB, WiFi, custom port, and multi-device switching
+- Custom script management: template maintenance, quick enable, import and export of hook lists
+- Common reversing features: JNI Trace, Stalker, Dump So, Dump Dex, Patch, and Wallbreaker
+- AI assistance: log analysis and script generation
+- GumTrace workbench: visual trace script generation and log download
+- Memory workbench: experimental string/value search, breakpoints, and disassembly support
 
-## update 2022-12-02
+## Environment Requirements
 
-repair searchMemory module
+- Python 3
+- ADB must be available, and USB debugging must be enabled on the device
+- The target device must already have the matching `frida-server` binary
+- Linux, macOS, and Windows are supported
 
-## update 2022-11-25
+## Install and Run
 
-add searchMemory modul。refer from [基于frida的android游戏内存扫描器_初稿](https://www.52pojie.cn/forum.php?mod=viewthread&tid=913009&highlight=)
-add memory breakpoint。refer from [fridaMemoryAccessTrace](https://github.com/asmjmp0/fridaMemoryAccessTrace)
+Using a virtual environment is recommended:
 
-##  Hook（Before attaching a process use）
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python3 kmainForm.py
+```
 
-> * Capture tool r0capture
-> * jnitrace
-> * java encrypt
-> * ssl pining（refer from DroidSSLUnpinning）
-> * java function trace（refer from ZenTracer）
-> * native function hook
-> * stalker（refer from sktrace）
-> * frida_hook_libart
-> * unpack（refer from frida_dump、FRIDA-DEXDump、fart）
-> * custom js
-> * patch code
+If you already have your own Python environment, you can also run:
 
+```bash
+pip install -r requirements.txt
+python3 kmainForm.py
+```
 
-## Work（After attaching the process use）
+## 5-Minute Quick Start
 
-> * fart unpack
-> * DUMPDex unpack
-> * dump addr
-> * dump so
-> * wallBreak
+1. Connect the phone and make sure `adb devices` can see the target device.
+2. Start the application with `python3 kmainForm.py`.
+3. Select the current device in the main window.
+4. Upload and start the matching `frida-server` version from the menu.
+5. Switch USB / WiFi connection mode and port when needed.
+6. Select the templates or custom scripts you want to enable.
+7. Start working with attach current process, attach specified process, or spawn attach.
+8. View the output in the log panel.
 
-## Run
+## AI Configuration
 
-1、To run under mac, you need to enter the command to enter the root directory to run
+```ini
+[ai]
+host = https://api.openai.com/v1
+apikey = your_api_key
+model = gpt-5.4
+```
 
-~~~
-cd fridaUiTools
-./kmainForm_15
-~~~
+Notes:
 
-2、The packaged application in release, the suffixes `_14`, `_15`, `_16` respectively indicate the different versions of frida used when packaging
-
-## log description
-
-### 1、oplog
-
-is a log of all output from software operations。
-
-### 2、outlog
-
-All logs returned by js are outputting logs. And save it in the logs directory
-
-### 3、current hook list
-
-The list of currently selected hook scripts is displayed. It can be saved for later loading and use directly.
-
-
-
-## UI
-
-![image-20230114220753559](./img/image-20230114220753559.png)
-
-![image-20230114220901689](./img/image-20230114220901689.png)
-
-![image-20230114221036915](./img/image-20230114221036915.png)
-
-
-## Instructions for use
-
-There are many places in the software that use cached data. Cache data is the list of modules and classes saved after attaching a process. This facilitates intelligent retrieval. Therefore, when using it for the first time, attach the target process first, and then the cached data will be available for use.
-
-If fart is used for the first time, you need to click upload so of fart in the upload and download menu bar.
-
-## demo
-
-When a new device is used for the first time, it needs to upload frida-server first. Then select the corresponding frida-server to start. Then you can choose the function to hook.
-![](.\fridaUiToolsDemo.gif)
+- If `host`, `apikey`, or `model` is missing, AI script generation and AI log analysis are disabled automatically
+- `config/ai.local.ini` should stay in your personal ignore list and should not be committed
+- `host` supports OpenAI-compatible API endpoints
 
 ## Thanks
 

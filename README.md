@@ -2,154 +2,76 @@
 
 [English](README_en.md) | **中文**
 
-fridaUiTools是一个界面化整理脚本的工具。新人的练手作品。参考项目ZenTracer，觉得既然可以界面化，那么应该可以把功能做的更加完善一些。跨平台支持：win、mac、linux
+fridaUiTools 是一个基于 PyQt5 的桌面化 Frida 工作台。它把常见的连接、附加、脚本模板管理、日志查看、AI 辅助分析、GumTrace 和内存搜索整合到一个统一界面里，适合把自己常用的 Frida 脚本沉淀成一套可复用的本地仓库。
 
-功能缝合怪。把一些常用的frida的hook脚本简单统一输出方式后，整合进来。并且将自己觉得常用的功能做成界面调用的。还想动态获取一些信息默认的直接展示。后续会根据自己实战的经验。不断完善这个工具。
+![fridaUiTools](img/img.png)
 
-## 交流群
-<img src="./img/qun.jpg" style="zoom:50%">
+## 项目定位
 
-## 简单使用教程（更新中）
-[1、fridaUiTools不同环境的启动方式](https://www.bilibili.com/video/BV1td4y1n7QY/?vd_source=c92a6075a0b21bb6c62cbedbdd000519)
+- 用桌面界面降低 Frida 日常操作成本
+- 将内置能力逐步收敛为“可维护的模板仓库”
+- 支持把常用脚本保存为自定义模板并快速启用
+- 支持接入 AI 兼容接口，用于 AI 写脚本和 AI 分析日志
 
-[2、fridaUiTools附加进程](https://www.bilibili.com/video/BV1sD4y1T7vh/?vd_source=c92a6075a0b21bb6c62cbedbdd000519)
+## 功能概览
 
-[3、fridaUiTools功能介绍](https://www.bilibili.com/video/BV168411g7gd/?vd_source=c92a6075a0b21bb6c62cbedbdd000519)
+- 多种附加方式：附加当前前台进程、附加指定进程、spawn 附加
+- 多种连接方式：USB、WiFi、自定义端口、多设备切换
+- 自定义脚本管理：模板维护、快速启用、导入导出 Hook 列表
+- 常用逆向能力：JNI Trace、Stalker、Dump So、Dump Dex、Patch、Wallbreaker
+- AI 辅助：日志分析、脚本生成
+- GumTrace 工作台：可视化生成追踪脚本、下载日志
+- 内存工作台：字符串/数值搜索、断点、反汇编等实验性能力
 
-[4、fridaUiTools功能讲解1](https://www.bilibili.com/video/BV1A24y1s7pz/?spm_id_from=333.999.0.0&vd_source=c92a6075a0b21bb6c62cbedbdd000519)
+## 运行环境
 
-[5、fridaUiTools功能讲解2](https://www.bilibili.com/video/BV16e4y1w7H9/?spm_id_from=333.999.0.0&vd_source=c92a6075a0b21bb6c62cbedbdd000519)
+- Python 3
+- ADB 可用，且设备已经开启 USB 调试
+- 目标设备已具备对应架构的 `frida-server`
+- Linux / macOS / Windows 均可使用
 
-[6、fridaUiTools功能讲解3](https://www.bilibili.com/video/BV1b84y1p7Zi/?spm_id_from=333.999.0.0&vd_source=c92a6075a0b21bb6c62cbedbdd000519)
+## 安装与运行
 
-## 更新 2022-02-04
-修复spawn附加报错，修复wifi的spawn无法附加。
+推荐使用虚拟环境：
 
-## 更新 2022-01-16
-优化usb端口和wifi配置保存到文件。优化fridaname可以自定义，自定义后需要重新上传frida，就是使用新的名字了。
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python3 kmainForm.py
+```
 
-## 更新 2022-01-08
-新增语言切换功能,支持切换English，修复fart的部分bug
+如果你已经有自己的 Python 环境，也可以直接：
 
-## 更新 2022-12-28
-新增frida16的支持，新增frida过检测
+```bash
+pip install -r requirements.txt
+python3 kmainForm.py
+```
 
-## 更新 2022-12-02
-修复搜索内存功能中的一些bug，搜索到的结果新增右键查询模块信息功能。修复一些细节问题
+## 5 分钟快速上手
 
-## 更新 2022-11-25
-新增功能搜索内存中的内容，附加后使用。参考来源[基于frida的android游戏内存扫描器_初稿](https://www.52pojie.cn/forum.php?mod=viewthread&tid=913009&highlight=)
-新增功能内存断点trace，附加后使用。参考来源[fridaMemoryAccessTrace](https://github.com/asmjmp0/fridaMemoryAccessTrace)
-fridaMemoryAccessTrace的里面有例子，使用测试可以先安装他的apk。然后module填libnative-lib.so，symbol填test_value，length填4。
-实现比较简单，测试比较少。发现bug再修吧。
+1. 连接手机，确认 `adb devices` 能看到目标设备。
+2. 启动程序：`python3 kmainForm.py`。
+3. 在主界面选择当前使用设备。
+4. 通过菜单上传并启动对应版本的 `frida-server`。
+5. 根据需要切换 USB / WiFi 连接方式和端口。
+6. 选择要启用的模板或自定义脚本。
+7. 使用“附加当前进程 / 附加指定进程 / spawn 附加”开始工作。
+8. 在日志区查看输出。
 
-## 更新 2022-11-21
-修复register_native_hook，修复了spawn启动会缺少一点数据的问题
-优化FCAnd_jnitrace可以选择指定模块和函数
+[ai]
+host = https://api.openai.com/v1
+apikey = your_api_key
+model = gpt-5.4
+```
 
-## 更新 2022-11-15
-新增修改frida默认端口
-新增可关闭输出日志，在文件选项中关闭（有些脚本输出数据过多，可以关掉ui上面显示的日志，直接在log目录中查看文件即可）
-调整r0capture,默认将抓到的包保存在pcap目录下
+说明：
 
-## 更新 2022-11-10
-参考来源[FridaContainer](https://github.com/deathmemory/FridaContainer)。
-添加功能anti_debug简单的一键反调试
-添加功能jnitrace，和原来版本的区别是不用指定so，不用指定函数，打印更加完整
-添加内置r0gson，在自定义模块中有例子调用打印java类,需要先在上传选项中点上传gson
+- 未配置 `host`、`apikey`、`model` 时，AI 写脚本和 AI 日志分析会自动禁用
+- `config/ai.local.ini` 建议加入个人忽略列表，不要提交到仓库
+- `host` 支持 OpenAI 兼容接口地址
 
-## 更新 2022-11-09
-添加frida版本切换功能，默认使用frida15，可自行切换到14使用。没有怎么测试，发现问题可以提issue，我会解决的。
-
-##  Hook脚本如下（附加进程前使用）
-
-> * 整合r0capture
-> * 整合jnitrace
-> * java层的加解密相关自吐
-> * ssl pining（整合DroidSSLUnpinning）
-> * 模糊匹配函数进行批量hook（整合ZenTracer）
-> * native的sub函数批量hook（参数统一方式打印。所以输出只能做参考）
-> * stalker的trace（整合sktrace）
-> * 整合frida_hook_libart
-> * 脱壳相关（整合frida_dump、FRIDA-DEXDump、fart）
-> * 自定义脚本添加
-> * patch汇编代码 
-
-
-## 调用功能如下（附加进程后使用）
-
-> * fart主动调用
-> * DUMPDex主动调用
-> * dump打印指定地址
-> * dump指定模块
-> * wallBreak整合
-
-## 应用信息
-
-附加成功时将一些信息带出来给界面展示。目前仅将module列表和class列表展示出来。可以查询函数以及符号
-
-### 常见问题说明
-
-[连接常见问题](https://www.bilibili.com/video/BV16b4y1x7g5/)
-
-[wifi连接演示](https://www.bilibili.com/video/BV1Aq4y147gu/)
-
-## 运行
-
-1、mac下运行需要命令进入到根目录运行
-
-~~~
-cd fridaUiTools
-./kmainForm_15
-~~~
-
-2、release中打包好的应用,后缀`_14`、`_15`、`_16`分别表示打包时使用的frida不同版本
-
-## 日志说明
-
-### 1、操作日志
-
-是对软件操作的所有输出日志。
-
-### 2、输出日志
-
-所有js返回的日志都在输出日志。并且保存在logs目录中
-
-### 3、当前hook列表
-
-当前勾选的hook脚本列表展示。可以保存，方便以后直接加载使用。
-
-
-
-## 应用部分界面
-
-![image-20210710125622863](./img/image-20210624204848522.png)
-
-![image-20210710130420705](./img/image-20210710130116100.png)
-
-![image-20210710130555333](./img/image-20210710130509193.png)
-
-
-## 使用说明
-
-软件里面有很多地方用到了缓存数据。缓存数据是附加一次进程后，保存下来的module和class列表。这样方便智能的检索。所以一般第一次使用的时候，先附加一次目标进程，就有缓存数据可以使用了。
-
-fart如果第一次使用，需要在上传与下载菜单栏中点击上传fart的so。
-
-软件目前应该还存在很多瑕疵和bug。我会在实用中慢慢修补。
-
-## 新增功能
-
-> 新增切换wifi连接。如果是通过我的功能快速启动frida-server，切换连接后需要重新启动frida-server
-
-## 简单使用例子
-这个例子是用hookEvent来hook所有点击事件。要使用spawn的方式来附加。
-一个新的设备初次使用需要先上传frida-server。然后选择对应的frida-server启动。然后就可以选择要hook的功能开始附加玩耍了。
-![](./fridaUiToolsDemo.gif)
-
-
-
-## 感谢
+## 致谢
 
 * [jnitrace](https://github.com/chame1eon/jnitrace)
 * [r0capture](https://github.com/r0ysue/r0capture)
