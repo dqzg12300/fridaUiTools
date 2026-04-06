@@ -24,7 +24,7 @@
 
 ## Notes
 - `config/type.json` and `config/type_en.json` define checkbox-driven hook metadata.
-- New AI capabilities use OpenAI-compatible chat endpoints configured through `config/conf.ini` `[ai]` section.
+- New AI capabilities use OpenAI-compatible chat endpoints configured through the local `config/ai.local.ini` file; legacy values in `config/conf.ini` `[ai]` are migrated out automatically.
 - If `apikey`, `host`, or `model` is missing, AI actions must stay disabled.
 - Main log analysis uses output log buffer in `kmainForm.py`; external log files can temporarily replace the live view and then be restored.
 - `refreshChecks()` should update checkboxes silently to avoid reopening hook dialogs during hook-list import/load.
@@ -51,5 +51,4 @@
 - A dedicated GumTrace workbench tab now lives in `kmainForm.py` and persists settings in the `[gumtrace]` section of `config/conf.ini`. It generates custom-module-compatible scripts via `utils/GumTraceUtil.py` and can auto-add them to the active custom hook list.
 - `forms/Custom.py` now exposes `upsertCustomScript()`, `ensureCustomHook()`, and `openCustomScript()` so other UI panels can generate/update scripts without duplicating custom-module persistence logic.
 - GumTrace templates (`GumTrace_trace_sample.js`, `GumTrace_offset_auto_trace.js`, `GumTrace_export_trigger_trace.js`) now all support module whitelists and thread-ID filtering; `pullGumTraceLog()` should also honor the workbench-configured output path and auto-open the local directory when enabled.
-
 

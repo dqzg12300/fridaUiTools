@@ -206,8 +206,11 @@ class customForm(QDialog, Ui_CustomDialog):
         self.actionLayout.setSpacing(10)
         for button in [self.btnAiPromptTemplate, self.btnAiGenerate]:
             button.setCursor(Qt.PointingHandCursor)
+            button.setMinimumHeight(36)
+        for button in [self.btnAiPromptTemplate, self.btnAiGenerate]:
             button.setMinimumHeight(40)
             button.setMinimumWidth(150)
+        self.txtAiPrompt.setMinimumHeight(170)
 
         self.editorHeaderLayout = QtWidgets.QHBoxLayout()
         self.editorHeaderLayout.setContentsMargins(0, 0, 0, 0)

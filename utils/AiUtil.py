@@ -465,6 +465,54 @@ class AdbPushWorker(QThread):
             self.error.emit(f"unexpected adb push error: {error}\nCommand: {' '.join(self.command_args)}\nRemote: {self.remote_path}")
 
 
+class AdbPullWorker(QThread):
+    progress = pyqtSignal(int, int)
+    status = pyqtSignal(str)
+    success = pyqtSignal(str)
+    error = pyqtSignal(str)
+
+    def __init__(self, command_args, local_path, parent=None):
+        super().__init__(parent)
+        self.command_args = command_args
+        self.local_path = local_path
+
+    def run(self):
+        try:
+            self.status.emit(f"Downloading to {self.local_path}...")
+            process = subprocess.Popen(
+                self.command_args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+            )
+            output_lines = []
+            percent_re = re.compile(r"(\d+)%")
+            if process.stdout is not None:
+                for line in process.stdout:
+                    text = (line or "").strip()
+                    if text:
+                        output_lines.append(text)
+                        match = percent_re.search(text)
+                        if match:
+                            percent = max(0, min(100, int(match.group(1))))
+                            self.progress.emit(percent, 100)
+                        else:
+                            self.status.emit(text)
+            return_code = process.wait()
+            output = "\n".join(output_lines).strip()
+            if return_code != 0:
+                raise RuntimeError(output or f"adb pull failed with code {return_code}")
+            self.progress.emit(100, 100)
+            self.success.emit(self.local_path)
+        except FileNotFoundError as error:
+            self.error.emit(f"adb not found: {error}\nCommand: {' '.join(self.command_args)}\nLocal: {self.local_path}")
+        except OSError as error:
+            self.error.emit(f"failed to start adb pull: {error}\nCommand: {' '.join(self.command_args)}\nLocal: {self.local_path}")
+        except Exception as error:
+            self.error.emit(f"unexpected adb pull error: {error}\nCommand: {' '.join(self.command_args)}\nLocal: {self.local_path}")
+
+
 class CommandWorker(QThread):
     started = pyqtSignal(str)
     output = pyqtSignal(str)

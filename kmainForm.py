@@ -38,12 +38,13 @@ from forms.Wifi import wifiForm
 from forms.ZenTracer import zenTracerForm
 from ui.kmain import Ui_MainWindow
 from utils import LogUtil, CmdUtil, FileUtil, GumTraceUtil
-from utils.AiUtil import AiService, AiWorker, FileDownloadWorker, AdbPushWorker, CommandWorker
+from utils.AiUtil import AiService, AiWorker, FileDownloadWorker, AdbPushWorker, AdbPullWorker, CommandWorker
 import json, os, threading, frida
 import platform
 import shutil
 import subprocess
 import tempfile
+import zipfile
 
 import TraceThread
 from utils.IniUtil import IniConfig
@@ -209,6 +210,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.fridaDownloadDialog = None
         self.fridaUploadWorker = None
         self.fridaUploadDialog = None
+        self.apkDownloadWorker = None
+        self.apkDownloadDialog = None
         self.fridaVersionWorker = None
         self.fridaVersionDialog = None
         self.fridaVersionOutput = None
@@ -3613,6 +3616,107 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.fridaUploadWorker.deleteLater()
             self.fridaUploadWorker = None
 
+    def updateApkDownloadProgress(self, value, total):
+        if self.apkDownloadDialog is None:
+            return
+        if total > 0:
+            if self.apkDownloadDialog.maximum() != total:
+                self.apkDownloadDialog.setRange(0, total)
+            self.apkDownloadDialog.setValue(min(value, total))
+        else:
+            self.apkDownloadDialog.setRange(0, 0)
+        QApplication.processEvents()
+
+    def updateApkDownloadStatus(self, text):
+        if self.apkDownloadDialog is None or not text:
+            return
+        if self.apkDownloadDialog.maximum() != 0:
+            self.apkDownloadDialog.setRange(0, 0)
+        self.apkDownloadDialog.setLabelText(text)
+        QApplication.processEvents()
+
+    def cleanupApkDownloadWorker(self):
+        if self.apkDownloadDialog is not None:
+            self.apkDownloadDialog.close()
+            self.apkDownloadDialog.deleteLater()
+            self.apkDownloadDialog = None
+        if self.apkDownloadWorker is not None:
+            self.apkDownloadWorker.wait()
+            self.apkDownloadWorker.deleteLater()
+            self.apkDownloadWorker = None
+
+    def createXapkArchive(self, apk_files, xapk_path):
+        with zipfile.ZipFile(xapk_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for apk_file in apk_files:
+                archive.write(apk_file, arcname=os.path.basename(apk_file))
+
+    def pullSingleApkWithProgress(self, remote_path, output_path, package_name, current_index=0, total_files=1):
+        self.apkDownloadDialog = QProgressDialog(self)
+        self.apkDownloadDialog.setWindowTitle(self.trText("下载当前应用", "Download current app"))
+        self.apkDownloadDialog.setLabelText(
+            self.trText(
+                "正在下载 {package}（{current}/{total}）...",
+                "Downloading {package} ({current}/{total})...",
+            ).format(package=package_name, current=current_index + 1, total=total_files)
+        )
+        self.apkDownloadDialog.setCancelButton(None)
+        self.apkDownloadDialog.setMinimumDuration(0)
+        self.apkDownloadDialog.setAutoClose(False)
+        self.apkDownloadDialog.setAutoReset(False)
+        self.apkDownloadDialog.setWindowModality(Qt.WindowModal)
+        self.apkDownloadDialog.setRange(0, total_files * 100)
+        self.apkDownloadDialog.setValue(current_index * 100)
+        self.apkDownloadDialog.show()
+        QApplication.processEvents()
+
+        command_args = self.adbCommandArgs() + ["pull", remote_path, output_path]
+        loop = QtCore.QEventLoop(self)
+        result = {"path": None, "error": None}
+        self.apkDownloadWorker = AdbPullWorker(command_args, output_path, self)
+        self.apkDownloadWorker.progress.connect(lambda value, total: self.updateApkDownloadProgress((current_index * 100) + value, total_files * 100))
+        self.apkDownloadWorker.status.connect(
+            lambda text: self.updateApkDownloadStatus(
+                self.trText(
+                    "正在下载 {package}（{current}/{total}）...\n{text}",
+                    "Downloading {package} ({current}/{total})...\n{text}",
+                ).format(package=package_name, current=current_index + 1, total=total_files, text=text)
+            )
+        )
+        self.apkDownloadWorker.success.connect(lambda path: result.update({"path": path}))
+        self.apkDownloadWorker.success.connect(loop.quit)
+        self.apkDownloadWorker.error.connect(lambda message: result.update({"error": message}))
+        self.apkDownloadWorker.error.connect(loop.quit)
+        self.apkDownloadWorker.start()
+        loop.exec_()
+        self.cleanupApkDownloadWorker()
+        if result["error"]:
+            raise RuntimeError(result["error"])
+        if not result["path"] or os.path.exists(result["path"]) is False or os.path.getsize(result["path"]) <= 0:
+            raise RuntimeError(self.trText("下载失败，未生成 APK 文件。", "Download failed and no APK file was created."))
+        return result["path"]
+
+    def pullApksWithPackaging(self, apk_paths, package_name):
+        apks_dir = os.path.abspath("./apks")
+        os.makedirs(apks_dir, exist_ok=True)
+        if len(apk_paths) == 1:
+            output_path = os.path.join(apks_dir, "%s.apk" % package_name)
+            return self.pullSingleApkWithProgress(apk_paths[0], output_path, package_name, 0, 1)
+
+        temp_dir = tempfile.mkdtemp(prefix=package_name.replace(".", "_") + "_", dir=apks_dir)
+        downloaded_files = []
+        try:
+            for index, remote_path in enumerate(apk_paths):
+                local_name = os.path.basename(remote_path)
+                local_path = os.path.join(temp_dir, local_name)
+                downloaded_files.append(self.pullSingleApkWithProgress(remote_path, local_path, package_name, index, len(apk_paths)))
+            xapk_path = os.path.join(apks_dir, "%s.xapk" % package_name)
+            self.createXapkArchive(downloaded_files, xapk_path)
+            if os.path.exists(xapk_path) is False or os.path.getsize(xapk_path) <= 0:
+                raise RuntimeError(self.trText("XAPK 打包失败，未生成有效文件。", "Failed to package XAPK: no valid output file was created."))
+            return xapk_path
+        finally:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
     def pushSingleFridaServer(self, local_path, remote_name, version, arch):
         remote_path = "/data/local/tmp/" + remote_name
         command_args = self.adbCommandArgs() + ["push", local_path, remote_path]
@@ -3811,6 +3915,10 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.openGumTraceLogDirectory()
 
     def PullApk(self):
+        selected_serial = self.selectedDeviceSerial()
+        if len(selected_serial) <= 0:
+            QMessageBox().information(self, "hint", self.trText("未检测到已连接设备，无法下载当前应用。", "No connected device detected. Cannot download the current app."))
+            return
         cmdtp = "grep"
         if platform.system() == "Windows":
             cmdtp = "findstr"
@@ -3845,19 +3953,21 @@ class kmainForm(QMainWindow, Ui_MainWindow):
 
         pathRes= CmdUtil.execCmdData("adb shell pm path %s" % packageName)
         pathRes=pathRes.replace("package:","")
+        apk_paths = [path.strip() for path in pathRes.split("\n") if path.strip().endswith(".apk")]
+        if len(apk_paths) <= 0:
+            QMessageBox().information(self, "hint", self.trText("未获取到当前应用的 APK 路径，可能未连接手机或当前前台应用不可用。", "Failed to resolve the APK path for the current app. The device may be disconnected or the foreground app is unavailable."))
+            return
         if os.path.exists("./apks") == False:
             os.makedirs("./apks")
-            
-        for path in pathRes.split("\n"):
-            if "apk" not in path:
-                continue
-            cmd = "adb pull %s ./apks/%s.apk" % (path, packageName)
-            res = CmdUtil.execCmd(cmd)
-            self.log(res)
-        if "error" in res:
-            QMessageBox().information(self, "hint", res)
-        else:
-            QMessageBox().information(self, "hint", packageName +self._translate("kmainForm", ".apk下载成功.输出结果在目录./apks/"))
+        try:
+            output_path = self.pullApksWithPackaging(apk_paths, packageName)
+            apk_dir = os.path.abspath("./apks")
+            output_name = os.path.basename(output_path)
+            QMessageBox().information(self, "hint", packageName + self.trText(". 下载完成：", ". Download completed: ") + output_name + self.trText("，输出结果在目录 ./apks/", ". Output saved to ./apks/"))
+            QDesktopServices.openUrl(QUrl.fromLocalFile(apk_dir))
+            return
+        except Exception as error:
+            QMessageBox().information(self, "hint", str(error))
 
 
     def ReplaceSh(self,rfile,wfile,name):
@@ -3947,13 +4057,42 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             self.log(output)
         return proc.returncode, output
 
-    def runAdbShellScript(self, script_text, timeout=20, log_command=True, log_output=True):
-        return self.runAdbCommand(
-            ["shell", "sh", "-c", shlex.quote(script_text)],
-            timeout=timeout,
-            log_command=log_command,
-            log_output=log_output,
+    def adbShellCommandAttempts(self, script_text, prefer_root=False):
+        script_text = shlex.quote(script_text)
+        root_attempts = [
+            (["shell", "su", "-c", script_text], 'adb shell su -c %s' % script_text),
+            (["shell", "su", "0", "sh", "-c", script_text], 'adb shell su 0 sh -c %s' % script_text),
+        ]
+        normal_attempt = [(["shell", "sh", "-c", script_text], 'adb shell sh -c %s' % script_text)]
+        return (root_attempts + normal_attempt) if prefer_root else (normal_attempt + root_attempts)
+
+    def shouldTryNextShellAttempt(self, output, return_code, is_last):
+        if is_last or return_code == 0:
+            return False
+        lower_output = (output or "").lower()
+        return (
+            "su: inaccessible or not found" in lower_output
+            or "su: not found" in lower_output
+            or "invalid uid/gid" in lower_output
+            or "permission denied" in lower_output
+            or return_code != 0
         )
+
+    def runAdbShellScript(self, script_text, timeout=20, log_command=True, log_output=True, prefer_root=False):
+        attempts = self.adbShellCommandAttempts(script_text, prefer_root=prefer_root)
+        last_result = (1, "")
+        for index, (extra_args, command_text) in enumerate(attempts):
+            rc, output = self.runAdbCommand(
+                extra_args,
+                timeout=timeout,
+                log_command=log_command,
+                log_output=log_output,
+            )
+            last_result = (rc, output)
+            if self.shouldTryNextShellAttempt(output, rc, index == len(attempts) - 1):
+                continue
+            return rc, output
+        return last_result
 
     def fridaLaunchParts(self, name):
         launch_parts = ["/data/local/tmp/" + name]
@@ -3984,6 +4123,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             timeout=8,
             log_command=False,
             log_output=False,
+            prefer_root=True,
         )
         return len(output.strip()) > 0
 
@@ -3993,6 +4133,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
             timeout=8,
             log_command=False,
             log_output=False,
+            prefer_root=True,
         )
         return output.strip()
 
@@ -4037,18 +4178,18 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.log(self.trText("准备启动 frida-server...", "Preparing to start frida-server..."))
 
         kill_cmd = "killall %s %s frida-server 2>/dev/null || true" % (self.fridaName or "frida-server", name)
-        self.runAdbShellScript(kill_cmd, timeout=8, log_command=False, log_output=False)
+        self.runAdbShellScript(kill_cmd, timeout=8, log_command=False, log_output=False, prefer_root=True)
 
         chmod_targets = ["/data/local/tmp/" + name]
         if self.fridaName:
             chmod_targets.insert(0, "/data/local/tmp/" + self.fridaName)
         chmod_cmd = "; ".join("chmod 0777 %s 2>/dev/null" % target for target in chmod_targets)
-        self.runAdbShellScript(chmod_cmd, timeout=8, log_command=False, log_output=False)
+        self.runAdbShellScript(chmod_cmd, timeout=8, log_command=False, log_output=False, prefer_root=True)
 
         self.prepareFridaForward()
 
         remote_launch = "nohup %s >/data/local/tmp/frida_start.log 2>&1 &" % " ".join(shlex.quote(part) for part in launch_parts)
-        rc, output = self.runAdbShellScript(remote_launch, timeout=8)
+        rc, output = self.runAdbShellScript(remote_launch, timeout=8, prefer_root=True)
         if rc != 0:
             raise RuntimeError(self.trText("启动 frida-server 失败：", "Failed to start frida-server: ") + output)
 
