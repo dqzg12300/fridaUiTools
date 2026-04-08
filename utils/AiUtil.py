@@ -72,6 +72,43 @@ LOG_ANALYSIS_USER_TEMPLATE = """请分析以下日志内容，并给出下一步
 {content}
 """
 
+SCRIPT_TUNE_SYSTEM_PROMPT = """你是一名资深 Frida/Android 逆向工程师与代码修复助手。
+你要针对 fridaUiTools custom 模块脚本做“局部微调”，不能整份重写脚本。
+必须严格遵守以下规则：
+1. 只输出 JSON，不要输出 Markdown，不要解释说明。
+2. 顶层结构必须为：
+{
+  "summary": "本次修改摘要",
+  "operations": [
+    {
+      "action": "replace|insert_before|insert_after",
+      "target": "需要精确匹配的原始代码片段",
+      "content": "替换后或插入的新代码片段",
+      "reason": "修改原因"
+    }
+  ]
+}
+3. 只能返回局部修改指令，不能返回整份完整脚本。
+4. target 必须来自用户提供的当前脚本原文，并且尽量短小、稳定、可精确定位。
+5. 优先使用 replace；只有在确实需要新增代码时才使用 insert_before 或 insert_after。
+6. 修改后的脚本必须继续兼容 fridaUiTools custom 模块，日志统一使用 klog，不要使用 console.log。
+7. 如果问题信息不足，也要给出最小可行修复；不要返回空 operations。
+"""
+
+SCRIPT_TUNE_USER_TEMPLATE = """请根据下面信息，对脚本生成局部修复指令：
+脚本别名：{name}
+备注：{remark}
+
+当前问题描述：
+{issue}
+
+相关日志（可为空）：
+{log_content}
+
+当前脚本如下：
+{script}
+"""
+
 
 class AiService:
     def __init__(self, config=None):
@@ -233,6 +270,32 @@ class AiService:
             },
         ], on_chunk=on_chunk, temperature=0.1)
 
+    def tune_hook_script(self, script_text, issue, log_content="", name="", remark=""):
+        script_text = (script_text or "").strip()
+        issue = (issue or "").strip()
+        log_content = (log_content or "").strip()
+        if not script_text:
+            raise ValueError("没有可供微调的脚本内容")
+        if not issue and not log_content:
+            raise ValueError("请先描述脚本问题，或提供相关日志")
+        if len(log_content) > 12000:
+            log_content = log_content[-12000:]
+        result = self.chat([
+            {"role": "system", "content": SCRIPT_TUNE_SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": SCRIPT_TUNE_USER_TEMPLATE.format(
+                    name=name or "未命名脚本",
+                    remark=remark or "无",
+                    issue=issue or "请根据日志与脚本推断问题并做最小修复",
+                    log_content=log_content or "无",
+                    script=script_text,
+                ),
+            },
+        ], temperature=0.1)
+        payload = self.parse_script_tune_payload(result)
+        return json.dumps(payload, ensure_ascii=False, indent=2)
+
     @staticmethod
     def _extract_content_from_response(data):
         try:
@@ -315,6 +378,91 @@ class AiService:
             if match:
                 return match.group(1).strip()
         return text
+
+    @staticmethod
+    def extract_json(text):
+        text = (text or "").strip()
+        if not text:
+            raise RuntimeError("AI 未返回可解析的 JSON 内容")
+        if text.startswith("```"):
+            match = re.search(r"```(?:json)?\s*(.*?)```", text, re.S)
+            if match:
+                text = match.group(1).strip()
+        try:
+            return json.loads(text)
+        except Exception:
+            pass
+        start = text.find("{")
+        end = text.rfind("}")
+        if start >= 0 and end > start:
+            try:
+                return json.loads(text[start:end + 1])
+            except Exception:
+                pass
+        raise RuntimeError("AI 返回的局部修改结果不是合法 JSON")
+
+    @classmethod
+    def parse_script_tune_payload(cls, text):
+        data = cls.extract_json(text)
+        if not isinstance(data, dict):
+            raise RuntimeError("AI 返回格式异常：顶层必须是 JSON 对象")
+        summary = str(data.get("summary", "") or "").strip()
+        operations = data.get("operations", [])
+        if isinstance(operations, list) is False or len(operations) <= 0:
+            raise RuntimeError("AI 未返回可用的局部修改指令")
+        normalized = []
+        valid_actions = {"replace", "insert_before", "insert_after"}
+        for item in operations:
+            if isinstance(item, dict) is False:
+                continue
+            action = str(item.get("action", "") or "").strip()
+            target = str(item.get("target", "") or "")
+            content = str(item.get("content", "") or "")
+            reason = str(item.get("reason", "") or "").strip()
+            if action not in valid_actions:
+                raise RuntimeError("AI 返回了不支持的修改动作: %s" % action)
+            if not target:
+                raise RuntimeError("AI 返回的修改指令缺少 target")
+            normalized.append({
+                "action": action,
+                "target": target,
+                "content": content,
+                "reason": reason,
+            })
+        if len(normalized) <= 0:
+            raise RuntimeError("AI 未返回可执行的局部修改指令")
+        return {"summary": summary, "operations": normalized}
+
+    @staticmethod
+    def apply_script_tune_operations(script_text, operations):
+        script_text = script_text or ""
+        updated_text = script_text
+        applied = []
+        for index, item in enumerate(operations):
+            action = item.get("action", "")
+            target = item.get("target", "")
+            content = item.get("content", "")
+            reason = item.get("reason", "")
+            match_count = updated_text.count(target)
+            if match_count <= 0:
+                raise RuntimeError("第 %d 条局部修改未找到目标片段，请重新描述问题后再试。" % (index + 1))
+            if match_count > 1:
+                raise RuntimeError("第 %d 条局部修改匹配到多个位置，定位不唯一，请让 AI 提供更精确的 target。" % (index + 1))
+            if action == "replace":
+                updated_text = updated_text.replace(target, content, 1)
+            elif action == "insert_before":
+                updated_text = updated_text.replace(target, content + target, 1)
+            elif action == "insert_after":
+                updated_text = updated_text.replace(target, target + content, 1)
+            else:
+                raise RuntimeError("不支持的局部修改动作: %s" % action)
+            applied.append({
+                "action": action,
+                "target": target,
+                "content": content,
+                "reason": reason,
+            })
+        return updated_text, applied
 
 
 class AiWorker(QThread):
