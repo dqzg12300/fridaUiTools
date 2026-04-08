@@ -18,6 +18,7 @@ import urllib.request
 from forms import SelectPackage
 from forms.AntiFrida import antiFridaForm
 from forms.CallFunction import callFunctionForm
+from forms.AiScriptTuner import aiScriptTunerForm
 from forms.Custom import customForm
 from forms.DumpAddress import dumpAddressForm
 from forms.AiSettings import aiSettingsForm
@@ -444,6 +445,8 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.fartForm = fartForm()
         self.wallBreakerForm = wallBreakerForm()
         self.customForm = customForm(self)
+        self.aiScriptTunerForm = aiScriptTunerForm(self)
+        self.aiScriptTunerForm.setParent(None)
         self.callFunctionForm = callFunctionForm()
         self.fartBinForm = fartBinForm()
         self.stalkerMatchForm = stalkerMatchForm()
@@ -562,6 +565,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.applyWorkbenchTheme()
         if self.styleSheet():
             self.customForm.setStyleSheet(self.styleSheet())
+            self.aiScriptTunerForm.setStyleSheet(self.styleSheet())
         self.customForm.setWindowFlags(self.customForm.windowFlags() | Qt.WindowMinMaxButtonsHint)
         self.retranslateDynamicUi()
         self.refreshDeviceList()
@@ -2090,9 +2094,11 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.btnOpenLogFile = QtWidgets.QPushButton(self._translate("kmainForm", "打开日志文件"))
         self.btnRestoreLiveLog = QtWidgets.QPushButton(self._translate("kmainForm", "恢复实时日志"))
         self.btnAnalyzeLog = QtWidgets.QPushButton(self._translate("kmainForm", "AI 分析日志"))
+        self.btnAiTuneScript = QtWidgets.QPushButton(self._translate("kmainForm", "AI 微调脚本"))
         self.aiAnalysisToolbar.addWidget(self.btnOpenLogFile)
         self.aiAnalysisToolbar.addWidget(self.btnRestoreLiveLog)
         self.aiAnalysisToolbar.addWidget(self.btnAnalyzeLog)
+        self.aiAnalysisToolbar.addWidget(self.btnAiTuneScript)
         self.aiAnalysisLayout.addLayout(self.aiAnalysisToolbar)
 
         self.aiAnalysisSplitter = QtWidgets.QSplitter(Qt.Vertical, self.aiAnalysisTab)
@@ -2121,7 +2127,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.gridLayout_2.removeWidget(self.txtoutLogs)
         self.gridLayout_2.addWidget(self.txtoutLogs, 1, 0, 1, 1)
 
-        for button in [self.btnOpenLogFile, self.btnRestoreLiveLog, self.btnAnalyzeLog]:
+        for button in [self.btnOpenLogFile, self.btnRestoreLiveLog, self.btnAnalyzeLog, self.btnAiTuneScript]:
             button.setCursor(Qt.PointingHandCursor)
             button.setMinimumHeight(38)
         self.txtAiLogInput.setPlaceholderText(self._translate("kmainForm", "打开日志文件，或直接粘贴 / 输入待分析日志..."))
@@ -2129,6 +2135,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.btnOpenLogFile.clicked.connect(self.openLogFile)
         self.btnRestoreLiveLog.clicked.connect(self.restoreLiveLog)
         self.btnAnalyzeLog.clicked.connect(self.analyzeLogWithAi)
+        self.btnAiTuneScript.clicked.connect(self.openAiScriptTuner)
 
     def initSettingsMenu(self):
         self.actionAiSettings = QAction(self._translate("kmainForm", "AI 设置"), self)
@@ -3173,6 +3180,51 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         if self.currentLogMode == "file":
             return self.loadedLogContent
         return "\n".join(self.liveOutputLogBuffer)
+
+    def currentLogTextForAiTuner(self):
+        if self.currentLogMode == "file" and (self.loadedLogContent or "").strip():
+            return self.loadedLogContent
+        live_output = self.txtoutLogs.toPlainText() if hasattr(self, "txtoutLogs") else ""
+        if live_output.strip():
+            return live_output
+        operation_log = self.txtLogs.toPlainText() if hasattr(self, "txtLogs") else ""
+        if operation_log.strip():
+            return operation_log
+        return self.currentLogText()
+
+    def preferredAiTuneScriptFile(self):
+        if hasattr(self, "aiScriptTunerForm"):
+            remembered_file = self.aiScriptTunerForm.lastSelectedScriptFile()
+            if remembered_file:
+                return remembered_file
+        if hasattr(self, "customForm") and self.customForm.customHooks:
+            file_name = self.customForm.customHooks[0].get("fileName", "")
+            if file_name:
+                return file_name
+        if hasattr(self, "customForm") and self.customForm.customs:
+            file_name = self.customForm.customs[0].get("fileName", "")
+            if file_name:
+                return file_name
+        return ""
+
+    def openAiScriptTuner(self):
+        self.customForm.initData()
+        if len(self.customForm.customs) <= 0:
+            QMessageBox().information(self, "hint", self.trText("当前没有可微调的自定义脚本，请先在“自定义”中创建或导入脚本。", "There are no custom scripts to tune yet. Create or import one in 'Custom' first."))
+            return
+        preferred_file = self.preferredAiTuneScriptFile()
+        self.aiScriptTunerForm.refreshTranslations()
+        self.aiScriptTunerForm.openWithScript(preferred_file)
+
+    def saveAiTunedScript(self, file_name, script_text):
+        self.customForm.initData()
+        data = self.customForm.scriptDataByFileName(file_name)
+        if data is None:
+            raise RuntimeError(self.trText("未找到要保存的脚本：", "Target script was not found: ") + file_name)
+        add_to_hook = any(item.get("fileName") == file_name for item in self.customForm.customHooks)
+        save_path = self.customForm.upsertCustomScript(dict(data), script_text, add_to_hook=add_to_hook, show_message=False)
+        self.syncCustomHooksToMain()
+        return save_path
 
     def openLogFile(self):
         filepath = QFileDialog.getOpenFileName(self, self.trText("打开日志文件", "Open log file"), "./logs", "Log Files (*.txt *.log);;All Files (*)")
@@ -4446,7 +4498,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
                 self.hooksData[key]["bak"] = self.typeData[key].get("bak", self.hooksData[key].get("bak", ""))
 
     def refreshChildTranslations(self):
-        for form in [self.customForm, self.aiSettingsForm]:
+        for form in [self.customForm, self.aiSettingsForm, self.aiScriptTunerForm]:
             if hasattr(form, "refreshTranslations"):
                 form.refreshTranslations()
 
@@ -4496,6 +4548,7 @@ class kmainForm(QMainWindow, Ui_MainWindow):
         self.btnOpenLogFile.setText(self.trText("打开日志文件", "Open log file"))
         self.btnRestoreLiveLog.setText(self.trText("恢复实时日志", "Restore live log"))
         self.btnAnalyzeLog.setText(self.trText("AI 分析日志", "AI analyze log"))
+        self.btnAiTuneScript.setText(self.trText("AI 微调脚本", "AI Script Tuner")) if hasattr(self, "btnAiTuneScript") else None
         self.actionAiSettings.setText(self.trText("AI 设置", "AI Settings"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), self.trText("主界面", "Main"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), self.trText("附加进程信息", "Attach process info"))

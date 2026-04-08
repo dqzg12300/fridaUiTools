@@ -731,6 +731,22 @@ class customForm(QDialog, Ui_CustomDialog):
         with open("./custom/customs.txt", "w", encoding="utf-8") as customFile:
             customFile.write(json.dumps(self.customs, ensure_ascii=False))
 
+    def scriptDataByFileName(self, file_name):
+        for item in self.customs:
+            if item.get("fileName") == file_name:
+                return item
+        return None
+
+    def refreshCustomHookReferences(self):
+        by_file = {item.get("fileName"): item for item in self.customs}
+        refreshed = []
+        for hook in self.customHooks:
+            file_name = hook.get("fileName")
+            if file_name in by_file:
+                refreshed.append(by_file[file_name])
+        self.customHooks = refreshed
+        self.updateTabCustomHook()
+
     def ensureCustomHook(self, file_name):
         for hook in self.customHooks:
             if hook["fileName"] == file_name:
@@ -753,7 +769,7 @@ class customForm(QDialog, Ui_CustomDialog):
                     self.txtBak.setText(item["bak"])
                 return
 
-    def upsertCustomScript(self, data, script_text, add_to_hook=False):
+    def upsertCustomScript(self, data, script_text, add_to_hook=False, show_message=True):
         if len(data.get("fileName", "").strip()) <= 0:
             data["fileName"] = data["name"] + ".js"
         existing = None
@@ -778,10 +794,12 @@ class customForm(QDialog, Ui_CustomDialog):
             self.customs.append(data)
         self.save()
         self.updateTabCustom()
+        self.refreshCustomHookReferences()
         if add_to_hook:
             self.ensureCustomHook(data["fileName"])
         self.refreshPinnedTemplatesOnParent()
-        QMessageBox().information(self, "hint", self.trText("保存成功", "Saved"))
+        if show_message:
+            QMessageBox().information(self, "hint", self.trText("保存成功", "Saved"))
         return save_path
 
     def submit(self):
@@ -828,3 +846,4 @@ class customForm(QDialog, Ui_CustomDialog):
             self.customs.append(data)
         self.save()
         self.updateTabCustom()
+        self.refreshCustomHookReferences()
